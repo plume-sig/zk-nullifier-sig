@@ -1,54 +1,182 @@
-use ring::{
-    digest::{digest, SHA256}, // test, test_file,
-    error::{self, Unspecified},
-    rand,
-    signature::{self, EcdsaKeyPair, EcdsaSigningAlgorithm, Signature},
-};
+#![allow(dead_code)]
+#![allow(unused_variables)]
+// #![feature(generic_const_expr)]
+// #![allow(incomplete_features)]
+
+use elliptic_curve::group::GroupEncoding;
+use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
+use hex_literal::hex;
+use k256::{
+    // ecdsa::{signature::Signer, Signature, SigningKey},
+    elliptic_curve::group::ff::PrimeField,
+    sha2::{Digest, Sha256, Sha512},
+    FieldBytes,
+    ProjectivePoint,
+    Scalar,
+    Secp256k1,
+}; // requires 'getrandom' feature
+
+const L: usize = 48;
+const COUNT: usize = 2;
+const OUT: usize = L * COUNT;
+const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // Hash to curve algorithm
 
 fn print_type_of<T>(_: &T) {
-    println!("{}", std::any::type_name::<T>())
+    println!("{}", std::any::type_name::<T>());
 }
 
-// Assumes no malicious inputs.
-trait NullifierSig {
-    fn nullifier_sig_sign(&self, m: String) -> Result<&[u8; 256], error::Unspecified>;
-    fn nullifier_sig_verify(&self, sig: &[u8; 256], m: String) -> Result<bool, error::Unspecified>;
+// Generates a deterministic secret key for us temporarily. Can be replaced by random oracle anytime.
+fn gen_test_scalar_x() -> Scalar {
+    Scalar::from_repr(
+        hex!("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464").into(),
+    )
+    .unwrap()
 }
 
-impl NullifierSig for EcdsaKeyPair {
-    fn nullifier_sig_sign(&self, message: String) -> Result<&[u8; 256], error::Unspecified> {
-        // Calculate e=HASH(m). (HASH ~= SHA-2, with the output converted to an integer.)
-        // The digest (truncated message hash) is calculated the same as ECDSA
-        let m = message.as_bytes();
-        let alg = &SHA256;
-        let rng = rand::SystemRandom::new();
-        let h = digest(alg, m);
-        let r: [u8; 256] = rand::generate(&rng).unwrap().expose();
-        print_type_of(&r);
-        return Ok(&[0; 256]);
-        // let z = Self::from_be_bytes_reduced(z);
-        // Ok((Signature::from_scalars(z, z)?, None))
+// Generates a deterministic r for us temporarily. Can be replaced by random oracle anytime.
+fn gen_test_scalar_r() -> Scalar {
+    Scalar::from_repr(
+        hex!("93b9323b629f251b8f3fc2dd11f4672c5544e8230d493eceea98a90bda789808").into(),
+    )
+    .unwrap()
+}
+
+// These generate test signals as if it were passed from a secure enclave to wallet. Note that leaking these signals would leak pk, but not sk.
+// Outputs these 6 signals, in this order
+// g^sk																(private)
+// hash[m, pk]^sk 													public nullifier
+// c = hash2(g, pk, hash[m, pk], hash[m, pk]^sk, gr, hash[m, pk]^r)	(public or private)
+// r + sk * c														(public or private)
+// g^r																(private, optional)
+// hash[m, pk]^r													(private, optional)
+fn test_gen_signals(
+    m: &[u8],
+) -> (
+    ProjectivePoint,
+    ProjectivePoint,
+    Scalar,
+    Scalar,
+    Option<ProjectivePoint>,
+    Option<ProjectivePoint>,
+) {
+    // Define all the variables used in the computation.
+    // These two values are public for everyone.
+    let g = ProjectivePoint::GENERATOR;
+
+    // This secret key is only accessed within the secure enclave, and all these calculations occur inside the secure enclave
+    let sk = gen_test_scalar_x();
+
+    // Other signals that leak anonymity
+    let r = gen_test_scalar_r();
+    let pk = &g * &sk; // g^sk
+    let g_r = &g * &r; // g^r
+
+    let hash_m_pk = hash_m_pk_to_secp(m, &pk); // hash[m, pk]
+    let nullifier = &hash_m_pk * &sk; // hash[m, pk]^sk
+    let hash_m_pk_pow_r = &hash_m_pk * &r; // hash[m, pk]^r
+
+    // Calculate c [this is the fiat-shamir type step]
+    let c = sha512hash6signals(&g, &pk, &hash_m_pk, &nullifier, &g_r, &hash_m_pk_pow_r);
+    let r_sk_c = r + sk * c;
+    (pk, nullifier, c, r_sk_c, Some(g_r), Some(hash_m_pk_pow_r))
+}
+
+fn sha512hash6signals(
+    g: &ProjectivePoint,
+    pk: &ProjectivePoint,
+    hash_m_pk: &ProjectivePoint,
+    nullifier: &ProjectivePoint,
+    g_r: &ProjectivePoint,
+    hash_m_pk_pow_r: &ProjectivePoint,
+) -> Scalar {
+    let mut hasher = Sha512::new();
+    hasher.update(g.to_bytes());
+    hasher.update(pk.to_bytes());
+    hasher.update(hash_m_pk.to_bytes());
+    hasher.update(nullifier.to_bytes());
+    hasher.update(g_r.to_bytes());
+    hasher.update(hash_m_pk_pow_r.to_bytes());
+    let c_raw = hasher.finalize(); //512 bit hash
+    let c_bytes = FieldBytes::from_iter(c_raw.iter().copied());
+    let c_scalar = Scalar::from_repr(c_bytes).unwrap();
+    c_scalar
+}
+
+// Calls the hash to curve function for secp256k1, and returns the result as a ProjectivePoint
+fn hash_to_secp(s: &[u8]) -> ProjectivePoint {
+    let pt: ProjectivePoint =
+        Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(&[s], b"CURVE_XMD:SHA-256_SSWU_RO_")
+            .unwrap();
+    pt
+}
+
+// Hashes two values to the curve [note that value concatenation here may not exactly translate to javascript etc]
+fn hash_m_pk_to_secp(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
+    let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
+        &[m, &pk.to_bytes()],
+        b"CURVE_XMD:SHA-256_SSWU_RO_",
+    )
+    .unwrap();
+    pt
+}
+
+// Verifier check in SNARK:
+// g^[r + sk * c] / (g^sk)^c = g^r
+// hash[m, gsk]^[r + sk * c] / (hash[m, pk]^sk)^c = hash[m, pk]^r
+// c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
+fn verify_signals(
+    m: &[u8],
+    pk: &ProjectivePoint,
+    nullifier: &ProjectivePoint,
+    c: &Scalar,
+    r_sk_c: &Scalar,
+    g_r_option: &Option<ProjectivePoint>,
+    hash_m_pk_pow_r_option: &Option<ProjectivePoint>,
+) -> bool {
+    let mut verified: bool = true;
+    let g = &ProjectivePoint::GENERATOR;
+    let hash_m_pk = &hash_m_pk_to_secp(m, pk);
+    let g_r: ProjectivePoint;
+    match *g_r_option {
+        Some(_g_r_value) => {
+            if (g * r_sk_c - pk * c) != _g_r_value {
+                verified = false;
+            }
+        }
+        None => println!("g^r not provided, check skipped"),
     }
-    fn nullifier_sig_verify(
-        &self,
-        sig: &[u8; 256],
-        message: String,
-    ) -> Result<bool, error::Unspecified> {
-        return Ok(true);
+    g_r = g * r_sk_c - pk * c;
+
+    let hash_m_pk_pow_r: ProjectivePoint;
+    match *hash_m_pk_pow_r_option {
+        Some(_hash_m_pk_pow_r_value) => {
+            if (hash_m_pk * r_sk_c - nullifier * c) != _hash_m_pk_pow_r_value {
+                verified = false;
+            }
+        }
+        None => println!("hash_m_pk_pow_r not provided, check skipped"),
     }
+    hash_m_pk_pow_r = hash_m_pk * r_sk_c - nullifier * c;
+
+    if (sha512hash6signals(g, pk, hash_m_pk, nullifier, &g_r, &hash_m_pk_pow_r)) != *c {
+        verified = false;
+    }
+    verified
 }
-fn main() {
-    let message = String::from("example message");
-    let message_verify = message.clone();
-    let alg: &&EcdsaSigningAlgorithm = &&signature::ECDSA_P256_SHA256_ASN1_SIGNING;
-    let rng = rand::SystemRandom::new();
-    let pkcs8_bytes = signature::EcdsaKeyPair::generate_pkcs8(alg, &rng).unwrap();
-    let test_keypair = signature::EcdsaKeyPair::from_pkcs8(alg, pkcs8_bytes.as_ref()).unwrap();
-    let nullifier_signature = test_keypair.nullifier_sig_sign(message).unwrap();
 
-    let verified = test_keypair
-        .nullifier_sig_verify(nullifier_signature, message_verify)
-        .unwrap();
+// NOTE: MAKE SURE TO HAVE RUST-ANALYZER ENABLED IN VSCODE EXTENSIONS TO FILL IN INFERRED TYPES
+fn main() -> Result<(), ()> {
+    let m = b"An example app message string";
 
-    println!("verified: {}", verified);
+    // Fixed key nullifier, secret key, and random value for testing
+    // Normally a secure enclave would generate these values, and output to a wallet implementation
+    let (pk, g_r, hash_m_pk_pow_r, nullifier, c, r_sk_c) = test_gen_signals(m);
+
+    // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
+    // The wallet should probably run this prior to snarkify-ing as a sanity check
+    // m and nullifier should be public, so we can verify that they are correct
+    let verified = verify_signals(m, &pk, &g_r, &hash_m_pk_pow_r, &nullifier, &c, &r_sk_c);
+
+    println!("Verified: {}", verified);
+    Ok(())
 }

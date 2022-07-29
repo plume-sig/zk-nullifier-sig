@@ -9,3 +9,10 @@ edition = "2021"
 crate = "0.0.2"
 digest = "0.10.3"
 ring = "0.16.20"
+rand_core = "0.6.3"
+hex-literal = "0.3.4"
+hash2field = "0.4.0"
+num-bigint = "0.4.3"
+num-integer = "0.1.45"
+k256 = {version = "0.11.3", features = ["arithmetic", "hash2curve", "expose-field", "sha2"]}
+elliptic-curve = { version = "0.12.2", features = ["arithmetic"]}
