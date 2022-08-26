@@ -59,25 +59,37 @@ fn test_gen_signals(
     Option<ProjectivePoint>,
     Option<ProjectivePoint>,
 ) {
-    // Define all the variables used in the computation.
-    // These two values are public for everyone.
+    // The base point or generator of the curve.
     let g = ProjectivePoint::GENERATOR;
 
-    // This secret key is only accessed within the secure enclave, and all these calculations occur inside the secure enclave
+    // The signer's secret key. It is only accessed within the secure enclave.
     let sk = gen_test_scalar_x();
 
-    // Other signals that leak anonymity
+    // A random value r. It is only accessed within the secure enclave.
     let r = gen_test_scalar_r();
-    let pk = &g * &sk; // g^sk
-    let g_r = &g * &r; // g^r
+    
+    // The user's public key: g^sk.
+    let pk = &g * &sk;
 
-    let hash_m_pk = hash_m_pk_to_secp(m, &pk); // hash[m, pk]
-    let nullifier = &hash_m_pk * &sk; // hash[m, pk]^sk
-    let hash_m_pk_pow_r = &hash_m_pk * &r; // hash[m, pk]^r
+    // The generator exponentiated by r: g^r.
+    let g_r = &g * &r;
 
-    // Calculate c [this is the fiat-shamir type step]
+    // hash[m, pk]
+    let hash_m_pk = hash_m_pk_to_secp(m, &pk);
+
+    // hash[m, pk]^r
+    let hash_m_pk_pow_r = &hash_m_pk * &r;
+
+    // The public nullifier: hash[m, pk]^sk.
+    let nullifier = &hash_m_pk * &sk;
+
+    // The Fiat-Shamir type step.
     let c = sha512hash6signals(&g, &pk, &hash_m_pk, &nullifier, &g_r, &hash_m_pk_pow_r);
+
+    // This value is part of the discrete log equivalence (DLEQ) proof.
     let r_sk_c = r + sk * c;
+
+    // Return the signature.
     (pk, nullifier, c, r_sk_c, Some(g_r), Some(hash_m_pk_pow_r))
 }
 
@@ -134,8 +146,14 @@ fn verify_signals(
     hash_m_pk_pow_r_option: &Option<ProjectivePoint>,
 ) -> bool {
     let mut verified: bool = true;
+
+    // The base point or generator of the curve.
     let g = &ProjectivePoint::GENERATOR;
+
+    // hash[m, pk]
     let hash_m_pk = &hash_m_pk_to_secp(m, pk);
+    
+    // Check whether g^r equals g^s * pk^{-c}
     let g_r: ProjectivePoint;
     match *g_r_option {
         Some(_g_r_value) => {
@@ -147,6 +165,7 @@ fn verify_signals(
     }
     g_r = g * r_sk_c - pk * c;
 
+    // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
     let hash_m_pk_pow_r: ProjectivePoint;
     match *hash_m_pk_pow_r_option {
         Some(_hash_m_pk_pow_r_value) => {
@@ -158,6 +177,7 @@ fn verify_signals(
     }
     hash_m_pk_pow_r = hash_m_pk * r_sk_c - nullifier * c;
 
+    // Check if the given hash matches
     if (sha512hash6signals(g, pk, hash_m_pk, nullifier, &g_r, &hash_m_pk_pow_r)) != *c {
         verified = false;
     }
