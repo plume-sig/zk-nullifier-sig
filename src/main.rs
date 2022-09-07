@@ -4,7 +4,6 @@
 // #![allow(incomplete_features)]
 
 use elliptic_curve::sec1::ToEncodedPoint;
-use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::group::prime::PrimeCurveAffine;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use hex_literal::hex;
@@ -93,7 +92,6 @@ fn test_gen_signals(
 
     // The Fiat-Shamir type step.
     let c = sha512hash6signals(&g, &pk, &hash_m_pk, &nullifier, &g_r, &hash_m_pk_pow_r);
-    println!("c: {:?}", hex::encode(c.to_bytes()));
 
     // This value is part of the discrete log equivalence (DLEQ) proof.
     let r_sk_c = r + sk * c;
@@ -129,7 +127,6 @@ fn sha512hash6signals(
     let mut sha512_hasher = Sha512::new();
     sha512_hasher.update(c_preimage_vec.as_slice());
     let sha512_hasher_result = sha512_hasher.finalize(); //512 bit hash
-    println!("sha512_hasher_result {:?}", &sha512_hasher_result);
 
     let c_bytes = FieldBytes::from_iter(sha512_hasher_result.iter().copied());
     let c_scalar = Scalar::from_repr(c_bytes).unwrap();
@@ -214,7 +211,7 @@ fn main() -> Result<(), ()> {
 
     // Fixed key nullifier, secret key, and random value for testing
     // Normally a secure enclave would generate these values, and output to a wallet implementation
-    let (pk, g_r, hash_m_pk_pow_r, nullifier, c, r_sk_c) = test_gen_signals(m);
+    let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) = test_gen_signals(m);
 
     // The signer's secret key. It is only accessed within the secure enclave.
     let sk = gen_test_scalar_x();
@@ -225,21 +222,28 @@ fn main() -> Result<(), ()> {
     // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
     // The wallet should probably run this prior to snarkify-ing as a sanity check
     // m and nullifier should be public, so we can verify that they are correct
-    //let verified = verify_signals(m, &pk, &g_r, &hash_m_pk_pow_r, &nullifier, &c, &r_sk_c);
-    //println!("Verified: {}", verified);
- 
-    //// Print g
-    //let g_bytes = g.to_bytes();
-    //println!("g.to_bytes(): {:?}", g_bytes);
+    let verified = verify_signals(m, &pk, &nullifier, &c, &r_sk_c, &g_r, &hash_m_pk_pow_r);
+    println!("Verified: {}", verified);
 
-    //// Print uncompressed g.x and g.y
-    //let encoded_g = g.to_encoded_point(false);
-    //let encoded_g_x = encoded_g.x().unwrap();
-    //let encoded_g_y = encoded_g.y().unwrap();
-    //println!("encoded_g_x: {:?}", encoded_g_x);
-    //println!("encoded_g_y: {:?}", encoded_g_y);
+    // Print nullifier
+    println!("nullifier.x: {:?}", hex::encode(nullifier.to_affine().to_encoded_point(false).x().unwrap()));
+    println!("nullifier.y: {:?}", hex::encode(nullifier.to_affine().to_encoded_point(false).y().unwrap()));
 
-    // Format g as 64 bytes
+    // Print c
+    println!("c: {:?}", hex::encode(&c.to_bytes()));
+    
+    // Print r_sk_c
+    println!("r_sk_c: {:?}", hex::encode(r_sk_c.to_bytes()));
+    
+    // Print g_r
+    println!("g_r.x: {:?}", hex::encode(g_r.unwrap().to_affine().to_encoded_point(false).x().unwrap()));
+    println!("g_r.y: {:?}", hex::encode(g_r.unwrap().to_affine().to_encoded_point(false).y().unwrap()));
+    
+    // Print hash_m_pk_pow
+    println!("hash_m_pk_pow_r.x: {:?}", hex::encode(hash_m_pk_pow_r.unwrap().to_affine().to_encoded_point(false).x().unwrap()));
+    println!("hash_m_pk_pow_r.y: {:?}", hex::encode(hash_m_pk_pow_r.unwrap().to_affine().to_encoded_point(false).y().unwrap()));
+
+    // Test pt_to_64_bytes()
     let g_as_64_bytes = pt_to_64_bytes(g).unwrap();
     assert_eq!(hex::encode(g_as_64_bytes), "9817f8165b81f259d928ce2ddbfc9b02070b87ce9562a055acbbdcf97e66be79b8d410fb8fd0479c195485a648b417fda808110efcfba45d65c4a32677da3a48");
 
@@ -247,6 +251,12 @@ fn main() -> Result<(), ()> {
     let pai = ProjectivePoint::IDENTITY;
     let pai_as_64_bytes = pt_to_64_bytes(pai);
     assert_eq!(pai_as_64_bytes.unwrap_err(), Error::IsPointAtInfinityError);
+
+    // Test byte_array_to_scalar()
+    let bytes_to_convert = c.to_bytes();
+    let scalar = byte_array_to_scalar(&bytes_to_convert);
+
+    assert_eq!(hex::encode(scalar.to_bytes()), "d52d5492448ee7aafd7d7bfff39d9819954c54f8e2517e29a07d299d268e3a11");
 
     Ok(())
 }
@@ -278,4 +288,19 @@ fn pt_to_64_bytes(
 
     x_bytes_vec.append(&mut y_bytes_vec);
     Ok(x_bytes_vec)
+}
+
+/// Convert a 32-byte array to a scalar
+fn byte_array_to_scalar(
+    bytes: &[u8],
+) -> Scalar {
+    // From https://docs.rs/ark-ff/0.3.0/src/ark_ff/fields/mod.rs.html#371-393
+    assert!(bytes.len() == 32);
+    let mut res = Scalar::from(0u64);
+    let window_size = Scalar::from(256u64);
+    for byte in bytes.iter() {
+        res *= window_size;
+        res += Scalar::from(*byte as u64);
+    }
+    res
 }
