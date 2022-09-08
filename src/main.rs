@@ -3,7 +3,8 @@
 // #![feature(generic_const_expr)]
 // #![allow(incomplete_features)]
 
-use elliptic_curve::group::GroupEncoding;
+use elliptic_curve::sec1::ToEncodedPoint;
+use elliptic_curve::group::prime::PrimeCurveAffine;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use hex_literal::hex;
 use k256::{
@@ -20,6 +21,12 @@ const L: usize = 48;
 const COUNT: usize = 2;
 const OUT: usize = L * COUNT;
 const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // Hash to curve algorithm
+
+#[derive(Debug, PartialEq)]
+pub enum Error {
+    IsPointAtInfinityError,
+}
+
 
 fn print_type_of<T>(_: &T) {
     println!("{}", std::any::type_name::<T>());
@@ -59,25 +66,37 @@ fn test_gen_signals(
     Option<ProjectivePoint>,
     Option<ProjectivePoint>,
 ) {
-    // Define all the variables used in the computation.
-    // These two values are public for everyone.
+    // The base point or generator of the curve.
     let g = ProjectivePoint::GENERATOR;
 
-    // This secret key is only accessed within the secure enclave, and all these calculations occur inside the secure enclave
+    // The signer's secret key. It is only accessed within the secure enclave.
     let sk = gen_test_scalar_x();
 
-    // Other signals that leak anonymity
+    // A random value r. It is only accessed within the secure enclave.
     let r = gen_test_scalar_r();
-    let pk = &g * &sk; // g^sk
-    let g_r = &g * &r; // g^r
+    
+    // The user's public key: g^sk.
+    let pk = &g * &sk;
 
-    let hash_m_pk = hash_m_pk_to_secp(m, &pk); // hash[m, pk]
-    let nullifier = &hash_m_pk * &sk; // hash[m, pk]^sk
-    let hash_m_pk_pow_r = &hash_m_pk * &r; // hash[m, pk]^r
+    // The generator exponentiated by r: g^r.
+    let g_r = &g * &r;
 
-    // Calculate c [this is the fiat-shamir type step]
+    // hash[m, pk]
+    let hash_m_pk = hash_m_pk_to_secp(m, &pk);
+
+    // hash[m, pk]^r
+    let hash_m_pk_pow_r = &hash_m_pk * &r;
+
+    // The public nullifier: hash[m, pk]^sk.
+    let nullifier = &hash_m_pk * &sk;
+
+    // The Fiat-Shamir type step.
     let c = sha512hash6signals(&g, &pk, &hash_m_pk, &nullifier, &g_r, &hash_m_pk_pow_r);
+
+    // This value is part of the discrete log equivalence (DLEQ) proof.
     let r_sk_c = r + sk * c;
+
+    // Return the signature.
     (pk, nullifier, c, r_sk_c, Some(g_r), Some(hash_m_pk_pow_r))
 }
 
@@ -89,15 +108,27 @@ fn sha512hash6signals(
     g_r: &ProjectivePoint,
     hash_m_pk_pow_r: &ProjectivePoint,
 ) -> Scalar {
-    let mut hasher = Sha512::new();
-    hasher.update(g.to_bytes());
-    hasher.update(pk.to_bytes());
-    hasher.update(hash_m_pk.to_bytes());
-    hasher.update(nullifier.to_bytes());
-    hasher.update(g_r.to_bytes());
-    hasher.update(hash_m_pk_pow_r.to_bytes());
-    let c_raw = hasher.finalize(); //512 bit hash
-    let c_bytes = FieldBytes::from_iter(c_raw.iter().copied());
+    let g_bytes = pt_to_64_bytes(*g).unwrap();
+    let pk_bytes = pt_to_64_bytes(*pk).unwrap();
+    let h_bytes = pt_to_64_bytes(*hash_m_pk).unwrap();
+    let nul_bytes = pt_to_64_bytes(*nullifier).unwrap();
+    let g_r_bytes = pt_to_64_bytes(*g_r).unwrap();
+    let z_bytes = pt_to_64_bytes(*hash_m_pk_pow_r).unwrap();
+
+    let c_preimage_vec = [
+        g_bytes,
+        pk_bytes,
+        h_bytes,
+        nul_bytes,
+        g_r_bytes,
+        z_bytes,
+    ].concat();
+
+    let mut sha512_hasher = Sha512::new();
+    sha512_hasher.update(c_preimage_vec.as_slice());
+    let sha512_hasher_result = sha512_hasher.finalize(); //512 bit hash
+
+    let c_bytes = FieldBytes::from_iter(sha512_hasher_result.iter().copied());
     let c_scalar = Scalar::from_repr(c_bytes).unwrap();
     c_scalar
 }
@@ -110,10 +141,10 @@ fn hash_to_secp(s: &[u8]) -> ProjectivePoint {
     pt
 }
 
-// Hashes two values to the curve [note that value concatenation here may not exactly translate to javascript etc]
+// Hashes two values to the curve
 fn hash_m_pk_to_secp(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
     let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
-        &[m, &pk.to_bytes()],
+        &[[m, &pt_to_64_bytes(*pk).unwrap()].concat().as_slice()],
         b"CURVE_XMD:SHA-256_SSWU_RO_",
     )
     .unwrap();
@@ -134,8 +165,14 @@ fn verify_signals(
     hash_m_pk_pow_r_option: &Option<ProjectivePoint>,
 ) -> bool {
     let mut verified: bool = true;
+
+    // The base point or generator of the curve.
     let g = &ProjectivePoint::GENERATOR;
+
+    // hash[m, pk]
     let hash_m_pk = &hash_m_pk_to_secp(m, pk);
+    
+    // Check whether g^r equals g^s * pk^{-c}
     let g_r: ProjectivePoint;
     match *g_r_option {
         Some(_g_r_value) => {
@@ -147,6 +184,7 @@ fn verify_signals(
     }
     g_r = g * r_sk_c - pk * c;
 
+    // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
     let hash_m_pk_pow_r: ProjectivePoint;
     match *hash_m_pk_pow_r_option {
         Some(_hash_m_pk_pow_r_value) => {
@@ -158,6 +196,7 @@ fn verify_signals(
     }
     hash_m_pk_pow_r = hash_m_pk * r_sk_c - nullifier * c;
 
+    // Check if the given hash matches
     if (sha512hash6signals(g, pk, hash_m_pk, nullifier, &g_r, &hash_m_pk_pow_r)) != *c {
         verified = false;
     }
@@ -166,17 +205,102 @@ fn verify_signals(
 
 // NOTE: MAKE SURE TO HAVE RUST-ANALYZER ENABLED IN VSCODE EXTENSIONS TO FILL IN INFERRED TYPES
 fn main() -> Result<(), ()> {
+    let g = ProjectivePoint::GENERATOR;
+
     let m = b"An example app message string";
 
     // Fixed key nullifier, secret key, and random value for testing
     // Normally a secure enclave would generate these values, and output to a wallet implementation
-    let (pk, g_r, hash_m_pk_pow_r, nullifier, c, r_sk_c) = test_gen_signals(m);
+    let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) = test_gen_signals(m);
+
+    // The signer's secret key. It is only accessed within the secure enclave.
+    let sk = gen_test_scalar_x();
+    
+    // The user's public key: g^sk.
+    let pk = &g * &sk;
 
     // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
     // The wallet should probably run this prior to snarkify-ing as a sanity check
     // m and nullifier should be public, so we can verify that they are correct
-    let verified = verify_signals(m, &pk, &g_r, &hash_m_pk_pow_r, &nullifier, &c, &r_sk_c);
-
+    let verified = verify_signals(m, &pk, &nullifier, &c, &r_sk_c, &g_r, &hash_m_pk_pow_r);
     println!("Verified: {}", verified);
+
+    // Print nullifier
+    println!("nullifier.x: {:?}", hex::encode(nullifier.to_affine().to_encoded_point(false).x().unwrap()));
+    println!("nullifier.y: {:?}", hex::encode(nullifier.to_affine().to_encoded_point(false).y().unwrap()));
+
+    // Print c
+    println!("c: {:?}", hex::encode(&c.to_bytes()));
+    
+    // Print r_sk_c
+    println!("r_sk_c: {:?}", hex::encode(r_sk_c.to_bytes()));
+    
+    // Print g_r
+    println!("g_r.x: {:?}", hex::encode(g_r.unwrap().to_affine().to_encoded_point(false).x().unwrap()));
+    println!("g_r.y: {:?}", hex::encode(g_r.unwrap().to_affine().to_encoded_point(false).y().unwrap()));
+    
+    // Print hash_m_pk_pow
+    println!("hash_m_pk_pow_r.x: {:?}", hex::encode(hash_m_pk_pow_r.unwrap().to_affine().to_encoded_point(false).x().unwrap()));
+    println!("hash_m_pk_pow_r.y: {:?}", hex::encode(hash_m_pk_pow_r.unwrap().to_affine().to_encoded_point(false).y().unwrap()));
+
+    // Test pt_to_64_bytes()
+    let g_as_64_bytes = pt_to_64_bytes(g).unwrap();
+    assert_eq!(hex::encode(g_as_64_bytes), "9817f8165b81f259d928ce2ddbfc9b02070b87ce9562a055acbbdcf97e66be79b8d410fb8fd0479c195485a648b417fda808110efcfba45d65c4a32677da3a48");
+
+    // Attempting to convert the point at infinity to 64 bytes will fail
+    let pai = ProjectivePoint::IDENTITY;
+    let pai_as_64_bytes = pt_to_64_bytes(pai);
+    assert_eq!(pai_as_64_bytes.unwrap_err(), Error::IsPointAtInfinityError);
+
+    // Test byte_array_to_scalar()
+    let bytes_to_convert = c.to_bytes();
+    let scalar = byte_array_to_scalar(&bytes_to_convert);
+
+    assert_eq!(hex::encode(scalar.to_bytes()), "d52d5492448ee7aafd7d7bfff39d9819954c54f8e2517e29a07d299d268e3a11");
+
     Ok(())
+}
+
+/// Format a ProjectivePoint to 64 bytes - the concatenation of the x and y values.  We use 64
+/// bytes instead of SEC1 encoding as our arkworks secp256k1 implementation doesn't support SEC1
+/// encoding yet.
+fn pt_to_64_bytes(
+    pt: ProjectivePoint
+) -> Result<Vec::<u8>, Error> {
+    if pt.to_affine().is_identity().unwrap_u8() == 1 {
+        return Err(Error::IsPointAtInfinityError);
+    }
+
+    let encoded_pt = pt.to_encoded_point(false);
+    let encoded_pt_x = encoded_pt.x().unwrap();
+    let encoded_pt_y = encoded_pt.y().unwrap();
+
+    let mut x_bytes_vec = vec![0u8; 32];
+    let mut y_bytes_vec = vec![0u8; 32];
+
+    for (i, _) in encoded_pt_x.clone().iter().enumerate() {
+        let _ = std::mem::replace(&mut x_bytes_vec[i], encoded_pt_x[encoded_pt_x.len() - 1 - i]);
+    }
+
+    for (i, _) in encoded_pt_y.clone().iter().enumerate() {
+        let _ = std::mem::replace(&mut y_bytes_vec[i], encoded_pt_y[encoded_pt_y.len() - 1 - i]);
+    }
+
+    x_bytes_vec.append(&mut y_bytes_vec);
+    Ok(x_bytes_vec)
+}
+
+/// Convert a 32-byte array to a scalar
+fn byte_array_to_scalar(
+    bytes: &[u8],
+) -> Scalar {
+    // From https://docs.rs/ark-ff/0.3.0/src/ark_ff/fields/mod.rs.html#371-393
+    assert!(bytes.len() == 32);
+    let mut res = Scalar::from(0u64);
+    let window_size = Scalar::from(256u64);
+    for byte in bytes.iter() {
+        res *= window_size;
+        res += Scalar::from(*byte as u64);
+    }
+    res
 }
