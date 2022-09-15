@@ -5,6 +5,14 @@
 - `rust-k256`: Rust, using the k256 library
 - `rust-arkworks`: Rust, using arkworks
 
+## TODO
+
+- zk verifier circuits 
+- change SHA512 to SHA256 (or even Poseidon?)
+- improve `rust-k256` to use a similar interface as `rust-arkworks` - i.e.
+  generate/accept arbitrary keypairs and `r` values, and not just hardcoded
+  values
+
 ## Resources
 
 ### Paper
