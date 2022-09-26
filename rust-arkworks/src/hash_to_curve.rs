@@ -26,7 +26,7 @@ pub fn hash_to_curve<
 
     let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
         &[x],
-        b"CURVE_XMD:SHA-256_SSWU_RO_"
+        b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"
     ).unwrap();
 
     let pt_affine = pt.to_affine();

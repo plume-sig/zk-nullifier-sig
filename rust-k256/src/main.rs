@@ -88,6 +88,8 @@ fn test_gen_signals(
 
     // hash[m, pk]^r
     let hash_m_pk_pow_r = &hash_m_pk * &r;
+    println!("hash_m_pk_pow_r.x: {:?}", hex::encode(hash_m_pk_pow_r.to_affine().to_encoded_point(false).x().unwrap()));
+    println!("hash_m_pk_pow_r.y: {:?}", hex::encode(hash_m_pk_pow_r.to_affine().to_encoded_point(false).y().unwrap()));
 
     // The public nullifier: hash[m, pk]^sk.
     let nullifier = &hash_m_pk * &sk;
@@ -140,8 +142,11 @@ fn sha512hash6signals(
 // Calls the hash to curve function for secp256k1, and returns the result as a ProjectivePoint
 fn hash_to_secp(s: &[u8]) -> ProjectivePoint {
     let pt: ProjectivePoint =
-        Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(&[s], b"CURVE_XMD:SHA-256_SSWU_RO_")
-            .unwrap();
+        Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
+            &[s],
+            //b"CURVE_XMD:SHA-256_SSWU_RO_"
+            DST
+        ).unwrap();
     pt
 }
 
@@ -149,7 +154,8 @@ fn hash_to_secp(s: &[u8]) -> ProjectivePoint {
 fn hash_m_pk_to_secp(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
     let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
         &[[m, &encode_pt(*pk).unwrap()].concat().as_slice()],
-        b"CURVE_XMD:SHA-256_SSWU_RO_",
+        //b"CURVE_XMD:SHA-256_SSWU_RO_",
+        DST
     )
     .unwrap();
     pt
@@ -254,7 +260,13 @@ fn main() -> Result<(), ()> {
     // Test byte_array_to_scalar()
     let bytes_to_convert = c.to_bytes();
     let scalar = byte_array_to_scalar(&bytes_to_convert);
-    assert_eq!(hex::encode(scalar.to_bytes()), "9de4daa951b8728db267eea9aa54ae48f8496bfde11387e91a39b261782a2b43");
+    assert_eq!(hex::encode(scalar.to_bytes()), "7da1ad3f63c6180beefd0d6a8e3c87620b54f1b1d2c8287d104da9e53b6b5524");
+
+    // Test the hash-to-curve algorithm
+    let h = hash_to_secp(b"abc");
+    assert_eq!(hex::encode(h.to_affine().to_encoded_point(false).x().unwrap()), "3377e01eab42db296b512293120c6cee72b6ecf9f9205760bd9ff11fb3cb2c4b");
+    assert_eq!(hex::encode(h.to_affine().to_encoded_point(false).y().unwrap()), "7f95890f33efebd1044d382a01b1bee0900fb6116f94688d487c6c7b9c8371f6");
+
 
     Ok(())
 }

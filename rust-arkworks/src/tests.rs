@@ -163,8 +163,8 @@ pub fn test_against_zk_nullifier_sig_g_r() {
 pub fn test_against_zk_nullifier_sig_h() {
     let h = compute_h();
 
-    assert_eq!(coord_to_hex(h.x.into()), "000000000000000027cdee7f388ba2981f4ef3a499abdd7506281bdc4f535109ec66e0e80824a37b");
-    assert_eq!(coord_to_hex(h.y.into()), "00000000000000008beb2fe7adeecadb3e99be05c3979bcf734c2caa768aaed09a26cb48d1236f42");
+    assert_eq!(coord_to_hex(h.x.into()), "0000000000000000bcac2d0e12679f23c218889395abcdc01f2affbc49c54d1136a2190db0800b65");
+    assert_eq!(coord_to_hex(h.y.into()), "00000000000000003bcfb339c974c0e757d348081f90a123b0a91a53e32b3752145d87f0cd70966e");
 }
 
 #[test]
@@ -175,8 +175,8 @@ pub fn test_against_zk_nullifier_sig_h_r() {
     let r = secp256k1::fields::Fr::from(hex_to_fr(&hardcoded_r()));
     let h_r_projective = h.mul(r);
     let h_r = GroupAffine::<Secp256k1Parameters>::from(h_r_projective);
-    assert_eq!(coord_to_hex(h_r.x.into()), "0000000000000000adf22a767a1f43b8dc4e77ce00c4eea54a63b10126e03e5f418d460e1fe1b2c2");
-    assert_eq!(coord_to_hex(h_r.y.into()), "0000000000000000d9bc5ce25d1fd63dd56fe6b7b2260747758c0bdda4b0e09a4028eed29a8049d8");
+    assert_eq!(coord_to_hex(h_r.x.into()), "00000000000000006d017c6f63c59fa7a5b1e9a654e27d2869579f4d152131db270558fccd27b97c");
+    assert_eq!(coord_to_hex(h_r.y.into()), "0000000000000000586c43fb5c99818c564a8f80a88a65f83e3f44d3c6caf5a1a4e290b777ac56ed");
 }
 
 #[test]
@@ -187,8 +187,8 @@ pub fn test_against_zk_nullifier_sig_h_sk() {
     // Test h^r using the hardcoded sk
     let h_sk_projective = h.mul(sk);
     let h_sk = GroupAffine::<Secp256k1Parameters>::from(h_sk_projective);
-    assert_eq!(coord_to_hex(h_sk.x.into()), "000000000000000015db23237364493d346e7ecf367c65c3861ba088e53a757deb5e8eaaa3e24e3f");
-    assert_eq!(coord_to_hex(h_sk.y.into()), "0000000000000000c3623b03cd7d92136dba28f6077e28c8fb731cc585e61fcb26d5c8f0f3b83fd0");
+    assert_eq!(coord_to_hex(h_sk.x.into()), "000000000000000057bc3ed28172ef8adde4b9e0c2cce745fcc5a66473a45c1e626f1d0c67e55830");
+    assert_eq!(coord_to_hex(h_sk.y.into()), "00000000000000006a2f41488d58f33ae46edd2188e111609f9f3ae67ea38fa891d6087fe59ecb73");
 }
 
 #[test]
@@ -210,6 +210,6 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
         r
     ).unwrap();
 
-    assert_eq!(coord_to_hex(sig.c.into()), "00000000000000009de4daa951b8728db267eea9aa54ae48f8496bfde11387e91a39b261782a2b43");
-    assert_eq!(coord_to_hex(sig.s.into()), "0000000000000000b4e19b36312e7489b708e9e277280ae51ca0bbf350add3b93c897902040fdd76");
+    assert_eq!(coord_to_hex(sig.c.into()), "00000000000000007da1ad3f63c6180beefd0d6a8e3c87620b54f1b1d2c8287d104da9e53b6b5524");
+    assert_eq!(coord_to_hex(sig.s.into()), "0000000000000000638330fea277e97ad407b32c9dc4d522454f5483abd903e6710a59d14f6fbdf2");
 }
