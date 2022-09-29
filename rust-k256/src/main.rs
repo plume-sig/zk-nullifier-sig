@@ -4,7 +4,6 @@
 // #![allow(incomplete_features)]
 
 use elliptic_curve::sec1::ToEncodedPoint;
-use elliptic_curve::group::prime::PrimeCurveAffine;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use hex_literal::hex;
 use k256::{
@@ -84,8 +83,13 @@ fn test_gen_signals(
     // hash[m, pk]
     let hash_m_pk = hash_m_pk_to_secp(m, &pk);
 
+    println!("h.x: {:?}", hex::encode(hash_m_pk.to_affine().to_encoded_point(false).x().unwrap()));
+    println!("h.y: {:?}", hex::encode(hash_m_pk.to_affine().to_encoded_point(false).y().unwrap()));
+
     // hash[m, pk]^r
     let hash_m_pk_pow_r = &hash_m_pk * &r;
+    println!("hash_m_pk_pow_r.x: {:?}", hex::encode(hash_m_pk_pow_r.to_affine().to_encoded_point(false).x().unwrap()));
+    println!("hash_m_pk_pow_r.y: {:?}", hex::encode(hash_m_pk_pow_r.to_affine().to_encoded_point(false).y().unwrap()));
 
     // The public nullifier: hash[m, pk]^sk.
     let nullifier = &hash_m_pk * &sk;
@@ -108,12 +112,12 @@ fn sha512hash6signals(
     g_r: &ProjectivePoint,
     hash_m_pk_pow_r: &ProjectivePoint,
 ) -> Scalar {
-    let g_bytes = pt_to_64_bytes(*g).unwrap();
-    let pk_bytes = pt_to_64_bytes(*pk).unwrap();
-    let h_bytes = pt_to_64_bytes(*hash_m_pk).unwrap();
-    let nul_bytes = pt_to_64_bytes(*nullifier).unwrap();
-    let g_r_bytes = pt_to_64_bytes(*g_r).unwrap();
-    let z_bytes = pt_to_64_bytes(*hash_m_pk_pow_r).unwrap();
+    let g_bytes = encode_pt(*g).unwrap();
+    let pk_bytes = encode_pt(*pk).unwrap();
+    let h_bytes = encode_pt(*hash_m_pk).unwrap();
+    let nul_bytes = encode_pt(*nullifier).unwrap();
+    let g_r_bytes = encode_pt(*g_r).unwrap();
+    let z_bytes = encode_pt(*hash_m_pk_pow_r).unwrap();
 
     let c_preimage_vec = [
         g_bytes,
@@ -123,6 +127,8 @@ fn sha512hash6signals(
         g_r_bytes,
         z_bytes,
     ].concat();
+
+    //println!("c_preimage_vec: {:?}", c_preimage_vec);
 
     let mut sha512_hasher = Sha512::new();
     sha512_hasher.update(c_preimage_vec.as_slice());
@@ -136,16 +142,20 @@ fn sha512hash6signals(
 // Calls the hash to curve function for secp256k1, and returns the result as a ProjectivePoint
 fn hash_to_secp(s: &[u8]) -> ProjectivePoint {
     let pt: ProjectivePoint =
-        Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(&[s], b"CURVE_XMD:SHA-256_SSWU_RO_")
-            .unwrap();
+        Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
+            &[s],
+            //b"CURVE_XMD:SHA-256_SSWU_RO_"
+            DST
+        ).unwrap();
     pt
 }
 
 // Hashes two values to the curve
 fn hash_m_pk_to_secp(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
     let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
-        &[[m, &pt_to_64_bytes(*pk).unwrap()].concat().as_slice()],
-        b"CURVE_XMD:SHA-256_SSWU_RO_",
+        &[[m, &encode_pt(*pk).unwrap()].concat().as_slice()],
+        //b"CURVE_XMD:SHA-256_SSWU_RO_",
+        DST
     )
     .unwrap();
     pt
@@ -239,24 +249,24 @@ fn main() -> Result<(), ()> {
     println!("g_r.x: {:?}", hex::encode(g_r.unwrap().to_affine().to_encoded_point(false).x().unwrap()));
     println!("g_r.y: {:?}", hex::encode(g_r.unwrap().to_affine().to_encoded_point(false).y().unwrap()));
     
-    // Print hash_m_pk_pow
+    // Print hash_m_pk_pow_r
     println!("hash_m_pk_pow_r.x: {:?}", hex::encode(hash_m_pk_pow_r.unwrap().to_affine().to_encoded_point(false).x().unwrap()));
     println!("hash_m_pk_pow_r.y: {:?}", hex::encode(hash_m_pk_pow_r.unwrap().to_affine().to_encoded_point(false).y().unwrap()));
 
-    // Test pt_to_64_bytes()
-    let g_as_64_bytes = pt_to_64_bytes(g).unwrap();
-    assert_eq!(hex::encode(g_as_64_bytes), "9817f8165b81f259d928ce2ddbfc9b02070b87ce9562a055acbbdcf97e66be79b8d410fb8fd0479c195485a648b417fda808110efcfba45d65c4a32677da3a48");
-
-    // Attempting to convert the point at infinity to 64 bytes will fail
-    let pai = ProjectivePoint::IDENTITY;
-    let pai_as_64_bytes = pt_to_64_bytes(pai);
-    assert_eq!(pai_as_64_bytes.unwrap_err(), Error::IsPointAtInfinityError);
+    // Test encode_pt()
+    let g_as_bytes = encode_pt(g).unwrap();
+    assert_eq!(hex::encode(g_as_bytes), "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
 
     // Test byte_array_to_scalar()
     let bytes_to_convert = c.to_bytes();
     let scalar = byte_array_to_scalar(&bytes_to_convert);
+    assert_eq!(hex::encode(scalar.to_bytes()), "7da1ad3f63c6180beefd0d6a8e3c87620b54f1b1d2c8287d104da9e53b6b5524");
 
-    assert_eq!(hex::encode(scalar.to_bytes()), "d52d5492448ee7aafd7d7bfff39d9819954c54f8e2517e29a07d299d268e3a11");
+    // Test the hash-to-curve algorithm
+    let h = hash_to_secp(b"abc");
+    assert_eq!(hex::encode(h.to_affine().to_encoded_point(false).x().unwrap()), "3377e01eab42db296b512293120c6cee72b6ecf9f9205760bd9ff11fb3cb2c4b");
+    assert_eq!(hex::encode(h.to_affine().to_encoded_point(false).y().unwrap()), "7f95890f33efebd1044d382a01b1bee0900fb6116f94688d487c6c7b9c8371f6");
+
 
     Ok(())
 }
@@ -264,30 +274,11 @@ fn main() -> Result<(), ()> {
 /// Format a ProjectivePoint to 64 bytes - the concatenation of the x and y values.  We use 64
 /// bytes instead of SEC1 encoding as our arkworks secp256k1 implementation doesn't support SEC1
 /// encoding yet.
-fn pt_to_64_bytes(
-    pt: ProjectivePoint
+fn encode_pt(
+    point: ProjectivePoint
 ) -> Result<Vec::<u8>, Error> {
-    if pt.to_affine().is_identity().unwrap_u8() == 1 {
-        return Err(Error::IsPointAtInfinityError);
-    }
-
-    let encoded_pt = pt.to_encoded_point(false);
-    let encoded_pt_x = encoded_pt.x().unwrap();
-    let encoded_pt_y = encoded_pt.y().unwrap();
-
-    let mut x_bytes_vec = vec![0u8; 32];
-    let mut y_bytes_vec = vec![0u8; 32];
-
-    for (i, _) in encoded_pt_x.clone().iter().enumerate() {
-        let _ = std::mem::replace(&mut x_bytes_vec[i], encoded_pt_x[encoded_pt_x.len() - 1 - i]);
-    }
-
-    for (i, _) in encoded_pt_y.clone().iter().enumerate() {
-        let _ = std::mem::replace(&mut y_bytes_vec[i], encoded_pt_y[encoded_pt_y.len() - 1 - i]);
-    }
-
-    x_bytes_vec.append(&mut y_bytes_vec);
-    Ok(x_bytes_vec)
+    let encoded = point.to_encoded_point(true);
+    Ok(encoded.to_bytes().to_vec())
 }
 
 /// Convert a 32-byte array to a scalar
