@@ -7,8 +7,8 @@
 
 ## TODO
 
-- zk verifier circuits 
-- change SHA512 to SHA256 (or even Poseidon?)
+- zk verifier circuits (WIP Circom here: https://github.com/geometryresearch/secp256k1_hash_to_curve/tree/main/circuits)
+- change SHA512 to Poseidon (wallets are onboard)
 - improve `rust-k256` to use a similar interface as `rust-arkworks` - i.e.
   generate/accept arbitrary keypairs and `r` values, and not just hardcoded
   values
@@ -23,3 +23,7 @@ https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87h
 
 ### Unpublished Blog Post
 https://docs.google.com/document/d/1Q9nUNGaeiKoZYAiN9ndh4iE9e-_ql-Rf7MESTo7UB8s/edit
+
+### Spec
+https://hackmd.io/uZQbMHrVSbOHvoI_HrJJlw
+
