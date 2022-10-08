@@ -24,6 +24,8 @@ https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87h
 ### Unpublished Blog Post
 https://docs.google.com/document/d/1Q9nUNGaeiKoZYAiN9ndh4iE9e-_ql-Rf7MESTo7UB8s/edit
 
-### Spec
+### Nullifier Calculation Spec
 https://hackmd.io/uZQbMHrVSbOHvoI_HrJJlw
 
+### Circom Verification Spec
+https://hackmd.io/VsojkopuSMuEA4vkYKSB8g?edit
