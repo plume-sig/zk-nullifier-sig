@@ -1,33 +1,35 @@
 mod error;
 mod hash_to_curve;
+mod wasm;
 #[cfg(test)]
 mod tests;
 
 pub mod sig {
     use crate::error::CryptoError;
     use crate::hash_to_curve;
-    use ark_ec::{AffineCurve, ProjectiveCurve, models::SWModelParameters};
     use ark_ec::short_weierstrass_jacobian::GroupAffine;
+    use ark_ec::{models::SWModelParameters, AffineCurve, ProjectiveCurve};
     use ark_ff::{PrimeField, ToBytes};
-    use ark_std::{
-        marker::PhantomData,
-        UniformRand,
-        rand::Rng,
+    use ark_serialize::{
+        CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write,
     };
-    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError, Read, Write};
-    use sha2::{Sha512, Digest};
+    use ark_std::{marker::PhantomData, rand::Rng, UniformRand};
     use secp256k1::sec1::Sec1EncodePoint;
+    use sha2::{Digest, Sha512};
 
-    pub struct DeterministicNullifierSignatureScheme<'a, C: ProjectiveCurve, Fq: ark_ff::PrimeField, P: ark_ec::SWModelParameters> {
+    pub struct DeterministicNullifierSignatureScheme<
+        'a,
+        C: ProjectiveCurve,
+        Fq: ark_ff::PrimeField,
+        P: ark_ec::SWModelParameters,
+    > {
         _group: PhantomData<C>,
         _field: PhantomData<Fq>,
         _parameters: PhantomData<P>,
         _message_lifetime: PhantomData<&'a ()>,
     }
 
-    pub fn affine_to_bytes<P: SWModelParameters>(
-        point: &GroupAffine<P>
-    ) -> Vec::<u8> {
+    pub fn affine_to_bytes<P: SWModelParameters>(point: &GroupAffine<P>) -> Vec<u8> {
         let encoded = point.to_encoded_point(true);
         let b = hex::decode(encoded).unwrap();
         b.to_vec()
@@ -59,14 +61,7 @@ pub mod sig {
         let g_r_bytes = affine_to_bytes::<P>(g_r);
         let z_bytes = affine_to_bytes::<P>(z);
 
-        let c_preimage_vec = [
-            g_bytes,
-            pk_bytes,
-            h_bytes,
-            nul_bytes,
-            g_r_bytes,
-            z_bytes,
-        ].concat();
+        let c_preimage_vec = [g_bytes, pk_bytes, h_bytes, nul_bytes, g_r_bytes, z_bytes].concat();
 
         let mut sha512_hasher = Sha512::new();
         sha512_hasher.update(c_preimage_vec.as_slice());
@@ -122,12 +117,22 @@ pub mod sig {
         ) -> Result<bool, CryptoError>;
     }
 
-    #[derive(Copy, Clone, ark_serialize_derive::CanonicalSerialize, ark_serialize_derive::CanonicalDeserialize)]
+    #[derive(
+        Copy,
+        Clone,
+        ark_serialize_derive::CanonicalSerialize,
+        ark_serialize_derive::CanonicalDeserialize,
+    )]
     pub struct Parameters<P: SWModelParameters> {
         pub g: GroupAffine<P>,
     }
 
-    #[derive(Copy, Clone, ark_serialize_derive::CanonicalSerialize, ark_serialize_derive::CanonicalDeserialize)]
+    #[derive(
+        Copy,
+        Clone,
+        ark_serialize_derive::CanonicalSerialize,
+        ark_serialize_derive::CanonicalDeserialize,
+    )]
     pub struct Signature<P: SWModelParameters> {
         pub z: GroupAffine<P>,
         pub g_r: GroupAffine<P>,
@@ -136,7 +141,9 @@ pub mod sig {
         pub nul: GroupAffine<P>,
     }
 
-    impl<'a, C: ProjectiveCurve, Fq: PrimeField, P: SWModelParameters> VerifiableUnpredictableFunction for DeterministicNullifierSignatureScheme<'a, C, Fq, P> {
+    impl<'a, C: ProjectiveCurve, Fq: PrimeField, P: SWModelParameters>
+        VerifiableUnpredictableFunction for DeterministicNullifierSignatureScheme<'a, C, Fq, P>
+    {
         type Message = &'a [u8];
         type Parameters = Parameters<P>;
         type PublicKey = GroupAffine<P>;
@@ -151,7 +158,7 @@ pub mod sig {
             let public_key = pp.g.mul(secret_key).into();
             Ok((public_key, secret_key))
         }
-        
+
         fn sign_with_r(
             pp: &Self::Parameters,
             keypair: (&Self::PublicKey, &Self::SecretKey),
@@ -163,7 +170,7 @@ pub mod sig {
 
             // Compute h = htc([m, pk])
             let h = compute_h::<C, Fq, P>(&keypair.0, &message).unwrap();
-            
+
             // Compute z = h^r
             let z = h.mul(r).into_affine();
 
@@ -171,14 +178,7 @@ pub mod sig {
             let nul = h.mul(*keypair.1).into_affine();
 
             // Compute c = sha512([g, pk, h, nul, g^r, z])
-            let c_scalar: P::ScalarField = compute_c::<P>(
-                &g,
-                keypair.0,
-                &h,
-                &nul,
-                &g_r,
-                &z,
-            );
+            let c_scalar: P::ScalarField = compute_c::<P>(&g, keypair.0, &h, &nul, &g_r, &z);
 
             // Compute s = r + sk ⋅ c
             let sk_c = keypair.1.into_repr().into() * c_scalar.into_repr().into();
@@ -191,7 +191,7 @@ pub mod sig {
                 s: s_scalar,
                 g_r,
                 c: c_scalar,
-                nul
+                nul,
             };
             Ok(signature)
         }
@@ -218,14 +218,8 @@ pub mod sig {
             let h = compute_h::<C, Fq, P>(pk, message).unwrap();
 
             // Compute c' = sha512([g, pk, h, nul, g^r, z])
-            let c_scalar: P::ScalarField = compute_c::<P>(
-                &pp.g,
-                pk,
-                &h,
-                &sig.nul,
-                &sig.g_r,
-                &sig.z,
-            );
+            let c_scalar: P::ScalarField =
+                compute_c::<P>(&pp.g, pk, &h, &sig.nul, &sig.g_r, &sig.z);
 
             // Reject if g^s ⋅ pk^{-c} != g^r
             let g_s = pp.g.mul(sig.s);
@@ -242,14 +236,14 @@ pub mod sig {
             let h_s_nul_c = h_s - nul_c;
 
             if sig.z != h_s_nul_c {
-                return Ok(false)
+                return Ok(false);
             }
 
             // Reject if c != c'
             if c_scalar != sig.c {
                 return Ok(false);
             }
-            
+
             Ok(true)
         }
     }
