@@ -1,8 +1,8 @@
 mod error;
 mod hash_to_curve;
-mod wasm;
 #[cfg(test)]
 mod tests;
+mod wasm;
 
 pub mod sig {
     use crate::error::CryptoError;
@@ -35,9 +35,9 @@ pub mod sig {
         b.to_vec()
     }
 
-    fn compute_h<'a, C: ProjectiveCurve, Fq: PrimeField, P: SWModelParameters>(
+    fn compute_h<C: ProjectiveCurve, Fq: PrimeField, P: SWModelParameters>(
         pk: &GroupAffine<P>,
-        message: &'a [u8],
+        message: &[u8],
     ) -> Result<GroupAffine<P>, CryptoError> {
         //let pk_affine_bytes_vec = affine_to_bytes::<P>(pk);
         //let m_pk = [message, pk_affine_bytes_vec.as_slice()].concat();
@@ -75,9 +75,8 @@ pub mod sig {
 
         // Convert digest bytes to a scalar
         let c = first_32.as_slice();
-        let c_be = P::ScalarField::from_be_bytes_mod_order(c);
 
-        P::ScalarField::from(c_be)
+        P::ScalarField::from_be_bytes_mod_order(c)
     }
 
     pub trait VerifiableUnpredictableFunction {
@@ -154,7 +153,7 @@ pub mod sig {
             pp: &Self::Parameters,
             rng: &mut R,
         ) -> Result<(Self::PublicKey, Self::SecretKey), CryptoError> {
-            let secret_key = Self::SecretKey::rand(rng).into();
+            let secret_key = Self::SecretKey::rand(rng);
             let public_key = pp.g.mul(secret_key).into();
             Ok((public_key, secret_key))
         }
@@ -169,7 +168,7 @@ pub mod sig {
             let g_r = g.mul(r).into_affine();
 
             // Compute h = htc([m, pk])
-            let h = compute_h::<C, Fq, P>(&keypair.0, &message).unwrap();
+            let h = compute_h::<C, Fq, P>(keypair.0, message).unwrap();
 
             // Compute z = h^r
             let z = h.mul(r).into_affine();
@@ -203,7 +202,7 @@ pub mod sig {
             message: Self::Message,
         ) -> Result<Self::Signature, CryptoError> {
             // Pick a random r from Fp
-            let r: P::ScalarField = Self::SecretKey::rand(rng).into();
+            let r: P::ScalarField = Self::SecretKey::rand(rng);
 
             Self::sign_with_r(pp, keypair, message, r)
         }

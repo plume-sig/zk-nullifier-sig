@@ -7,4 +7,5 @@ mod nullifier;
 mod serialize;
 #[cfg(test)]
 mod tests;
+mod utils;
 mod wasm;

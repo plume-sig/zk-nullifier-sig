@@ -65,7 +65,7 @@ fn coord_to_hex(coord: biginteger::BigInteger320) -> String {
     let _ = coord.write(&mut coord_bytes);
     coord_bytes.reverse();
 
-    String::from(hex::encode(coord_bytes))
+    hex::encode(coord_bytes)
 }
 
 fn hardcoded_sk() -> String {
@@ -114,8 +114,7 @@ pub fn compute_h() -> GroupAffine<Secp256k1Parameters> {
     let pk_projective = g.mul(sk);
     let pk = GroupAffine::<Secp256k1Parameters>::from(pk_projective);
 
-    let h = hash_to_curve::<secp256k1::fields::Fq, Secp256k1Parameters>(message, &pk);
-    h
+    hash_to_curve::<secp256k1::fields::Fq, Secp256k1Parameters>(message, &pk)
 }
 
 #[test]
@@ -140,7 +139,7 @@ pub fn test_against_zk_nullifier_sig_pk() {
 #[test]
 pub fn test_against_zk_nullifier_sig_g_r() {
     // Test g^r using the hardcoded r
-    let r = secp256k1::fields::Fr::from(hex_to_fr(&hardcoded_r()));
+    let r = hex_to_fr(&hardcoded_r());
     let (_, g) = test_template();
     let g_r_projective = g.mul(r);
     let g_r = GroupAffine::<Secp256k1Parameters>::from(g_r_projective);
@@ -174,7 +173,7 @@ pub fn test_against_zk_nullifier_sig_h_r() {
     let h = compute_h();
 
     // Test h^r using the hardcoded r
-    let r = secp256k1::fields::Fr::from(hex_to_fr(&hardcoded_r()));
+    let r = hex_to_fr(&hardcoded_r());
     let h_r_projective = h.mul(r);
     let h_r = GroupAffine::<Secp256k1Parameters>::from(h_r_projective);
     assert_eq!(
@@ -207,7 +206,7 @@ pub fn test_against_zk_nullifier_sig_h_sk() {
 
 #[test]
 pub fn test_against_zk_nullifier_sig_c_and_s() {
-    let r = secp256k1::fields::Fr::from(hex_to_fr(&hardcoded_r()));
+    let r = hex_to_fr(&hardcoded_r());
     let message = hardcoded_msg();
     let message = message.as_bytes();
     let sk = hex_to_fr(&hardcoded_sk());

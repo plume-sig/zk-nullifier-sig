@@ -17,7 +17,7 @@ pub fn hash_to_curve<Fp: ark_ff::PrimeField, P: ark_ec::SWModelParameters>(
     let pk_encoded = pk.to_encoded_point(true);
     let b = hex::decode(pk_encoded).unwrap();
     let x = [msg, b.as_slice()];
-    let x = x.concat().clone();
+    let x = x.concat();
     let x = x.as_slice();
 
     let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(

@@ -12,7 +12,8 @@ use k256::{
     ProjectivePoint,
     Scalar,
     Secp256k1,
-}; // requires 'getrandom' feature
+};
+use rand::{rngs::StdRng, Rng}; // requires 'getrandom' feature
 
 use crate::serialize::encode_pt;
 
@@ -21,7 +22,7 @@ const COUNT: usize = 2;
 const OUT: usize = L * COUNT;
 pub const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // Hash to curve algorithm
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     IsPointAtInfinityError,
 }
@@ -34,12 +35,12 @@ pub fn sha512hash6signals(
     g_r: &ProjectivePoint,
     hash_m_pk_pow_r: &ProjectivePoint,
 ) -> Scalar {
-    let g_bytes = encode_pt(*g).unwrap();
-    let pk_bytes = encode_pt(*pk).unwrap();
-    let h_bytes = encode_pt(*hash_m_pk).unwrap();
-    let nul_bytes = encode_pt(*nullifier).unwrap();
-    let g_r_bytes = encode_pt(*g_r).unwrap();
-    let z_bytes = encode_pt(*hash_m_pk_pow_r).unwrap();
+    let g_bytes = encode_pt(*g);
+    let pk_bytes = encode_pt(*pk);
+    let h_bytes = encode_pt(*hash_m_pk);
+    let nul_bytes = encode_pt(*nullifier);
+    let g_r_bytes = encode_pt(*g_r);
+    let z_bytes = encode_pt(*hash_m_pk_pow_r);
 
     let c_preimage_vec = [g_bytes, pk_bytes, h_bytes, nul_bytes, g_r_bytes, z_bytes].concat();
 
@@ -50,8 +51,8 @@ pub fn sha512hash6signals(
     let sha512_hasher_result = sha512_hasher.finalize(); //512 bit hash
 
     let c_bytes = FieldBytes::from_iter(sha512_hasher_result.iter().copied());
-    let c_scalar = Scalar::from_repr(c_bytes).unwrap();
-    c_scalar
+
+    Scalar::from_repr(c_bytes).unwrap()
 }
 
 // Calls the hash to curve function for secp256k1, and returns the result as a ProjectivePoint
@@ -68,7 +69,7 @@ pub fn hash_to_secp(s: &[u8]) -> ProjectivePoint {
 // Hashes two values to the curve
 pub fn hash_m_pk_to_secp(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
     let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
-        &[[m, &encode_pt(*pk).unwrap()].concat().as_slice()],
+        &[[m, &encode_pt(*pk)].concat().as_slice()],
         //b"CURVE_XMD:SHA-256_SSWU_RO_",
         DST,
     )
@@ -98,7 +99,7 @@ pub fn verify_signals(
     let hash_m_pk = &hash_m_pk_to_secp(m, pk);
 
     // Check whether g^r equals g^s * pk^{-c}
-    let g_r: ProjectivePoint;
+
     match *g_r_option {
         Some(_g_r_value) => {
             if (g * r_sk_c - pk * c) != _g_r_value {
@@ -107,10 +108,10 @@ pub fn verify_signals(
         }
         None => println!("g^r not provided, check skipped"),
     }
-    g_r = g * r_sk_c - pk * c;
+    let g_r: ProjectivePoint = g * r_sk_c - pk * c;
 
     // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
-    let hash_m_pk_pow_r: ProjectivePoint;
+
     match *hash_m_pk_pow_r_option {
         Some(_hash_m_pk_pow_r_value) => {
             if (hash_m_pk * r_sk_c - nullifier * c) != _hash_m_pk_pow_r_value {
@@ -119,11 +120,64 @@ pub fn verify_signals(
         }
         None => println!("hash_m_pk_pow_r not provided, check skipped"),
     }
-    hash_m_pk_pow_r = hash_m_pk * r_sk_c - nullifier * c;
+    let hash_m_pk_pow_r: ProjectivePoint = hash_m_pk * r_sk_c - nullifier * c;
 
     // Check if the given hash matches
     if (sha512hash6signals(g, pk, hash_m_pk, nullifier, &g_r, &hash_m_pk_pow_r)) != *c {
         verified = false;
     }
     verified
+}
+
+// Not using serde::{Serialize, Deserialize} because it doesn't work with ProjectivePoint
+// See this comment about serialization: https://github.com/axelarnetwork/tofn/issues/197#issuecomment-1090715311
+#[derive(Debug, Clone)]
+pub struct NullifierSignature {
+    pub pk: ProjectivePoint,
+    pub nullifier: ProjectivePoint,
+    pub c: Scalar,
+    pub r_sk_c: Scalar,
+    pub g_r: ProjectivePoint,
+    pub hash_m_pk_pow_r: ProjectivePoint,
+}
+
+impl NullifierSignature {
+    pub fn new(sk: &Scalar, message: &[u8], rng: &mut StdRng) -> Self {
+        // The base point or generator of the curve.
+        let g = ProjectivePoint::GENERATOR;
+
+        let r_bytes = rng.gen::<[u8; 32]>();
+        // The signer's secret key. It is only accessed within the secure enclave.
+        let r = Scalar::from_repr(r_bytes.into()).unwrap();
+
+        // The user's public key: g^sk.
+        let pk = g * sk;
+
+        // The generator exponentiated by r: g^r.
+        let g_r = g * r;
+
+        // hash[m, pk]
+        let hash_m_pk = hash_m_pk_to_secp(message, &pk);
+
+        // hash[m, pk]^r
+        let hash_m_pk_pow_r = hash_m_pk * r;
+
+        // The public nullifier: hash[m, pk]^sk.
+        let nullifier = hash_m_pk * sk;
+
+        // The Fiat-Shamir type step.
+        let c = sha512hash6signals(&g, &pk, &hash_m_pk, &nullifier, &g_r, &hash_m_pk_pow_r);
+
+        // This value is part of the discrete log equivalence (DLEQ) proof.
+        let r_sk_c = r + sk * &c;
+
+        Self {
+            pk,
+            nullifier,
+            c,
+            r_sk_c,
+            g_r,
+            hash_m_pk_pow_r,
+        }
+    }
 }

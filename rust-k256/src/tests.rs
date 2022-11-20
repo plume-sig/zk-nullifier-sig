@@ -49,10 +49,10 @@ fn test_gen_signals(
     let r = gen_test_scalar_r();
 
     // The user's public key: g^sk.
-    let pk = &g * &sk;
+    let pk = g * sk;
 
     // The generator exponentiated by r: g^r.
-    let g_r = &g * &r;
+    let g_r = g * r;
 
     // hash[m, pk]
     let hash_m_pk = hash_m_pk_to_secp(m, &pk);
@@ -67,7 +67,7 @@ fn test_gen_signals(
     );
 
     // hash[m, pk]^r
-    let hash_m_pk_pow_r = &hash_m_pk * &r;
+    let hash_m_pk_pow_r = hash_m_pk * r;
     println!(
         "hash_m_pk_pow_r.x: {:?}",
         hex::encode(
@@ -90,7 +90,7 @@ fn test_gen_signals(
     );
 
     // The public nullifier: hash[m, pk]^sk.
-    let nullifier = &hash_m_pk * &sk;
+    let nullifier = hash_m_pk * sk;
 
     // The Fiat-Shamir type step.
     let c = sha512hash6signals(&g, &pk, &hash_m_pk, &nullifier, &g_r, &hash_m_pk_pow_r);
@@ -117,7 +117,7 @@ fn main() {
     let sk = gen_test_scalar_x();
 
     // The user's public key: g^sk.
-    let pk = &g * &sk;
+    let pk = g * sk;
 
     // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
     // The wallet should probably run this prior to snarkify-ing as a sanity check
@@ -188,7 +188,7 @@ fn main() {
     );
 
     // Test encode_pt()
-    let g_as_bytes = encode_pt(g).unwrap();
+    let g_as_bytes = encode_pt(g);
     assert_eq!(
         hex::encode(g_as_bytes),
         "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
