@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    # "rust-arkworks", # Doesn't work yet
+    "rust-k256",
+]
