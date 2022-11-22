@@ -736,6 +736,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/secp256k1@npm:^1.7.0":
+  version: 1.7.0
+  resolution: "@noble/secp256k1@npm:1.7.0"
+  checksum: 540a2b8e527ee1e5522af1c430e54945ad373883cac983b115136cd0950efa1f2c473ee6a36d8e69b6809b3ee586276de62f5fa705c77a9425721e81bada8116
+  languageName: node
+  linkType: hard
+
 "@npmcli/fs@npm:^2.1.0":
   version: 2.1.2
   resolution: "@npmcli/fs@npm:2.1.2"
@@ -3964,6 +3971,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "zk-nullifier@workspace:."
   dependencies:
+    "@noble/secp256k1": ^1.7.0
     "@types/jest": ^29.2.3
     "@types/node": ^18.11.9
     "@types/nodemon": ^1.19.2
