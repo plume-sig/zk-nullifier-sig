@@ -12,8 +12,12 @@ export function uint8ArrayToHex(buffer: Uint8Array) {
   return Buffer.from(buffer).toString("hex");
 }
 
-export function uint8ArrayToBigInt(buffer: Uint8Array) {
-  return BigInt("0x" + uint8ArrayToHex(buffer));
+export function hexToBigInt(hex: string): bigint {
+  return BigInt("0x" + hex);
+}
+
+export function uint8ArrayToBigInt(buffer: Uint8Array): bigint {
+  return hexToBigInt(uint8ArrayToHex(buffer));
 }
 
 export function asciitobytes(s: string): number[] {

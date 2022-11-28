@@ -1,6 +1,7 @@
 import { CURVE, getPublicKey, Point } from "@noble/secp256k1";
 import {
   concatUint8Arrays,
+  hexToBigInt,
   hexToUint8Array,
   messageToUint8Array,
   uint8ArrayToBigInt,
@@ -78,19 +79,32 @@ console.log(`gPowR.x: ${testGPowR.x.toString(16)}`);
 console.log(`gPowR.y: ${testGPowR.y.toString(16)}`);
 const c = computeC(testPublicKey, hashMPk, nullifier, testGPowR, hashMPkPowR);
 console.log(`c: ${c}`);
-// const s = rPoint.add(skPoint.multiply(BigInt("0x" + c))).toHex(true);
-// const s =
-//   uint8ArrayToBigInt(testR) +
-//   uint8ArrayToBigInt(testSecretKey) * BigInt("0x" + c);
-// const s =
-//   BigInt("0x93b9323b629f251b8f3fc2dd11f4672c5544e8230d493eceea98a90bda789808") +
-//   ((BigInt(
-//     "0x519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464"
-//   ) *
-//     BigInt("0x" + c)) %
-//     CURVE.P);
-// console.log(`s: ${(s % CURVE.P).toString(16)}`);
-// console.log(`s: ${s.toString(16)}`);
+// WIP
+const skC = (uint8ArrayToBigInt(testSecretKey) * hexToBigInt(c)) % CURVE.P;
+console.log(`sk_c: ${skC.toString(16)}`); // should be cfc9fec33fd8c45f44c7f04f8bd06df4aab949474dd8655346440f52452d672b
+console.log(`s: ${((skC + uint8ArrayToBigInt(testR)) % CURVE.P).toString(16)}`); // should be 638330fea277e97ad407b32c9dc4d522454f5483abd903e6710a59d14f6fbdf2
+// testing
+
+// multiplies properly (<= 2^32 - 1)
+const underThreshold = hexToBigInt(
+  "0000000000000000000000000000000011111111111111111111111111111111"
+);
+// does not multiply properly (> 2^32 - 1)
+const overThreshold = hexToBigInt(
+  "0000000000000000000000000000001111111111111111111111111111111111"
+);
+console.log(
+  `works properly: ${(
+    (uint8ArrayToBigInt(testSecretKey) * underThreshold) %
+    CURVE.P
+  ).toString(16)}`
+);
+console.log(
+  `incorrect: ${(
+    (uint8ArrayToBigInt(testSecretKey) * overThreshold) %
+    CURVE.P
+  ).toString(16)}`
+);
 
 /**
  * Expected console output
