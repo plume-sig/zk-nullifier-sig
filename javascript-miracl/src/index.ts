@@ -79,32 +79,10 @@ console.log(`gPowR.x: ${testGPowR.x.toString(16)}`);
 console.log(`gPowR.y: ${testGPowR.y.toString(16)}`);
 const c = computeC(testPublicKey, hashMPk, nullifier, testGPowR, hashMPkPowR);
 console.log(`c: ${c}`);
-// WIP
 const skC = (uint8ArrayToBigInt(testSecretKey) * hexToBigInt(c)) % CURVE.P;
-console.log(`sk_c: ${skC.toString(16)}`); // should be cfc9fec33fd8c45f44c7f04f8bd06df4aab949474dd8655346440f52452d672b
-console.log(`s: ${((skC + uint8ArrayToBigInt(testR)) % CURVE.P).toString(16)}`); // should be 638330fea277e97ad407b32c9dc4d522454f5483abd903e6710a59d14f6fbdf2
-// testing
-
-// multiplies properly (<= 2^32 - 1)
-const underThreshold = hexToBigInt(
-  "0000000000000000000000000000000011111111111111111111111111111111"
-);
-// does not multiply properly (> 2^32 - 1)
-const overThreshold = hexToBigInt(
-  "0000000000000000000000000000001111111111111111111111111111111111"
-);
-console.log(
-  `works properly: ${(
-    (uint8ArrayToBigInt(testSecretKey) * underThreshold) %
-    CURVE.P
-  ).toString(16)}`
-);
-console.log(
-  `incorrect: ${(
-    (uint8ArrayToBigInt(testSecretKey) * overThreshold) %
-    CURVE.P
-  ).toString(16)}`
-);
+console.log(`sk_c: ${skC.toString(16)}`); // rust is cfc9fec33fd8c45f44c7f04f8bd06df4aab949474dd8655346440f52452d672b
+const s = ((skC + uint8ArrayToBigInt(testR)) % CURVE.P).toString(16);
+console.log(`s: ${s}`); // rust is 638330fea277e97ad407b32c9dc4d522454f5483abd903e6710a59d14f6fbdf2
 
 /**
  * Expected console output
@@ -118,5 +96,6 @@ console.log(
  * gPowR.x: 9d8ca4350e7e2ad27abc6d2a281365818076662962a28429590e2dc736fe9804
  * gPowR.y: ff08c30b8afd4e854623c835d9c3aac6bcebe45112472d9b9054816a7670c5a1
  * c: 7da1ad3f63c6180beefd0d6a8e3c87620b54f1b1d2c8287d104da9e53b6b5524
- * s: 638330fea277e97ad407b32c9dc4d522454f5483abd903e6710a59d14f6fbdf2
+ * sk_c: b61c26065618db1f927ed3e53ba9013aa93dcbe6e0880e0db0142f7f3cfb853f
+ * s: 49d55841b8b8003b21be96c24d9d6866fe82b409edd14cdc9aacd88c17742118
  */
