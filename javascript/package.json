@@ -1,5 +1,6 @@
 {
-  "name": "zk-nullifier",
+  "name": "zk-ecdsa-signature",
+  "version": "1.0.0",
   "packageManager": "yarn@3.2.4",
   "devDependencies": {
     "@types/jest": "^29.2.3",
@@ -16,9 +17,11 @@
     "jest": "^29.3.1",
     "js-sha512": "^0.8.0"
   },
-  "main": "src/index.ts",
+  "main": "main/index.js",
+  "types": "main/index.d.ts",
   "scripts": {
     "start": "nodemon",
+    "build": "tsc",
     "test": "jest"
   }
 }

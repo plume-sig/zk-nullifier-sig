@@ -3876,9 +3876,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zk-nullifier@workspace:.":
+"zk-ecdsa-signature@workspace:.":
   version: 0.0.0-use.local
-  resolution: "zk-nullifier@workspace:."
+  resolution: "zk-ecdsa-signature@workspace:."
   dependencies:
     "@noble/secp256k1": ^1.7.0
     "@types/jest": ^29.2.3
