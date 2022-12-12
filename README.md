@@ -1,4 +1,6 @@
-# Signatures with Deterministic Nullifiers
+# Verifiably Deterministic Signatures on ECDSA
+
+This allows for the construction of deterministic nullifiers. We intend to deploy it as Privately Linked Unique Message Entities (PLUME).
 
 ## Implementations
 
@@ -19,14 +21,26 @@
 ### Paper
 
 https://aayushg.com/thesis.pdf
+https://eprint.iacr.org/2022/1255
 
 ### Slides
 
 https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87hAnY/edit#slide=id.g13e97fbcd2c_0_76
 
-### Unpublished Blog Post
+### Blog Post
+https://blog.aayushg.com/posts/nullifier
 
-https://docs.google.com/document/d/1Q9nUNGaeiKoZYAiN9ndh4iE9e-_ql-Rf7MESTo7UB8s/edit
+### ERC Draft
+https://personae-labs.notion.site/ERC-Draft-f6d584dd2acd414cb6be834e9bdcfbda
+
+### Demo
+nullifier.xyz
+
+### Circom Code (Partial)
+https://github.com/geometryresearch/secp256k1_hash_to_curve/
+
+### Talk
+https://www.youtube.com/watch?v=6ajBnMdJGoY
 
 ### Nullifier Calculation Spec
 
