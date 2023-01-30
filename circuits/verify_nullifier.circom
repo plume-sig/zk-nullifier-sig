@@ -1,6 +1,9 @@
 include "../node_modules/0xparc/circom-ecdsa/circuits/ecdsa.circom";
 include "../node_modules/0xparc/circom-ecdsa/circuits/secp256k1.circom";
+include "../node_modules/0xparc/circom-ecdsa/circuits/secp256k1_func.circom";
 include "../node_modules/geometryresearch/secp256k1_hash_to_curve/circuits/circom/hash_to_curve.circom";
+include "../node_modules/geometryresearch/secp256k1_hash_to_curve/circuits/circom/sha256.circom";
+include "../node_modules/circomlib/circuits/bitify.circom";
 
 // Verifies that a nullifier belongs to a specific public key
 // This blog explains the intuition behind the construction https://blog.aayushg.com/posts/nullifier
@@ -61,12 +64,46 @@ template verify_nullifier(n, k, msg_length) {
         h_to_the_r.b[1][i] <== nullifier[1][i];
         h_to_the_r.c[i] <== c[i];
     }
+
+    // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
+    component c_sha256 = sha256_12_coordinates(n, k);
+    var gx = get_gx();
+    var gy = get_gy();
+    for (var i = 0; i < k; i++) {
+        c_sha256.coordinates[0][i] <== gx[i];
+        c_sha256.coordinates[1][i] <== gy[i];
+        c_sha256.coordinates[2][i] <== public_key[0][i];
+        c_sha256.coordinates[3][i] <== public_key[1][i];
+        c_sha256.coordinates[4][i] <== h.out[0][i];
+        c_sha256.coordinates[5][i] <== h.out[1][i];
+        c_sha256.coordinates[6][i] <== nullifier[0][i];
+        c_sha256.coordinates[7][i] <== nullifier[1][i];
+        c_sha256.coordinates[8][i] <== g_to_the_r.out[0][i];
+        c_sha256.coordinates[9][i] <== g_to_the_r.out[1][i];
+        c_sha256.coordinates[8][i] <== h_to_the_r.out[0][i];
+        c_sha256.coordinates[9][i] <== h_to_the_r.out[1][i];
+    }
+
+    // check that the input c is the same as the hash value c
+    component c_bits[k];
+    for (var i = 0; i < k; i++) {
+        c_bits[i] = Num2Bits(n);
+        c_bits[i].in <== c[i];
+        for (var j = 0; j < n) {
+            // We generally have 3 registers of 86 bits, which means we end up getting two extra 0 bits which don't have to be equal to the sha256 hash
+            // TODO: verify that we don't have to equate these to 0
+            if (i*k + j < 256) { 
+                c_sha256[i*k + j] === c_bits[i].out[j];
+            }
+        }
+    }
 }
 
 component a_over_b_to_the_c(n, k) {
     signal input a[2][k];
     signal input b[2][k];
     signal input c[k];
+    signal output out[2][k];
 
     // Calculates b^c. Note that the spec uses multiplicative notation to preserve intuitions about
     // discrete log, and these comments follow the spec to make comparison simpler. But the circom-ecdsa library uses
@@ -99,5 +136,42 @@ component a_over_b_to_the_c(n, k) {
     for (var i = 0; i < k; k++) {
         out <== final_result[0][i];
         out <== final_result[1][i];
+    }
+}
+
+component sha256_12_coordinates(n, k) {
+    signal input coordinates[12][k];
+    signal output out[256];
+
+    // decompose hash inputs into binary
+    component binary[12*k];
+    for (var j = 0; j < 12; j++) {
+        binary[12*k] = Num2Bits(n);
+    }
+
+    for (var i = 0; i < 12; i++) { // for each coordinate
+        for (var j = 0; j < k; j++) { // for each register
+            binary[k*i + j].in <== coordinates[i][j];
+        }
+    }
+
+    var message_bits = n*k*12;
+    var total_bits = (message_bits \ 512) * 512;
+
+    component sha256 = Sha256Hash(total_bits);
+    for (var i = 0; i < 12*k; i++) {
+        var (j = 0; j < n)
+        // TODO: what is the difference between padded_bits and msg? Am I using it right?
+        sha256.padded_bits[i] <== binary[i].out[j];
+        sha256.msg[i] <== binary[i].out[j];
+    }
+
+    for (var i = message_bits; i < total_bits; i++) {
+        sha256.padded_bits[i] <== 0;
+        sha256.msg[i] <== 0;
+    }
+
+    for (var i = 0; i < 256; i++) {
+        out <== sha256.out[i];
     }
 }
