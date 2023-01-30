@@ -67,21 +67,17 @@ template verify_nullifier(n, k, msg_length) {
 
     // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
     component c_sha256 = sha256_12_coordinates(n, k);
-    var gx = get_gx();
-    var gy = get_gy();
+    var g[2];
+    g[0] = get_gx();
+    g[1] = get_gy();
     for (var i = 0; i < k; i++) {
-        c_sha256.coordinates[0][i] <== gx[i];
-        c_sha256.coordinates[1][i] <== gy[i];
-        c_sha256.coordinates[2][i] <== public_key[0][i];
-        c_sha256.coordinates[3][i] <== public_key[1][i];
-        c_sha256.coordinates[4][i] <== h.out[0][i];
-        c_sha256.coordinates[5][i] <== h.out[1][i];
-        c_sha256.coordinates[6][i] <== nullifier[0][i];
-        c_sha256.coordinates[7][i] <== nullifier[1][i];
-        c_sha256.coordinates[8][i] <== g_to_the_r.out[0][i];
-        c_sha256.coordinates[9][i] <== g_to_the_r.out[1][i];
-        c_sha256.coordinates[8][i] <== h_to_the_r.out[0][i];
-        c_sha256.coordinates[9][i] <== h_to_the_r.out[1][i];
+        for (var j = 0; j < 2; j++) {
+            c_sha256.coordinates[0+j][i] <== g[j][i];
+            c_sha256.coordinates[1+j][i] <== public_key[j][i];
+            c_sha256.coordinates[2+j][i] <== h.out[j][i];
+            c_sha256.coordinates[3+j][i] <== nullifier[j][i];
+            c_sha256.coordinates[4+j][i] <== g_to_the_r.out[j][i];
+            c_sha256.coordinates[5+j][i] <== h_to_the_r.out[j][i];
     }
 
     // check that the input c is the same as the hash value c
