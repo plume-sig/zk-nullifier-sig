@@ -4,7 +4,7 @@
   "description": "Circom circuit to verify the construction of a nullifier signature in zero knowledge.",
   "main": "",
   "scripts": {
-    "test": "bash fix-nested-dependencies.sh && circom test/vfy_test.circom"
+    "test": "bash flatten-nested-dependencies.sh && circom test/vfy_test.circom"
   },
   "author": "Blake McAlevey-Scurr",
   "license": "ISC",
