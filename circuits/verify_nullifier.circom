@@ -1,3 +1,5 @@
+pragma circom 2.1.2;
+
 include "./node_modules/circom-ecdsa/circuits/ecdsa.circom";
 include "./node_modules/circom-ecdsa/circuits/secp256k1.circom";
 include "./node_modules/circom-ecdsa/circuits/secp256k1_func.circom";
@@ -13,6 +15,19 @@ template verify_nullifier(n, k, msg_length) {
     signal input m[msg_length];
     signal input public_key[2][k];
     signal input nullifier[2][k];
+
+    // precomputed values for the hash_to_curve component
+    signal input q0_gx1_sqrt[4];
+    signal input q0_gx2_sqrt[4];
+    signal input q0_y_pos[4];
+    signal input q0_x_mapped[4];
+    signal input q0_y_mapped[4];
+
+    signal input q1_gx1_sqrt[4];
+    signal input q1_gx2_sqrt[4];
+    signal input q1_y_pos[4];
+    signal input q1_x_mapped[4];
+    signal input q1_y_mapped[4];
 
     // calculate g^r
     // g^r = g^s / pk^c (where g is the generator)
@@ -44,22 +59,34 @@ template verify_nullifier(n, k, msg_length) {
         h.msg[i] <== m[i];
     }
     for (var i = 0; i < k; i++) {
-        h[msg_length + i] <== pk[0][i];
-        h[msg_length + k + i] <== pk[1][i];
+        h.msg[msg_length + i] <== public_key[0][i];
+        h.msg[msg_length + k + i] <== public_key[1][i];
     }
-    // TODO: input auxiliary values, q0_gx1_sqrt etc
+    // Input precalculated values
+    for (var i = 0; i < k; i++) {
+        h.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        h.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        h.q0_y_pos[i] <== q0_y_pos[i];
+        h.q0_x_mapped[i] <== q0_x_mapped[i];
+        h.q0_y_mapped[i] <== q0_y_mapped[i];
+        h.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        h.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        h.q1_y_pos[i] <== q1_y_pos[i];
+        h.q1_x_mapped[i] <== q1_x_mapped[i];
+        h.q1_y_mapped[i] <== q1_y_mapped[i];
+    }
 
     component h_to_the_s = Secp256k1ScalarMult(n, k);
     for (var i = 0; i < k; i++) {
         h_to_the_s.scalar[i] <== s[i];
-        h_to_the_s.point[0] <== h[0][i];
-        h_to_the_s.point[1] <== h[1][i];
+        h_to_the_s.point[0][i] <== h.out[0][i];
+        h_to_the_s.point[1][i] <== h.out[1][i];
     }
 
     component h_to_the_r = a_over_b_to_the_c(n, k);
     for (var i = 0; i < k; i++) {
-        h_to_the_r.a[0][i] <== h_to_the_s.pubkey[0][i];
-        h_to_the_r.a[1][i] <== h_to_the_s.pubkey[1][i];
+        h_to_the_r.a[0][i] <== h_to_the_s.out[0][i];
+        h_to_the_r.a[1][i] <== h_to_the_s.out[1][i];
         h_to_the_r.b[0][i] <== nullifier[0][i];
         h_to_the_r.b[1][i] <== nullifier[1][i];
         h_to_the_r.c[i] <== c[i];
@@ -67,9 +94,9 @@ template verify_nullifier(n, k, msg_length) {
 
     // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
     component c_sha256 = sha256_12_coordinates(n, k);
-    var g[2];
-    g[0] = get_gx();
-    g[1] = get_gy();
+    var g[2][100];
+    g[0] = get_gx(n, k);
+    g[1] = get_gy(n, k);
     for (var i = 0; i < k; i++) {
         for (var j = 0; j < 2; j++) {
             c_sha256.coordinates[0+j][i] <== g[j][i];
@@ -87,10 +114,10 @@ template verify_nullifier(n, k, msg_length) {
         c_bits[i] = Num2Bits(n);
         c_bits[i].in <== c[i];
         for (var j = 0; j < n; j++) {
-            // We generally have 3 registers of 86 bits, which means we end up getting two extra 0 bits which don't have to be equal to the sha256 hash
+            // We may have 3 registers of 86 bits, which means we end up getting two extra 0 bits which don't have to be equal to the sha256 hash
             // TODO: verify that we don't have to equate these to 0
-            if (i*k + j < 256) { 
-                c_sha256[i*k + j] === c_bits[i].out[j];
+            if (i*k + j < 256) {
+                c_sha256.out[i*k + j] === c_bits[i].out[j];
             }
         }
     }
@@ -108,8 +135,8 @@ template a_over_b_to_the_c(n, k) {
     component b_to_the_c = Secp256k1ScalarMult(n, k);
     for (var i = 0; i < k; i++) {
         b_to_the_c.scalar[i] <== c[i];
-        b_to_the_c.point[0] <== b[0][i];
-        b_to_the_c.point[1] <== b[1][i];
+        b_to_the_c.point[0][i] <== b[0][i];
+        b_to_the_c.point[1][i] <== b[1][i];
     }
 
     // Calculates inverse of b^c by finding the modular inverse of its y coordinate
@@ -117,7 +144,7 @@ template a_over_b_to_the_c(n, k) {
     component b_to_the_c_inv_y = BigSub(n, k);
     for (var i = 0; i < k; i++) {
         b_to_the_c_inv_y.a[i] <== prime[i];
-        b_to_the_c_inv_y.b[i] <== b_to_the_c[1][i];
+        b_to_the_c_inv_y.b[i] <== b_to_the_c.out[1][i];
     }
     b_to_the_c_inv_y.underflow === 0;
 
@@ -126,13 +153,13 @@ template a_over_b_to_the_c(n, k) {
     for (var i = 0; i < k; i++) {
         final_result.a[0][i] <== a[0][i];
         final_result.a[1][i] <== a[1][i];
-        final_result.b[0][i] <== b_to_the_c[0][i];
-        final_result.b[1][i] <== b_to_the_c_inv_y[i];
+        final_result.b[0][i] <== b_to_the_c.out[0][i];
+        final_result.b[1][i] <== b_to_the_c_inv_y.out[i];
     }
 
-    for (var i = 0; i < k; k++) {
-        out <== final_result[0][i];
-        out <== final_result[1][i];
+    for (var i = 0; i < k; i++) {
+        out[0][i] <== final_result.out[0][i];
+        out[1][i] <== final_result.out[1][i];
     }
 }
 
@@ -142,12 +169,9 @@ template sha256_12_coordinates(n, k) {
 
     // decompose hash inputs into binary
     component binary[12*k];
-    for (var j = 0; j < 12; j++) {
-        binary[12*k] = Num2Bits(n);
-    }
-
     for (var i = 0; i < 12; i++) { // for each coordinate
         for (var j = 0; j < k; j++) { // for each register
+            binary[k*i + j] = Num2Bits(n);
             binary[k*i + j].in <== coordinates[i][j];
         }
     }
@@ -157,10 +181,11 @@ template sha256_12_coordinates(n, k) {
 
     component sha256 = Sha256Hash(total_bits);
     for (var i = 0; i < 12*k; i++) {
-        for (var j = 0; j < n; j++)
-        // TODO: what is the difference between padded_bits and msg? Am I using it right?
-        sha256.padded_bits[i] <== binary[i].out[j];
-        sha256.msg[i] <== binary[i].out[j];
+        for (var j = 0; j < n; j++) {
+            // TODO: what is the difference between padded_bits and msg? Am I using it right?
+            sha256.padded_bits[k*i + j] <== binary[i].out[j];
+            sha256.msg[k*i + j] <== binary[k*i + j].out[j];
+        }
     }
 
     for (var i = message_bits; i < total_bits; i++) {
@@ -169,6 +194,6 @@ template sha256_12_coordinates(n, k) {
     }
 
     for (var i = 0; i < 256; i++) {
-        out <== sha256.out[i];
+        out[i] <== sha256.out[i];
     }
 }
