@@ -1,9 +1,9 @@
-include "../node_modules/0xparc/circom-ecdsa/circuits/ecdsa.circom";
-include "../node_modules/0xparc/circom-ecdsa/circuits/secp256k1.circom";
-include "../node_modules/0xparc/circom-ecdsa/circuits/secp256k1_func.circom";
-include "../node_modules/geometryresearch/secp256k1_hash_to_curve/circuits/circom/hash_to_curve.circom";
-include "../node_modules/geometryresearch/secp256k1_hash_to_curve/circuits/circom/sha256.circom";
-include "../node_modules/circomlib/circuits/bitify.circom";
+include "./node_modules/circom-ecdsa/circuits/ecdsa.circom";
+include "./node_modules/circom-ecdsa/circuits/secp256k1.circom";
+include "./node_modules/circom-ecdsa/circuits/secp256k1_func.circom";
+include "./node_modules/secp256k1_hash_to_curve_circom/circom/hash_to_curve.circom";
+include "./node_modules/secp256k1_hash_to_curve_circom/circom/sha256.circom";
+include "./node_modules/circomlib/circuits/bitify.circom";
 
 // Verifies that a nullifier belongs to a specific public key
 // This blog explains the intuition behind the construction https://blog.aayushg.com/posts/nullifier
@@ -78,6 +78,7 @@ template verify_nullifier(n, k, msg_length) {
             c_sha256.coordinates[3+j][i] <== nullifier[j][i];
             c_sha256.coordinates[4+j][i] <== g_to_the_r.out[j][i];
             c_sha256.coordinates[5+j][i] <== h_to_the_r.out[j][i];
+        }
     }
 
     // check that the input c is the same as the hash value c
@@ -85,7 +86,7 @@ template verify_nullifier(n, k, msg_length) {
     for (var i = 0; i < k; i++) {
         c_bits[i] = Num2Bits(n);
         c_bits[i].in <== c[i];
-        for (var j = 0; j < n) {
+        for (var j = 0; j < n; j++) {
             // We generally have 3 registers of 86 bits, which means we end up getting two extra 0 bits which don't have to be equal to the sha256 hash
             // TODO: verify that we don't have to equate these to 0
             if (i*k + j < 256) { 
@@ -95,7 +96,7 @@ template verify_nullifier(n, k, msg_length) {
     }
 }
 
-component a_over_b_to_the_c(n, k) {
+template a_over_b_to_the_c(n, k) {
     signal input a[2][k];
     signal input b[2][k];
     signal input c[k];
@@ -135,7 +136,7 @@ component a_over_b_to_the_c(n, k) {
     }
 }
 
-component sha256_12_coordinates(n, k) {
+template sha256_12_coordinates(n, k) {
     signal input coordinates[12][k];
     signal output out[256];
 
@@ -156,7 +157,7 @@ component sha256_12_coordinates(n, k) {
 
     component sha256 = Sha256Hash(total_bits);
     for (var i = 0; i < 12*k; i++) {
-        var (j = 0; j < n)
+        for (var j = 0; j < n; j++)
         // TODO: what is the difference between padded_bits and msg? Am I using it right?
         sha256.padded_bits[i] <== binary[i].out[j];
         sha256.msg[i] <== binary[i].out[j];

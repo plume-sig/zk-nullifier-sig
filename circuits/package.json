@@ -1,0 +1,16 @@
+{
+  "name": "zk-nullifier-sig-circuit",
+  "version": "1.0.0",
+  "description": "Circom circuit to verify the construction of a nullifier signature in zero knowledge.",
+  "main": "",
+  "scripts": {
+    "test": "bash fix-nested-dependencies.sh && circom test/vfy_test.circom"
+  },
+  "author": "Blake McAlevey-Scurr",
+  "license": "ISC",
+  "dependencies": {
+    "circom-ecdsa": "github:0xPARC/circom-ecdsa",
+    "circomlib": "^2.0.5",
+    "secp256k1_hash_to_curve_circom": "https://gitpkg.now.sh/geometryresearch/secp256k1_hash_to_curve/circuits?main"
+  }
+}
