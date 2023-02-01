@@ -6,6 +6,7 @@ This allows for the construction of deterministic nullifiers. We intend to deplo
 
 - `rust-k256`: Rust, using the k256 library
 - `rust-arkworks`: Rust, using arkworks
+- `javascript`: JavaScript, using MIRACL
 
 ## TODO
 
