@@ -19,12 +19,10 @@ This allows for the construction of deterministic nullifiers. We intend to deplo
 ## Resources
 
 ### Paper
-
 https://aayushg.com/thesis.pdf
 https://eprint.iacr.org/2022/1255
 
 ### Slides
-
 https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87hAnY/edit#slide=id.g13e97fbcd2c_0_76
 
 ### Blog Post
@@ -43,9 +41,7 @@ https://github.com/geometryresearch/secp256k1_hash_to_curve/
 https://www.youtube.com/watch?v=6ajBnMdJGoY
 
 ### Nullifier Calculation Spec
-
 https://hackmd.io/uZQbMHrVSbOHvoI_HrJJlw
 
 ### Circom Verification Spec
-
 https://hackmd.io/VsojkopuSMuEA4vkYKSB8g?edit
