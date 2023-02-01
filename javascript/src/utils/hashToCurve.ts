@@ -1,4 +1,4 @@
-import { CTX } from "../amcl-js/index";
+import { CTX } from "amcl-js";
 import { asciitobytes } from "./encoding";
 
 // Refactored from miracl-core
