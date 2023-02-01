@@ -95,16 +95,16 @@ template verify_nullifier(n, k, msg_length) {
     // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
     component c_sha256 = sha256_12_coordinates(n, k);
     var g[2][100];
-    g[0] = get_gx(n, k);
-    g[1] = get_gy(n, k);
-    for (var i = 0; i < k; i++) {
-        for (var j = 0; j < 2; j++) {
-            c_sha256.coordinates[0+j][i] <== g[j][i];
-            c_sha256.coordinates[1+j][i] <== public_key[j][i];
-            c_sha256.coordinates[2+j][i] <== h.out[j][i];
-            c_sha256.coordinates[3+j][i] <== nullifier[j][i];
-            c_sha256.coordinates[4+j][i] <== g_to_the_r.out[j][i];
-            c_sha256.coordinates[5+j][i] <== h_to_the_r.out[j][i];
+    g[0] = get_genx(n, k);
+    g[1] = get_geny(n, k);
+    for (var j = 0; j < 2; j++) {
+        for (var i = 0; i < k; i++) {
+            c_sha256.coordinates[j][i] <== g[j][i];
+            c_sha256.coordinates[2+j][i] <== public_key[j][i];
+            c_sha256.coordinates[4+j][i] <== h.out[j][i];
+            c_sha256.coordinates[6+j][i] <== nullifier[j][i];
+            c_sha256.coordinates[8+j][i] <== g_to_the_r.out[j][i];
+            c_sha256.coordinates[10+j][i] <== h_to_the_r.out[j][i];
         }
     }
 
@@ -183,8 +183,8 @@ template sha256_12_coordinates(n, k) {
     for (var i = 0; i < 12*k; i++) {
         for (var j = 0; j < n; j++) {
             // TODO: what is the difference between padded_bits and msg? Am I using it right?
-            sha256.padded_bits[k*i + j] <== binary[i].out[j];
-            sha256.msg[k*i + j] <== binary[k*i + j].out[j];
+            sha256.padded_bits[n*i + j] <== binary[i].out[j];
+            sha256.msg[n*i + j] <== binary[i].out[j];
         }
     }
 
@@ -196,4 +196,40 @@ template sha256_12_coordinates(n, k) {
     for (var i = 0; i < 256; i++) {
         out[i] <== sha256.out[i];
     }
+}
+
+// Equivalent to get_gx and get_gy in circom-ecdsa, except we also have values for n = 64, k = 4.
+// This is necessary because hash_to_curve is only implemented for n=64, k = 4
+function get_genx(n, k) {
+    assert((n == 86 && k == 3) || (n == 64 && k == 4));
+    var ret[100];
+    if (n == 86 && k == 3) {
+        ret[0] = 17117865558768631194064792;
+        ret[1] = 12501176021340589225372855;
+        ret[2] = 9198697782662356105779718;
+    }
+    if (n == 64 && k == 4) {
+        ret[0] = 6481385041966929816;
+        ret[1] = 188021827762530521;
+        ret[2] = 6170039885052185351;
+        ret[3] = 8772561819708210092;
+    }
+    return ret;
+}
+
+function get_geny(n, k) {
+    assert((n == 86 && k == 3) || (n == 64 && k == 4));
+    var ret[100];
+    if (n == 86 && k == 3) {
+        ret[0] = 6441780312434748884571320;
+        ret[1] = 57953919405111227542741658;
+        ret[2] = 5457536640262350763842127;
+    }
+    if (n == 64 && k == 4) {
+        ret[0] = 11261198710074299576;
+        ret[1] = 18237243440184513561;
+        ret[2] = 6747795201694173352;
+        ret[3] = 5204712524664259685;
+    }
+    return ret;
 }
