@@ -13,16 +13,16 @@ import {
   uint8ArrayToBigInt,
 } from "../src/utils/encoding";
 
-const testSecretKey = hexToUint8Array(
+export const testSecretKey = hexToUint8Array(
   "519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464"
 );
 
-const testPublicKey = getPublicKey(testSecretKey, true);
+export const testPublicKey = getPublicKey(testSecretKey, true);
 
-const testR = hexToUint8Array(
+export const testR = hexToUint8Array(
   "93b9323b629f251b8f3fc2dd11f4672c5544e8230d493eceea98a90bda789808"
 );
-const testMessage = messageToUint8Array("An example app message string");
+export const testMessage = messageToUint8Array("An example app message string");
 
 describe("signals", () => {
   it("generates hash(m, pk)", () => {

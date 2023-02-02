@@ -40,7 +40,7 @@ template verify_nullifier(n, k, msg_length) {
         g_to_the_s.privkey[i] <== s[i];
     }
 
-    component g_to_the_r = a_over_b_to_the_c(n, k);
+    component g_to_the_r = a_div_b_pow_c(n, k);
     for (var i = 0; i < k; i++) {
         g_to_the_r.a[0][i] <== g_to_the_s.pubkey[0][i];
         g_to_the_r.a[1][i] <== g_to_the_s.pubkey[1][i];
@@ -83,7 +83,7 @@ template verify_nullifier(n, k, msg_length) {
         h_to_the_s.point[1][i] <== h.out[1][i];
     }
 
-    component h_to_the_r = a_over_b_to_the_c(n, k);
+    component h_to_the_r = a_div_b_pow_c(n, k);
     for (var i = 0; i < k; i++) {
         h_to_the_r.a[0][i] <== h_to_the_s.out[0][i];
         h_to_the_r.a[1][i] <== h_to_the_s.out[1][i];
@@ -123,7 +123,7 @@ template verify_nullifier(n, k, msg_length) {
     }
 }
 
-template a_over_b_to_the_c(n, k) {
+template a_div_b_pow_c(n, k) {
     signal input a[2][k];
     signal input b[2][k];
     signal input c[k];

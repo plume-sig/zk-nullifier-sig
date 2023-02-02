@@ -7,9 +7,9 @@
     "test": "jest",
     "flatten-deps": "bash flatten-nested-dependencies.sh"
   },
-  "author": "Blake McAlevey-Scurr",
   "license": "ISC",
   "dependencies": {
+    "circom_tester": "^0.0.19",
     "circom-ecdsa": "github:0xPARC/circom-ecdsa",
     "circomlib": "^2.0.5",
     "secp256k1_hash_to_curve_circom": "https://gitpkg.now.sh/geometryresearch/secp256k1_hash_to_curve/circuits?main"
