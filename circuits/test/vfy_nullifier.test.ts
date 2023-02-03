@@ -5,7 +5,6 @@ import * as enclave from "../../javascript/src/index";
 import { testSecretKey, testPublicKey, testR, testMessage } from "../../javascript/test/signals.test";
 import { uint8ArrayToBigInt, hexToBigInt, hexToUint8Array } from "../../javascript/src/utils/encoding";
 import { CURVE, Point } from "@noble/secp256k1";
-import { HashedPoint, multiplyPoint } from "../../javascript/src/utils/curve";
 
 jest.setTimeout(1_000_000);
 
@@ -22,31 +21,90 @@ describe("Nullifier Circuit", () => {
     hashMPkPowR
   );
 
-  const skMultC = (uint8ArrayToBigInt(testSecretKey) * hexToBigInt(c)) % CURVE.P;
-  const s = ((skMultC + uint8ArrayToBigInt(testR)) % CURVE.P);
-
-  test("enclave generating correct values", () => {
-    expect(c).toEqual("7da1ad3f63c6180beefd0d6a8e3c87620b54f1b1d2c8287d104da9e53b6b5524"); // same value as specified in signals.test.ts
-    expect(s.toString(16)).toEqual("49d55841b8b8003b21be96c24d9d6866fe82b409edd14cdc9aacd88c17742118");
-  })
+  const skMultC = (uint8ArrayToBigInt(testSecretKey) * hexToBigInt(c)) % CURVE.n;
+  const s = ((skMultC + uint8ArrayToBigInt(testR)) % CURVE.n);
 
   // This tests that our circuit correctly computes g^s/(g^sk)^c = g^r, and that the first two equations are
   // implicitly verified correctly.
   test("a/b^c subcircuit", async () => {
-    // const p = join(__dirname, 'a_div_b_pow_c_test.circom')
-    // const circuit = await wasm_tester(p)
-
+    const p = join(__dirname, 'a_div_b_pow_c_test.circom')
+    const circuit = await wasm_tester(p)
+    
+    // Verify that gPowS/pkPowC = gPowR outside the circuit, as a sanity check
     const gPowS = Point.fromPrivateKey(s);
     const pkPowC = Point.fromPrivateKey(testSecretKey).multiply(hexToBigInt(c))
-
-    // Verify that gPowS/pkPowC = gPowR outside the circuit, as a sanity check
-    console.log(gPowR);
-    console.log(gPowS.add(pkPowC.negate()));
     expect(gPowS.add(pkPowC.negate()).equals(gPowR)).toBe(true);
 
-    // const w = await circuit.calculateWitness(
-    //   { a: gPowS, b: , c:  },
-    // )
-    // await circuit.checkConstraints(w)
+    // Verify that circuit calculates g^s / pk^c = g^r
+    const w = await circuit.calculateWitness({ 
+      a: pointToCircuitValue(gPowS),
+      b: pointToCircuitValue(Point.fromPrivateKey(testSecretKey)),
+      c: scalarToCircuitValue(hexToBigInt(c)),
+    })
+    await circuit.checkConstraints(w)
+    await circuit.assertOut(w, {out: pointToCircuitValue(gPowR)});
   });
+
+  test("bigint <-> register conversion", async () => {
+    [
+      132467823045762934876529873465987623452222345n,
+      57574748379385798237094756982679876233455n,
+      55757457845857572n,
+      1n,
+    ].forEach((value) => {
+      expect(circuitValueToScalar(scalarToCircuitValue(value))).toBe(value);
+    })
+
+  })
 })
+
+function circuitValueToScalar(registers: bigint[]) {
+  if (registers.length != 4) {
+    throw new Error(`Circuit values have 4 registers, got ${registers.length}`)
+  }
+  return registersToBigint(registers, 64n);
+}
+
+function scalarToCircuitValue(value: bigint):bigint[] {
+  return bigIntToRegisters(value, 64n, 4n);
+}
+
+function pointToCircuitValue(p: Point):bigint[][] {
+  return [
+    scalarToCircuitValue(p.x),
+    scalarToCircuitValue(p.y),
+  ]
+}
+
+function circuitValueToPoint(coordinates: bigint[][]):Point {
+  if (coordinates.length != 2) {
+    throw new Error(`Elliptic curve points have 2 coordinates, got ${coordinates.length}`);
+  }
+  return new Point(circuitValueToScalar(coordinates[0]), circuitValueToScalar[1]);
+}
+
+function bigIntToRegisters(value: bigint, bits_per_register: bigint, register_count: bigint): bigint[] {
+  const register_size = 2n ** bits_per_register;
+  if (value >= register_size ** register_count) {
+    throw new Error(`BigInt ${value} can't fit into ${register_count} registers of ${bits_per_register} bits.`);
+  }
+
+  var registers: bigint[] = [];
+  for (var i = 0; i < register_count; i++) {
+    registers[i] = (value / register_size ** BigInt(i)) % register_size;
+  }
+
+  return registers;
+}
+
+function registersToBigint(registers: bigint[], bits_per_register: bigint): bigint {
+  const register_size = 2n ** bits_per_register;
+  let value = 0n;
+  let e = 1n;
+  for (var i = 0; i < registers.length; i++) {
+    value += registers[i] * e;
+    e *= register_size;
+  }
+
+  return value;
+}
