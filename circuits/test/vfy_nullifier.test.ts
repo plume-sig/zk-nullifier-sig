@@ -25,22 +25,23 @@ describe("Nullifier Circuit", () => {
   const skMultC = (uint8ArrayToBigInt(testSecretKey) * hexToBigInt(c)) % CURVE.n;
   const s = ((skMultC + uint8ArrayToBigInt(testR)) % CURVE.n);
 
-  test("circuit verifies valid nullifier", async () => {
+  test.only("circuit verifies valid nullifier", async () => {
     const p = join(__dirname, 'vfy_test.circom')
+    console.log("about to compile")
     const circuit = await wasm_tester(p)
-
+    console.log("compiled")
+    
+    console.log("about to calculate witness")
     const w = await circuit.calculateWitness({
       // Main circuit inputs 
       c: scalarToCircuitValue(hexToBigInt(c)),
       s: scalarToCircuitValue(s),
-      m: scalarToCircuitValue(uint8ArrayToBigInt(testMessage)),
       public_key: pointToCircuitValue(Point.fromPrivateKey(testSecretKey)),
       nullifier: pointToCircuitValue(nullifier),
-
       ...generate_inputs(testMessageString),
     })
+    console.log("calculated witness")
     await circuit.checkConstraints(w)
-
   })
 
   // This tests that our circuit correctly computes g^s/(g^sk)^c = g^r, and that the first two equations are

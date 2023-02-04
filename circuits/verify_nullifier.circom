@@ -12,7 +12,7 @@ include "./node_modules/circomlib/circuits/bitify.circom";
 template verify_nullifier(n, k, msg_length) {
     signal input c[k];
     signal input s[k];
-    signal input m[msg_length];
+    signal input msg[msg_length];
     signal input public_key[2][k];
     signal input nullifier[2][k];
 
@@ -56,7 +56,7 @@ template verify_nullifier(n, k, msg_length) {
     // Calculate hash[m, pk]^r
     component h = HashToCurve(msg_length + 2*k);
     for (var i = 0; i < msg_length; i++) {
-        h.msg[i] <== m[i];
+        h.msg[i] <== msg[i];
     }
     for (var i = 0; i < k; i++) {
         h.msg[msg_length + i] <== public_key[0][i];
