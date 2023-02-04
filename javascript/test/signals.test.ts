@@ -22,7 +22,8 @@ export const testPublicKey = getPublicKey(testSecretKey, true);
 export const testR = hexToUint8Array(
   "93b9323b629f251b8f3fc2dd11f4672c5544e8230d493eceea98a90bda789808"
 );
-export const testMessage = messageToUint8Array("An example app message string");
+export const testMessageString = "An example app message string";
+export const testMessage = messageToUint8Array(testMessageString);
 
 describe("signals", () => {
   it("generates hash(m, pk)", () => {

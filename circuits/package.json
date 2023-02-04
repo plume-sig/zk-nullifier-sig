@@ -4,7 +4,7 @@
   "description": "Circom circuit to verify the construction of a nullifier signature in zero knowledge.",
   "main": "",
   "scripts": {
-    "test": "NODE_OPTIONS=--max_old_space_size=8192 jest",
+    "test": "NODE_OPTIONS=--max_old_space_size=8192 jest --runInBand",
     "flatten-deps": "bash flatten-nested-dependencies.sh"
   },
   "license": "ISC",

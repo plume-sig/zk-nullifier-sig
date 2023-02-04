@@ -4,5 +4,7 @@ module.exports = {
   transform: {
     "^.+\\.ts?$": "ts-jest",
   },
-  transformIgnorePatterns: ["<rootDir>/node_modules/"],
+  transformIgnorePatterns: [
+    "<rootDir>/node_modules/(?!(secp256k1_hash_to_curve_circom)/)",
+  ],
 };
