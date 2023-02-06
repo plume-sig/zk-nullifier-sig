@@ -30,13 +30,20 @@ describe("Nullifier Circuit", () => {
     console.log("about to compile")
     const circuit = await wasm_tester(p)
     console.log("compiled")
-    
+
     console.log("about to calculate witness")
+
+    const public_key_bytes = [];
+    testPublicKey.forEach(x => {
+      public_key_bytes.push(BigInt(x))
+    })
+
     const w = await circuit.calculateWitness({
       // Main circuit inputs 
       c: scalarToCircuitValue(hexToBigInt(c)),
       s: scalarToCircuitValue(s),
       public_key: pointToCircuitValue(Point.fromPrivateKey(testSecretKey)),
+      public_key_bytes,
       nullifier: pointToCircuitValue(nullifier),
       ...generate_inputs(testMessageString),
     })

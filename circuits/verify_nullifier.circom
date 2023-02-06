@@ -14,6 +14,7 @@ template verify_nullifier(n, k, msg_length) {
     signal input s[k];
     signal input msg[msg_length];
     signal input public_key[2][k];
+    signal input public_key_bytes[33];
     signal input nullifier[2][k];
 
     // precomputed values for the hash_to_curve component
@@ -40,6 +41,18 @@ template verify_nullifier(n, k, msg_length) {
         g_to_the_s.privkey[i] <== s[i];
     }
 
+    // calculate public key from bytes
+    // TODO: verify the y coordinate using the first compressed byte
+    var l_pk[k];
+    for (var i = 1; i < 33; i++) {
+        var j = i - 1; // ignores the first byte specifying the compressed y coordinate
+        l_pk[j \ 8] += public_key_bytes[33-i] * (256 ** (j % 8));
+    }
+
+    for (var i = 0; i < k; i++) {
+        public_key[0][i] === l_pk[i];
+    }
+
     component g_to_the_r = a_div_b_pow_c(n, k);
     for (var i = 0; i < k; i++) {
         g_to_the_r.a[0][i] <== g_to_the_s.pubkey[0][i];
@@ -54,13 +67,12 @@ template verify_nullifier(n, k, msg_length) {
     // Note this implicitly checks the second equation in the blog
 
     // Calculate hash[m, pk]^r
-    component h = HashToCurve(msg_length + 2*k);
+    component h = HashToCurve(msg_length + 33);
     for (var i = 0; i < msg_length; i++) {
         h.msg[i] <== msg[i];
     }
-    for (var i = 0; i < k; i++) {
-        h.msg[msg_length + i] <== public_key[0][i];
-        h.msg[msg_length + k + i] <== public_key[1][i];
+    for (var i = 0; i < 33; i++) {
+        h.msg[msg_length + i] <== public_key_bytes[i];
     }
     // Input precalculated values
     for (var i = 0; i < k; i++) {
