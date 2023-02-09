@@ -50,24 +50,35 @@ describe("Nullifier Circuit", () => {
     await circuit.assertOut(w, {out: pointToCircuitValue(hashMPkPoint)});
   })
 
-  test.only("compression validates points", async () => {
+  var compression_test_points: Point[] = [
+    Point.BASE,
+    Point.fromPrivateKey(testSecretKey),
+    hashMPkPoint,
+    nullifier,
+    gPowR,
+    hashMPkPowR,
+  ]
+
+  test.only("Correct compressed values are calculated", async () => {
     const p = join(__dirname, 'compression_test.circom')
     const circuit = await wasm_tester(p, {"json":true, "sym": true})
 
-    var points: Point[] = [
-      Point.BASE,
-      Point.fromPrivateKey(testSecretKey),
-      hashMPkPoint,
-      nullifier,
-      gPowR,
-      hashMPkPowR,
-    ]
+    for (var i = 0; i < compression_test_points.length; i++) {
+      const w = await circuit.calculateWitness({uncompressed: pointToCircuitValue(compression_test_points[i])}, true)
+      await circuit.checkConstraints(w);
+      await circuit.assertOut(w, {compressed: Array.from(compression_test_points[i].toRawBytes(true))})
+    }
+  })
 
-    for (var i = 0; i < points.length; i++) {
+  test("Only valid compressed points are permitted", async () => {
+    const p = join(__dirname, 'compression_verification_test.circom')
+    const circuit = await wasm_tester(p, {"json":true, "sym": true})
+
+    for (var i = 0; i < compression_test_points.length; i++) {
       for (var j = 0; j <= i; j++) {
         const inputs = {
-          uncompressed: pointToCircuitValue(points[i]),
-          compressed: Array.from(points[j].toRawBytes(true)),
+          uncompressed: pointToCircuitValue(compression_test_points[i]),
+          compressed: Array.from(compression_test_points[j].toRawBytes(true)),
         }
 
         if (i === j) {

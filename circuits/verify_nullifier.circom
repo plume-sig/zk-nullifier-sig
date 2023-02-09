@@ -205,6 +205,30 @@ template sha256_12_coordinates(n, k) {
 // 2 possible y coordinates. Over a prime field, one of those points is even and the other is odd.
 // The convention is to represent the even point with the byte 02, and the odd point with the byte 03.
 // Because our hash functions work over bytes, our output is a 33 byte array.
+template compress_ec_point(n, k) {
+    assert(n == 64 && k == 4);
+    signal input uncompressed[2][k];
+    signal output compressed[33];
+
+    compressed[0] <-- uncompressed[1][0] % 2 + 2;
+    var bytes_per_register = 32/k;
+    for (var i = 0; i < 32; i++) {
+        compressed[32-i] <-- uncompressed[0][i \ bytes_per_register] \ (256 ** (i % bytes_per_register)) % 256;
+    }
+
+    component verify = verify_ec_compression(n, k);
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            verify.uncompressed[i][j] <== uncompressed[i][j];
+        }
+    }
+    for (var i = 0; i < 33; i++) {
+        verify.compressed[i] <== compressed[i];
+    }
+}
+
+// We have a separate internal compression verification template for testing purposes. An adversarial prover
+// can set any compressed values, so it's useful to be able to test adversarial inputs.
 template verify_ec_compression(n, k) {
     signal input uncompressed[2][k];
     signal input compressed[33];
