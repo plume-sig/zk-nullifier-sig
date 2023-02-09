@@ -3,9 +3,13 @@ import { wasm as wasm_tester } from 'circom_tester'
 import { describe, expect, test } from '@jest/globals';
 import * as enclave from "../../javascript/src/index";
 import { testSecretKey, testPublicKey, testR, testMessage, testMessageString } from "../../javascript/test/signals.test";
-import { uint8ArrayToBigInt, hexToBigInt, hexToUint8Array } from "../../javascript/src/utils/encoding";
+import { uint8ArrayToBigInt, hexToBigInt, hexToUint8Array, messageToUint8Array } from "../../javascript/src/utils/encoding";
 import { CURVE, Point } from "@noble/secp256k1";
-import { generate_inputs } from "secp256k1_hash_to_curve_circom/ts/generate_inputs";
+import { generate_inputs_from_array, generate_inputs } from "secp256k1_hash_to_curve_circom/ts/generate_inputs";
+import { bufToSha256PaddedBitArr, strToSha256PaddedBitArr } from "secp256k1_hash_to_curve_circom/ts/utils";
+import { utils } from "ffjavascript"
+import { concatUint8Arrays } from '../../javascript/src/utils/encoding';
+
 
 jest.setTimeout(1_000_000);
 
@@ -25,7 +29,28 @@ describe("Nullifier Circuit", () => {
   const skMultC = (uint8ArrayToBigInt(testSecretKey) * hexToBigInt(c)) % CURVE.n;
   const s = ((skMultC + uint8ArrayToBigInt(testR)) % CURVE.n);
 
-  test.only("circuit verifies valid nullifier", async () => {
+  const public_key_bytes = Array.from(testPublicKey);
+  const message_bytes = Array.from(testMessage);
+
+  const hashMPkPoint = new Point(
+    hexToBigInt(hashMPk.x.toString()),
+    hexToBigInt(hashMPk.y.toString())
+  )
+  const hashMPkBytes = hashMPkPoint.toRawBytes(true);
+
+  test("hash to curve works", async () => {
+    const inputs = utils.stringifyBigInts(generate_inputs_from_array(message_bytes.concat(public_key_bytes)));
+
+    const p = join(__dirname, 'hash_to_curve_test.circom')
+    const circuit = await wasm_tester(p, {"json":true, "sym": true})
+    const w = await circuit.calculateWitness({
+      ...inputs,
+    }, true)
+    await circuit.checkConstraints(w)
+    await circuit.assertOut(w, {out: pointToCircuitValue(hashMPkPoint)});
+  })
+
+  test("circuit verifies valid nullifier", async () => {
     const p = join(__dirname, 'vfy_test.circom')
     console.log("about to compile")
     const circuit = await wasm_tester(p)
@@ -33,19 +58,29 @@ describe("Nullifier Circuit", () => {
 
     console.log("about to calculate witness")
 
-    const public_key_bytes = [];
-    testPublicKey.forEach(x => {
-      public_key_bytes.push(BigInt(x))
-    })
+    const {msg: _, ...hash_to_curve_inputs} = utils.stringifyBigInts(generate_inputs_from_array(message_bytes.concat(public_key_bytes)));
+
+    // Calculate padded bit string for sha256 circuit
+      const preimage = concatUint8Arrays([
+        Point.BASE.toRawBytes(false).slice(1),
+        Point.fromPrivateKey(testSecretKey).toRawBytes(false).slice(1),
+        hashMPkBytes.slice(1),
+        nullifier.toRawBytes(false).slice(1),
+        gPowR.toRawBytes(false).slice(1),
+        hashMPkPowR.toRawBytes(false).slice(1),
+      ])
+    const padded_bit_string = bufToSha256PaddedBitArr(Buffer.from(Array.from(preimage)));
 
     const w = await circuit.calculateWitness({
       // Main circuit inputs 
       c: scalarToCircuitValue(hexToBigInt(c)),
       s: scalarToCircuitValue(s),
+      msg: message_bytes,
       public_key: pointToCircuitValue(Point.fromPrivateKey(testSecretKey)),
       public_key_bytes,
       nullifier: pointToCircuitValue(nullifier),
-      ...generate_inputs(testMessageString),
+      hash_padded_bits: [...padded_bit_string].map(Number),
+      ...hash_to_curve_inputs,
     })
     console.log("calculated witness")
     await circuit.checkConstraints(w)
