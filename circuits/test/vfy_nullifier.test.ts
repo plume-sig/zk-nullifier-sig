@@ -38,7 +38,7 @@ describe("Nullifier Circuit", () => {
   )
   const hashMPkBytes = hashMPkPoint.toRawBytes(true);
 
-  test("hash to curve works", async () => {
+  test("hash to curve outputs same value", async () => {
     const inputs = utils.stringifyBigInts(generate_inputs_from_array(message_bytes.concat(public_key_bytes)));
 
     const p = join(__dirname, 'hash_to_curve_test.circom')
@@ -48,6 +48,36 @@ describe("Nullifier Circuit", () => {
     }, true)
     await circuit.checkConstraints(w)
     await circuit.assertOut(w, {out: pointToCircuitValue(hashMPkPoint)});
+  })
+
+  test.only("compression validates points", async () => {
+    const p = join(__dirname, 'compression_test.circom')
+    const circuit = await wasm_tester(p, {"json":true, "sym": true})
+
+    var points: Point[] = [
+      Point.BASE,
+      Point.fromPrivateKey(testSecretKey),
+      hashMPkPoint,
+      nullifier,
+      gPowR,
+      hashMPkPowR,
+    ]
+
+    for (var i = 0; i < points.length; i++) {
+      for (var j = 0; j <= i; j++) {
+        const inputs = {
+          uncompressed: pointToCircuitValue(points[i]),
+          compressed: Array.from(points[j].toRawBytes(true)),
+        }
+
+        if (i === j) {
+          const w = await circuit.calculateWitness(inputs, true)
+          await circuit.checkConstraints(w);
+        } else {
+          await expect(async () => { await circuit.calculateWitness(inputs) }).rejects.toThrow('Assert Failed')
+        }
+      }
+    }
   })
 
   test("circuit verifies valid nullifier", async () => {

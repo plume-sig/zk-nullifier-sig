@@ -41,18 +41,6 @@ template verify_nullifier(n, k, msg_length) {
         g_to_the_s.privkey[i] <== s[i];
     }
 
-    // calculate public key from bytes
-    // TODO: verify the y coordinate using the first compressed byte
-    var l_pk[k];
-    for (var i = 1; i < 33; i++) {
-        var j = i - 1; // ignores the first byte specifying the compressed y coordinate
-        l_pk[j \ 8] += public_key_bytes[33-i] * (256 ** (j % 8));
-    }
-
-    for (var i = 0; i < k; i++) {
-        public_key[0][i] === l_pk[i];
-    }
-
     component g_to_the_r = a_div_b_pow_c(n, k);
     for (var i = 0; i < k; i++) {
         g_to_the_r.a[0][i] <== g_to_the_s.pubkey[0][i];
@@ -74,6 +62,7 @@ template verify_nullifier(n, k, msg_length) {
     for (var i = 0; i < 33; i++) {
         h.msg[msg_length + i] <== public_key_bytes[i];
     }
+
     // Input precalculated values
     for (var i = 0; i < k; i++) {
         h.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
@@ -189,24 +178,53 @@ template sha256_12_coordinates(n, k) {
     }
 
     var message_bits = n*k*12;
-    var total_bits = (message_bits \ 512) * 512;
+    var total_bits = 3584;
 
     component sha256 = Sha256Hash(total_bits);
     for (var i = 0; i < 12*k; i++) {
         for (var j = 0; j < n; j++) {
-            // TODO: what is the difference between padded_bits and msg? Am I using it right?
-            sha256.padded_bits[n*i + j] <== binary[i].out[j];
             sha256.msg[n*i + j] <== binary[i].out[j];
         }
     }
 
     for (var i = message_bits; i < total_bits; i++) {
-        sha256.padded_bits[i] <== 0;
         sha256.msg[i] <== 0;
+    }
+    for (var i = 0; i < total_bits; i++) {
+        sha256.padded_bits[i] <== padded_bits[i];
     }
 
     for (var i = 0; i < 256; i++) {
         out[i] <== sha256.out[i];
+    }
+}
+
+// We use elliptic curve points in uncompressed form to do elliptic curve arithmetic, but we use them in compressed form when
+// hashing to save constraints (as hash cost is generally parameterised in the input length).
+// Elliptic curves are symmteric about the x-axis, and for every possible x coordinate there are exactly
+// 2 possible y coordinates. Over a prime field, one of those points is even and the other is odd.
+// The convention is to represent the even point with the byte 02, and the odd point with the byte 03.
+// Because our hash functions work over bytes, our output is a 33 byte array.
+template verify_ec_compression(n, k) {
+    signal input uncompressed[2][k];
+    signal input compressed[33];
+
+    // Get the bit string of the smallest register
+    // Make sure the least significant bit's evenness matches the evenness specified by the first byte in the compressed version
+    component num2bits = Num2Bits(n);
+    num2bits.in <== uncompressed[1][0]; // Note, circom-ecdsa uses little endian, so we check the 0th register of the y value
+    compressed[0] === num2bits.out[0] + 2;
+
+    // Make sure the compressed and uncompressed x coordinates represent the same number
+    // l_bytes is an algebraic expression for the bytes of each register
+    var l_bytes[k];
+    for (var i = 1; i < 33; i++) {
+        var j = i - 1; // ignores the first byte specifying the compressed y coordinate
+        l_bytes[j \ 8] += compressed[33-i] * (256 ** (j % 8));
+    }
+
+    for (var i = 0; i < k; i++) {
+        uncompressed[0][i] === l_bytes[i];
     }
 }
 
