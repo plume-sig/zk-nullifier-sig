@@ -14,7 +14,6 @@ template verify_nullifier(n, k, msg_length) {
     signal input s[k];
     signal input msg[msg_length];
     signal input public_key[2][k];
-    signal input public_key_bytes[33];
     signal input nullifier[2][k];
 
     // precomputed values for the hash_to_curve component
@@ -29,6 +28,9 @@ template verify_nullifier(n, k, msg_length) {
     signal input q1_y_pos[4];
     signal input q1_x_mapped[4];
     signal input q1_y_mapped[4];
+
+    // precomputed value for the sha256 component. TODO: calculate internally in circom to simplify API
+    signal input sha256_preimage_bit_length;
 
     // calculate g^r
     // g^r = g^s / pk^c (where g is the generator)
@@ -59,8 +61,16 @@ template verify_nullifier(n, k, msg_length) {
     for (var i = 0; i < msg_length; i++) {
         h.msg[i] <== msg[i];
     }
+
+    component pk_compressor = compress_ec_point(n, k);
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            pk_compressor.uncompressed[i][j] <== public_key[i][j];
+        }
+    }
+
     for (var i = 0; i < 33; i++) {
-        h.msg[msg_length + i] <== public_key_bytes[i];
+        h.msg[msg_length + i] <== pk_compressor.compressed[i];
     }
 
     // Input precalculated values
@@ -98,6 +108,7 @@ template verify_nullifier(n, k, msg_length) {
     var g[2][100];
     g[0] = get_genx(n, k);
     g[1] = get_geny(n, k);
+    c_sha256.preimage_bit_length <== sha256_preimage_bit_length;
     for (var j = 0; j < 2; j++) {
         for (var i = 0; i < k; i++) {
             c_sha256.coordinates[j][i] <== g[j][i];
@@ -166,32 +177,59 @@ template a_div_b_pow_c(n, k) {
 
 template sha256_12_coordinates(n, k) {
     signal input coordinates[12][k];
+    signal input preimage_bit_length;
     signal output out[256];
 
-    // decompose hash inputs into binary
-    component binary[12*k];
-    for (var i = 0; i < 12; i++) { // for each coordinate
-        for (var j = 0; j < k; j++) { // for each register
-            binary[k*i + j] = Num2Bits(n);
-            binary[k*i + j].in <== coordinates[i][j];
+    // compress coordinates
+    component compressors[6];
+    for (var i = 0; i < 6; i++) {
+        compressors[i] = compress_ec_point(n, k);
+        for (var j = 0; j < k; j++) {
+            compressors[i].uncompressed[0][j] <== coordinates[2*i][j];
+            compressors[i].uncompressed[1][j] <== coordinates[2*i + 1][j];
         }
     }
 
-    var message_bits = n*k*12;
-    var total_bits = 3584;
+    // decompose coordinates inputs into binary
+    component binary[6*33];
+    for (var i = 0; i < 6; i++) { // for each compressor
+        for (var j = 0; j < 33; j++) { // for each byte
+            binary[33*i + j] = Num2Bits(8);
+            binary[33*i + j].in <== compressors[i].compressed[j];
+        }
+    }
+
+    var message_bits = 6*33*8; // 6 compressed coordinates of 33 bytes
+    var total_bits = (message_bits \ 512) * 512;
+    if (message_bits % 512 != 0) {
+        total_bits += 512;
+    }
 
     component sha256 = Sha256Hash(total_bits);
-    for (var i = 0; i < 12*k; i++) {
-        for (var j = 0; j < n; j++) {
-            sha256.msg[n*i + j] <== binary[i].out[j];
+    for (var i = 0; i < 6*33; i++) {
+        for (var j = 0; j < 8; j++) {
+            sha256.msg[8*i + 7 - j] <== binary[i].out[j]; // Num2Bits is little endian, but compressed EC key form is big endian
         }
     }
 
     for (var i = message_bits; i < total_bits; i++) {
         sha256.msg[i] <== 0;
     }
-    for (var i = 0; i < total_bits; i++) {
-        sha256.padded_bits[i] <== padded_bits[i];
+
+    // Message is padded with 1, a series of 0s, then the bit length of the message https://en.wikipedia.org/wiki/SHA-2#Pseudocode:~:text=append%20a%20single%20%271%27%20bit
+    // TODO: move padding calculating into upstream repo to simplify API
+    for (var i = 0; i < total_bits - 64; i++) {
+        if (i == 1584) {
+            sha256.padded_bits[1584] <== 1;
+        } else {
+            sha256.padded_bits[i] <== sha256.msg[i];
+        }
+    }
+
+    component bit_length_binary = Num2Bits(64);
+    bit_length_binary.in <== preimage_bit_length;
+    for (var i = 0; i < 64; i++) {
+        sha256.padded_bits[total_bits - i - 1] <== bit_length_binary.out[i];
     }
 
     for (var i = 0; i < 256; i++) {
@@ -253,7 +291,9 @@ template verify_ec_compression(n, k) {
 }
 
 // Equivalent to get_gx and get_gy in circom-ecdsa, except we also have values for n = 64, k = 4.
-// This is necessary because hash_to_curve is only implemented for n=64, k = 4
+// This is necessary because hash_to_curve is only implemented for n = 64, k = 4 but circom-ecdsa
+// only g's coordinates for n = 86, k = 3
+// TODO: merge this upstream into circom-ecdsa
 function get_genx(n, k) {
     assert((n == 86 && k == 3) || (n == 64 && k == 4));
     var ret[100];

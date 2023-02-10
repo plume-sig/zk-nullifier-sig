@@ -1,8 +1,8 @@
 import { Point } from "@noble/secp256k1";
 import { concatUint8Arrays, hexToBigInt } from "./utils/encoding";
 import hashToCurve from "./utils/hashToCurve";
-import { sha512 } from "js-sha512";
 import { HashedPoint, multiplyPoint } from "./utils/curve";
+import { createHash } from "crypto";
 
 export function computeHashMPk(
   message: Uint8Array,
@@ -38,7 +38,9 @@ export function computeC(
     gPowRBytes,
     hashMPkPowRBytes,
   ]);
-  return sha512(preimage).slice(0, 64);
+  return createHash("sha256")
+    .update(preimage)
+    .digest('hex')
 }
 
 export function computeNullifer(hashMPk: HashedPoint, secretKey: Uint8Array) {

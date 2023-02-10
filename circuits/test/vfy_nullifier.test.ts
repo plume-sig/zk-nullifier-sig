@@ -3,13 +3,13 @@ import { wasm as wasm_tester } from 'circom_tester'
 import { describe, expect, test } from '@jest/globals';
 import * as enclave from "../../javascript/src/index";
 import { testSecretKey, testPublicKey, testR, testMessage, testMessageString } from "../../javascript/test/signals.test";
-import { uint8ArrayToBigInt, hexToBigInt, hexToUint8Array, messageToUint8Array } from "../../javascript/src/utils/encoding";
+import { uint8ArrayToBigInt, hexToBigInt } from "../../javascript/src/utils/encoding";
 import { CURVE, Point } from "@noble/secp256k1";
-import { generate_inputs_from_array, generate_inputs } from "secp256k1_hash_to_curve_circom/ts/generate_inputs";
-import { bufToSha256PaddedBitArr, strToSha256PaddedBitArr } from "secp256k1_hash_to_curve_circom/ts/utils";
+import { generate_inputs_from_array } from "secp256k1_hash_to_curve_circom/ts/generate_inputs";
+import { bufToSha256PaddedBitArr } from "secp256k1_hash_to_curve_circom/ts/utils";
 import { utils } from "ffjavascript"
 import { concatUint8Arrays } from '../../javascript/src/utils/encoding';
-
+import { createHash } from "crypto";
 
 jest.setTimeout(1_000_000);
 
@@ -38,7 +38,7 @@ describe("Nullifier Circuit", () => {
   )
   const hashMPkBytes = hashMPkPoint.toRawBytes(true);
 
-  test("hash to curve outputs same value", async () => {
+  test("hash_to_curve outputs same value", async () => {
     const inputs = utils.stringifyBigInts(generate_inputs_from_array(message_bytes.concat(public_key_bytes)));
 
     const p = join(__dirname, 'hash_to_curve_test.circom')
@@ -50,7 +50,7 @@ describe("Nullifier Circuit", () => {
     await circuit.assertOut(w, {out: pointToCircuitValue(hashMPkPoint)});
   })
 
-  var compression_test_points: Point[] = [
+  var sha_preimage_points: Point[] = [
     Point.BASE,
     Point.fromPrivateKey(testSecretKey),
     hashMPkPoint,
@@ -59,14 +59,37 @@ describe("Nullifier Circuit", () => {
     hashMPkPowR,
   ]
 
-  test.only("Correct compressed values are calculated", async () => {
+  const sha256_preimage_bits = bufToSha256PaddedBitArr(Buffer.from(
+    concatUint8Arrays(sha_preimage_points.map((point) => point.toRawBytes(true)))
+  ));
+  const sha256_preimage_bit_length = parseInt(sha256_preimage_bits.slice(-64), 2)
+
+  const binary_c = BigInt("0x" + c).toString(2).split('').map(Number);
+
+  test.only("Correct sha256 value", async () => {
+    var coordinates = [];
+    sha_preimage_points.forEach((point) => {
+      const cv = pointToCircuitValue(point);
+      coordinates.push(cv[0]);
+      coordinates.push(cv[1]);
+    })
+
+    const p = join(__dirname, '12_point_sha_256_test.circom')
+    const circuit = await wasm_tester(p, {"json":true, "sym": true})
+
+    const w = await circuit.calculateWitness({coordinates, preimage_bit_length: sha256_preimage_bit_length}, true)
+    await circuit.checkConstraints(w);
+    await circuit.assertOut(w, {out: binary_c})
+  })
+
+  test("Correct compressed values are calculated", async () => {
     const p = join(__dirname, 'compression_test.circom')
     const circuit = await wasm_tester(p, {"json":true, "sym": true})
 
-    for (var i = 0; i < compression_test_points.length; i++) {
-      const w = await circuit.calculateWitness({uncompressed: pointToCircuitValue(compression_test_points[i])}, true)
+    for (var i = 0; i < sha_preimage_points.length; i++) {
+      const w = await circuit.calculateWitness({uncompressed: pointToCircuitValue(sha_preimage_points[i])}, true)
       await circuit.checkConstraints(w);
-      await circuit.assertOut(w, {compressed: Array.from(compression_test_points[i].toRawBytes(true))})
+      await circuit.assertOut(w, {compressed: Array.from(sha_preimage_points[i].toRawBytes(true))})
     }
   })
 
@@ -74,11 +97,11 @@ describe("Nullifier Circuit", () => {
     const p = join(__dirname, 'compression_verification_test.circom')
     const circuit = await wasm_tester(p, {"json":true, "sym": true})
 
-    for (var i = 0; i < compression_test_points.length; i++) {
+    for (var i = 0; i < sha_preimage_points.length; i++) {
       for (var j = 0; j <= i; j++) {
         const inputs = {
-          uncompressed: pointToCircuitValue(compression_test_points[i]),
-          compressed: Array.from(compression_test_points[j].toRawBytes(true)),
+          uncompressed: pointToCircuitValue(sha_preimage_points[i]),
+          compressed: Array.from(sha_preimage_points[j].toRawBytes(true)),
         }
 
         if (i === j) {
@@ -91,7 +114,7 @@ describe("Nullifier Circuit", () => {
     }
   })
 
-  test("circuit verifies valid nullifier", async () => {
+  test("Circuit verifies valid nullifier", async () => {
     const p = join(__dirname, 'vfy_test.circom')
     console.log("about to compile")
     const circuit = await wasm_tester(p)
@@ -102,15 +125,6 @@ describe("Nullifier Circuit", () => {
     const {msg: _, ...hash_to_curve_inputs} = utils.stringifyBigInts(generate_inputs_from_array(message_bytes.concat(public_key_bytes)));
 
     // Calculate padded bit string for sha256 circuit
-      const preimage = concatUint8Arrays([
-        Point.BASE.toRawBytes(false).slice(1),
-        Point.fromPrivateKey(testSecretKey).toRawBytes(false).slice(1),
-        hashMPkBytes.slice(1),
-        nullifier.toRawBytes(false).slice(1),
-        gPowR.toRawBytes(false).slice(1),
-        hashMPkPowR.toRawBytes(false).slice(1),
-      ])
-    const padded_bit_string = bufToSha256PaddedBitArr(Buffer.from(Array.from(preimage)));
 
     const w = await circuit.calculateWitness({
       // Main circuit inputs 
@@ -118,10 +132,9 @@ describe("Nullifier Circuit", () => {
       s: scalarToCircuitValue(s),
       msg: message_bytes,
       public_key: pointToCircuitValue(Point.fromPrivateKey(testSecretKey)),
-      public_key_bytes,
       nullifier: pointToCircuitValue(nullifier),
-      hash_padded_bits: [...padded_bit_string].map(Number),
       ...hash_to_curve_inputs,
+      sha256_preimage_bit_length,
     })
     console.log("calculated witness")
     await circuit.checkConstraints(w)

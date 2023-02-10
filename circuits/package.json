@@ -9,9 +9,10 @@
   },
   "license": "ISC",
   "dependencies": {
-    "circom-ecdsa": "github:0xPARC/circom-ecdsa",
     "circom_tester": "^0.0.19",
+    "circom-ecdsa": "github:0xPARC/circom-ecdsa",
     "circomlib": "^2.0.5",
+    "crypto": "^1.0.1",
     "ffjavascript": "^0.2.57",
     "secp256k1_hash_to_curve_circom": "https://gitpkg.now.sh/geometryresearch/secp256k1_hash_to_curve/circuits?main"
   },
