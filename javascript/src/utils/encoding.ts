@@ -21,7 +21,7 @@ export function uint8ArrayToBigInt(buffer: Uint8Array): bigint {
 }
 
 export function asciitobytes(s: string): number[] {
-  var b = [],
+  var b: number[] = [],
     i: number;
   for (i = 0; i < s.length; i++) {
     b.push(s.charCodeAt(i));
