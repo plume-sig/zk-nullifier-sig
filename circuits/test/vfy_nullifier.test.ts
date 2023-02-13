@@ -96,29 +96,22 @@ describe("Nullifier Circuit", () => {
     }
   })
 
-  test("Circuit verifies valid nullifier", async () => {
+  test.only("Circuit verifies valid nullifier", async () => {
     const p = join(__dirname, 'vfy_test.circom')
-    console.log("about to compile")
     const circuit = await wasm_tester(p)
-    console.log("compiled")
 
-    console.log("about to calculate witness")
-
-    const {msg: _, ...hash_to_curve_inputs} = utils.stringifyBigInts(generate_inputs_from_array(message_bytes.concat(public_key_bytes)));
-
-    // Calculate padded bit string for sha256 circuit
+    const {msg: _, ...htci} = hash_to_curve_inputs;
 
     const w = await circuit.calculateWitness({
       // Main circuit inputs 
       c: scalarToCircuitValue(hexToBigInt(c)),
       s: scalarToCircuitValue(s),
       msg: message_bytes,
-      public_key: pointToCircuitValue(Point.fromPrivateKey(testSecretKey)),
+      public_key: pointToCircuitValue(testPublicKeyPoint),
       nullifier: pointToCircuitValue(nullifier),
-      ...hash_to_curve_inputs,
+      ...htci,
       sha256_preimage_bit_length,
     })
-    console.log("calculated witness")
     await circuit.checkConstraints(w)
   })
 

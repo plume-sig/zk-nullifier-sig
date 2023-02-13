@@ -73,7 +73,7 @@ template verify_nullifier(n, k, msg_length) {
         h.msg[msg_length + i] <== pk_compressor.compressed[i];
     }
 
-    // Input precalculated values
+    // Input precalculated values into HashToCurve
     for (var i = 0; i < k; i++) {
         h.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
         h.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
@@ -129,7 +129,7 @@ template verify_nullifier(n, k, msg_length) {
             // We may have 3 registers of 86 bits, which means we end up getting two extra 0 bits which don't have to be equal to the sha256 hash
             // TODO: verify that we don't have to equate these to 0
             if (i*k + j < 256) {
-                c_sha256.out[i*k + j] === c_bits[i].out[j];
+                c_sha256.out[i*n + j] === c_bits[k-1-i].out[n-1-j]; // The sha256 output is little endian, whereas the c_bits is big endian (both at the register and bit level)
             }
         }
     }
