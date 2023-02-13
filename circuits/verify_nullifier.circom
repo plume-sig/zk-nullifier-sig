@@ -38,18 +38,18 @@ template verify_nullifier(n, k, msg_length) {
 
     // Calculates g^s. Note, turning a private key to a public key is the same operation as
     // raising the generator g to some power, and we are *not* dealing with private keys in this circuit.
-    component g_to_the_s = ECDSAPrivToPub(n, k);
+    component g_pow_s = ECDSAPrivToPub(n, k);
     for (var i = 0; i < k; i++) {
-        g_to_the_s.privkey[i] <== s[i];
+        g_pow_s.privkey[i] <== s[i];
     }
 
-    component g_to_the_r = a_div_b_pow_c(n, k);
+    component g_pow_r = a_div_b_pow_c(n, k);
     for (var i = 0; i < k; i++) {
-        g_to_the_r.a[0][i] <== g_to_the_s.pubkey[0][i];
-        g_to_the_r.a[1][i] <== g_to_the_s.pubkey[1][i];
-        g_to_the_r.b[0][i] <== public_key[0][i];
-        g_to_the_r.b[1][i] <== public_key[1][i];
-        g_to_the_r.c[i] <== c[i];
+        g_pow_r.a[0][i] <== g_pow_s.pubkey[0][i];
+        g_pow_r.a[1][i] <== g_pow_s.pubkey[1][i];
+        g_pow_r.b[0][i] <== public_key[0][i];
+        g_pow_r.b[1][i] <== public_key[1][i];
+        g_pow_r.c[i] <== c[i];
     }
 
     // Calculate hash[m, pk]^r
@@ -87,20 +87,20 @@ template verify_nullifier(n, k, msg_length) {
         h.q1_y_mapped[i] <== q1_y_mapped[i];
     }
 
-    component h_to_the_s = Secp256k1ScalarMult(n, k);
+    component h_pow_s = Secp256k1ScalarMult(n, k);
     for (var i = 0; i < k; i++) {
-        h_to_the_s.scalar[i] <== s[i];
-        h_to_the_s.point[0][i] <== h.out[0][i];
-        h_to_the_s.point[1][i] <== h.out[1][i];
+        h_pow_s.scalar[i] <== s[i];
+        h_pow_s.point[0][i] <== h.out[0][i];
+        h_pow_s.point[1][i] <== h.out[1][i];
     }
 
-    component h_to_the_r = a_div_b_pow_c(n, k);
+    component h_pow_r = a_div_b_pow_c(n, k);
     for (var i = 0; i < k; i++) {
-        h_to_the_r.a[0][i] <== h_to_the_s.out[0][i];
-        h_to_the_r.a[1][i] <== h_to_the_s.out[1][i];
-        h_to_the_r.b[0][i] <== nullifier[0][i];
-        h_to_the_r.b[1][i] <== nullifier[1][i];
-        h_to_the_r.c[i] <== c[i];
+        h_pow_r.a[0][i] <== h_pow_s.out[0][i];
+        h_pow_r.a[1][i] <== h_pow_s.out[1][i];
+        h_pow_r.b[0][i] <== nullifier[0][i];
+        h_pow_r.b[1][i] <== nullifier[1][i];
+        h_pow_r.c[i] <== c[i];
     }
 
     // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
@@ -109,14 +109,14 @@ template verify_nullifier(n, k, msg_length) {
     g[0] = get_genx(n, k);
     g[1] = get_geny(n, k);
     c_sha256.preimage_bit_length <== sha256_preimage_bit_length;
-    for (var j = 0; j < 2; j++) {
-        for (var i = 0; i < k; i++) {
-            c_sha256.coordinates[j][i] <== g[j][i];
-            c_sha256.coordinates[2+j][i] <== public_key[j][i];
-            c_sha256.coordinates[4+j][i] <== h.out[j][i];
-            c_sha256.coordinates[6+j][i] <== nullifier[j][i];
-            c_sha256.coordinates[8+j][i] <== g_to_the_r.out[j][i];
-            c_sha256.coordinates[10+j][i] <== h_to_the_r.out[j][i];
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            c_sha256.coordinates[i][j] <== g[i][j];
+            c_sha256.coordinates[2+i][j] <== public_key[i][j];
+            c_sha256.coordinates[4+i][j] <== h.out[i][j];
+            c_sha256.coordinates[6+i][j] <== nullifier[i][j];
+            c_sha256.coordinates[8+i][j] <== g_pow_r.out[i][j];
+            c_sha256.coordinates[10+i][j] <== h_pow_r.out[i][j];
         }
     }
 
@@ -144,29 +144,29 @@ template a_div_b_pow_c(n, k) {
     // Calculates b^c. Note that the spec uses multiplicative notation to preserve intuitions about
     // discrete log, and these comments follow the spec to make comparison simpler. But the circom-ecdsa library uses
     // additive notation. This is why we appear to calculate an expnentiation using a multiplication component.
-    component b_to_the_c = Secp256k1ScalarMult(n, k);
+    component b_pow_c = Secp256k1ScalarMult(n, k);
     for (var i = 0; i < k; i++) {
-        b_to_the_c.scalar[i] <== c[i];
-        b_to_the_c.point[0][i] <== b[0][i];
-        b_to_the_c.point[1][i] <== b[1][i];
+        b_pow_c.scalar[i] <== c[i];
+        b_pow_c.point[0][i] <== b[0][i];
+        b_pow_c.point[1][i] <== b[1][i];
     }
 
     // Calculates inverse of b^c by finding the modular inverse of its y coordinate
     var prime[100] = get_secp256k1_prime(n, k);
-    component b_to_the_c_inv_y = BigSub(n, k);
+    component b_pow_c_inv_y = BigSub(n, k);
     for (var i = 0; i < k; i++) {
-        b_to_the_c_inv_y.a[i] <== prime[i];
-        b_to_the_c_inv_y.b[i] <== b_to_the_c.out[1][i];
+        b_pow_c_inv_y.a[i] <== prime[i];
+        b_pow_c_inv_y.b[i] <== b_pow_c.out[1][i];
     }
-    b_to_the_c_inv_y.underflow === 0;
+    b_pow_c_inv_y.underflow === 0;
 
     // Calculates a^s * (b^c)-1
     component final_result = Secp256k1AddUnequal(n, k);
     for (var i = 0; i < k; i++) {
         final_result.a[0][i] <== a[0][i];
         final_result.a[1][i] <== a[1][i];
-        final_result.b[0][i] <== b_to_the_c.out[0][i];
-        final_result.b[1][i] <== b_to_the_c_inv_y.out[i];
+        final_result.b[0][i] <== b_pow_c.out[0][i];
+        final_result.b[1][i] <== b_pow_c_inv_y.out[i];
     }
 
     for (var i = 0; i < k; i++) {

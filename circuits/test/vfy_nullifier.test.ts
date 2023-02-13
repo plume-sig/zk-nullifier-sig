@@ -8,6 +8,7 @@ import { generate_inputs_from_array } from "secp256k1_hash_to_curve_circom/ts/ge
 import { bufToSha256PaddedBitArr } from "secp256k1_hash_to_curve_circom/ts/utils";
 import { utils } from "ffjavascript"
 import { concatUint8Arrays } from '../../javascript/src/utils/encoding';
+import { circuitValueToScalar, pointToCircuitValue, scalarToCircuitValue } from '../utils';
 
 jest.setTimeout(2_000_000);
 
@@ -96,7 +97,7 @@ describe("Nullifier Circuit", () => {
     }
   })
 
-  test.only("Circuit verifies valid nullifier", async () => {
+  test("Circuit verifies valid nullifier", async () => {
     const p = join(__dirname, 'vfy_test.circom')
     const circuit = await wasm_tester(p)
 
@@ -148,54 +149,3 @@ describe("Nullifier Circuit", () => {
 
   })
 })
-
-function circuitValueToScalar(registers: bigint[]) {
-  if (registers.length != 4) {
-    throw new Error(`Circuit values have 4 registers, got ${registers.length}`)
-  }
-  return registersToBigint(registers, 64n);
-}
-
-function scalarToCircuitValue(value: bigint):bigint[] {
-  return bigIntToRegisters(value, 64n, 4n);
-}
-
-function pointToCircuitValue(p: Point):bigint[][] {
-  return [
-    scalarToCircuitValue(p.x),
-    scalarToCircuitValue(p.y),
-  ]
-}
-
-function circuitValueToPoint(coordinates: bigint[][]):Point {
-  if (coordinates.length != 2) {
-    throw new Error(`Elliptic curve points have 2 coordinates, got ${coordinates.length}`);
-  }
-  return new Point(circuitValueToScalar(coordinates[0]), circuitValueToScalar[1]);
-}
-
-function bigIntToRegisters(value: bigint, bits_per_register: bigint, register_count: bigint): bigint[] {
-  const register_size = 2n ** bits_per_register;
-  if (value >= register_size ** register_count) {
-    throw new Error(`BigInt ${value} can't fit into ${register_count} registers of ${bits_per_register} bits.`);
-  }
-
-  var registers: bigint[] = [];
-  for (var i = 0; i < register_count; i++) {
-    registers[i] = (value / register_size ** BigInt(i)) % register_size;
-  }
-
-  return registers;
-}
-
-function registersToBigint(registers: bigint[], bits_per_register: bigint): bigint {
-  const register_size = 2n ** bits_per_register;
-  let value = 0n;
-  let e = 1n;
-  for (var i = 0; i < registers.length; i++) {
-    value += registers[i] * e;
-    e *= register_size;
-  }
-
-  return value;
-}
