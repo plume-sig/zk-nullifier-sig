@@ -1,34 +1,17 @@
 import { join } from 'path';
 import { wasm as wasm_tester } from 'circom_tester'
 import { describe, expect, test } from '@jest/globals';
-import * as enclave from "../../javascript/src/index";
-import { testSecretKey, testPublicKey, testR, testMessage, testMessageString } from "../../javascript/test/signals.test";
-import { uint8ArrayToBigInt, hexToBigInt } from "../../javascript/src/utils/encoding";
-import { CURVE, Point } from "@noble/secp256k1";
+import { hexToBigInt } from "../../javascript/src/utils/encoding";
+import { c, gPowR, hashMPk, hashMPkPowR, nullifier, s, testMessage, testPublicKey, testPublicKeyPoint, testSecretKey } from "../../javascript/test/test_consts"
+import { Point } from "@noble/secp256k1";
 import { generate_inputs_from_array } from "secp256k1_hash_to_curve_circom/ts/generate_inputs";
 import { bufToSha256PaddedBitArr } from "secp256k1_hash_to_curve_circom/ts/utils";
 import { utils } from "ffjavascript"
 import { concatUint8Arrays } from '../../javascript/src/utils/encoding';
-import { createHash } from "crypto";
 
-jest.setTimeout(1_000_000);
+jest.setTimeout(2_000_000);
 
 describe("Nullifier Circuit", () => {
-  const hashMPk = enclave.computeHashMPk(testMessage, Buffer.from(testPublicKey));
-  const nullifier = enclave.computeNullifer(hashMPk, testSecretKey);
-  const gPowR = enclave.computeGPowR(testR)
-  const hashMPkPowR = enclave.computeHashMPkPowR(hashMPk, testR);
-  const c = enclave.computeC(
-    testPublicKey,
-    hashMPk,
-    nullifier, // TODO: as unknown as Point - why is this used in signals test?
-    gPowR,
-    hashMPkPowR
-  );
-
-  const skMultC = (uint8ArrayToBigInt(testSecretKey) * hexToBigInt(c)) % CURVE.n;
-  const s = ((skMultC + uint8ArrayToBigInt(testR)) % CURVE.n);
-
   const public_key_bytes = Array.from(testPublicKey);
   const message_bytes = Array.from(testMessage);
 
@@ -36,23 +19,11 @@ describe("Nullifier Circuit", () => {
     hexToBigInt(hashMPk.x.toString()),
     hexToBigInt(hashMPk.y.toString())
   )
-  const hashMPkBytes = hashMPkPoint.toRawBytes(true);
-
-  test("hash_to_curve outputs same value", async () => {
-    const inputs = utils.stringifyBigInts(generate_inputs_from_array(message_bytes.concat(public_key_bytes)));
-
-    const p = join(__dirname, 'hash_to_curve_test.circom')
-    const circuit = await wasm_tester(p, {"json":true, "sym": true})
-    const w = await circuit.calculateWitness({
-      ...inputs,
-    }, true)
-    await circuit.checkConstraints(w)
-    await circuit.assertOut(w, {out: pointToCircuitValue(hashMPkPoint)});
-  })
+  const hash_to_curve_inputs = utils.stringifyBigInts(generate_inputs_from_array(message_bytes.concat(public_key_bytes)));
 
   var sha_preimage_points: Point[] = [
     Point.BASE,
-    Point.fromPrivateKey(testSecretKey),
+    testPublicKeyPoint,
     hashMPkPoint,
     nullifier,
     gPowR,
@@ -66,7 +37,18 @@ describe("Nullifier Circuit", () => {
 
   const binary_c = BigInt("0x" + c).toString(2).split('').map(Number);
 
-  test.only("Correct sha256 value", async () => {
+  test("hash_to_curve outputs same value", async () => {
+
+    const p = join(__dirname, 'hash_to_curve_test.circom')
+    const circuit = await wasm_tester(p, {"json":true, "sym": true})
+    const w = await circuit.calculateWitness({
+      ...hash_to_curve_inputs,
+    }, true)
+    await circuit.checkConstraints(w)
+    await circuit.assertOut(w, {out: pointToCircuitValue(hashMPkPoint)});
+  })
+
+  test("Correct sha256 value", async () => {
     var coordinates = [];
     sha_preimage_points.forEach((point) => {
       const cv = pointToCircuitValue(point);
@@ -148,13 +130,13 @@ describe("Nullifier Circuit", () => {
     
     // Verify that gPowS/pkPowC = gPowR outside the circuit, as a sanity check
     const gPowS = Point.fromPrivateKey(s);
-    const pkPowC = Point.fromPrivateKey(testSecretKey).multiply(hexToBigInt(c))
+    const pkPowC = testPublicKeyPoint.multiply(hexToBigInt(c))
     expect(gPowS.add(pkPowC.negate()).equals(gPowR)).toBe(true);
 
     // Verify that circuit calculates g^s / pk^c = g^r
     const w = await circuit.calculateWitness({ 
       a: pointToCircuitValue(gPowS),
-      b: pointToCircuitValue(Point.fromPrivateKey(testSecretKey)),
+      b: pointToCircuitValue(testPublicKeyPoint),
       c: scalarToCircuitValue(hexToBigInt(c)),
     })
     await circuit.checkConstraints(w)
