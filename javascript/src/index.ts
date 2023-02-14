@@ -2,7 +2,7 @@ import { Point } from "@noble/secp256k1";
 import { concatUint8Arrays, hexToBigInt } from "./utils/encoding";
 import hashToCurve from "./utils/hashToCurve";
 import { HashedPoint, multiplyPoint } from "./utils/curve";
-import { createHash } from "crypto";
+import { createHash } from "node:crypto";
 
 export function computeHashMPk(
   message: Uint8Array,
