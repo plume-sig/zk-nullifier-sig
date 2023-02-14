@@ -20,7 +20,7 @@ npm i
 
 Run the tests:
 ```bash
-npm run npm run flatten-deps && \
+npm run flatten-deps && \
 npm run test
 ```
 
