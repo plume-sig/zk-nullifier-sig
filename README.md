@@ -10,9 +10,15 @@ This allows for the construction of deterministic nullifiers. We intend to deplo
 
 ## Testing the circom circuit
 
-First, clone this repository and navigate to the `circuits/` directory.
+First, clone this repository and navigate to the `javascript/` directory.
 
 Install dependencies:
+
+```bash
+npm i
+```
+
+Then, navigate to the `circuits/` directory and install the dependencies there:
 
 ```bash
 npm i
