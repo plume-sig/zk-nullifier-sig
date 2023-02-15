@@ -3,7 +3,7 @@ import { wasm as wasm_tester } from 'circom_tester'
 import { describe, expect, test } from '@jest/globals';
 import { hexToBigInt } from "../../javascript/src/utils/encoding";
 import { c, gPowR, hashMPk, hashMPkPowR, nullifier, s, testMessage, testPublicKey, testPublicKeyPoint, testSecretKey } from "../../javascript/test/test_consts"
-import { Point } from "@noble/secp256k1";
+import { Point } from "../../javascript/node_modules/@noble/secp256k1";
 import { generate_inputs_from_array } from "secp256k1_hash_to_curve_circom/ts/generate_inputs";
 import { bufToSha256PaddedBitArr } from "secp256k1_hash_to_curve_circom/ts/utils";
 import { utils } from "ffjavascript"
@@ -39,7 +39,6 @@ describe("Nullifier Circuit", () => {
   const binary_c = BigInt("0x" + c).toString(2).split('').map(Number);
 
   test("hash_to_curve outputs same value", async () => {
-
     const p = join(__dirname, 'hash_to_curve_test.circom')
     const circuit = await wasm_tester(p, {"json":true, "sym": true})
     const w = await circuit.calculateWitness({
@@ -76,7 +75,7 @@ describe("Nullifier Circuit", () => {
     }
   })
 
-  test("Only valid compressed points are permitted", async () => {
+  test("Compressed points are permitted iff they are valid", async () => {
     const p = join(__dirname, 'compression_verification_test.circom')
     const circuit = await wasm_tester(p, {"json":true, "sym": true})
 

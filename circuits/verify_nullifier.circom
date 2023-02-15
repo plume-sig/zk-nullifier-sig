@@ -125,6 +125,9 @@ template verify_nullifier(n, k, msg_length) {
     for (var i = 0; i < k; i++) {
         c_bits[i] = Num2Bits(n);
         c_bits[i].in <== c[i];
+    }
+
+    for (var i = 0; i < k; i++) {
         for (var j = 0; j < n; j++) {
             // We may have 3 registers of 86 bits, which means we end up getting two extra 0 bits which don't have to be equal to the sha256 hash
             // TODO: verify that we don't have to equate these to 0
