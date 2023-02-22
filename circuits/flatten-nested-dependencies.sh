@@ -9,14 +9,18 @@
 
 # Make circom-ecdsa point to node_modules/circomlib
 for file in `find node_modules/circom-ecdsa/circuits -name "*.circom"`; do
-    sed -i '' 's/"\.\.\/\.\.\/node_modules\/circomlib/"\.\.\/\.\.\/\.\.\/circomlib/' $file
-    sed -i '' 's/"\.\.\/node_modules\/circomlib/"\.\.\/\.\.\/circomlib/' $file
+    sed -i.bak 's/"\.\.\/\.\.\/node_modules\/circomlib/"\.\.\/\.\.\/\.\.\/circomlib/' $file
+    rm $file.bak
+    sed -i.bak 's/"\.\.\/node_modules\/circomlib/"\.\.\/\.\.\/circomlib/' $file
+    rm $file.bak
 done
 
 # Make hash_to_curve point to ...
 for file in `find node_modules/secp256k1_hash_to_curve_circom/circom -name "*.circom"`; do
     # node_modules/circomlib, if it was pointing at its dependency's dependency and ...
-    sed -i '' 's/\.\.\/node_modules\/circom-ecdsa\/node_modules\/circomlib/\.\.\/\.\.\/circomlib/' $file
+    sed -i.bak 's/\.\.\/node_modules\/circom-ecdsa\/node_modules\/circomlib/\.\.\/\.\.\/circomlib/' $file
+    rm $file.bak
     # node_modules/circom-ecdsa
-    sed -i '' 's/"\.\.\/node_modules\/circom-ecdsa/"\.\.\/\.\.\/circom-ecdsa/' $file
+    sed -i.bak 's/"\.\.\/node_modules\/circom-ecdsa/"\.\.\/\.\.\/circom-ecdsa/' $file
+    rm $file.bak
 done
