@@ -1021,12 +1021,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"amcl-js@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "amcl-js@npm:3.0.0"
+"amcl-js@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "amcl-js@npm:3.1.0"
   dependencies:
     prompt: ^1.0.0
-  checksum: 66c6c0fbf00aa1a9deed0f2fd6ba18e84eea9674135815b5b0e10f5f1944da5ffb22639e9b1ab28d650dab6e4fe3920f1b850bc7d55c02d6db13929008ed5878
+  checksum: 0a90c967d17e7a2cf0b02ca32cf712c68784a003bedbc59403da32947b1f1aee06e8410a548e3ada7d95d5c204c7165904381a8021910c974711ec5522c57c35
   languageName: node
   linkType: hard
 
@@ -3209,7 +3209,7 @@ __metadata:
     "@types/js-sha512": ^0
     "@types/node": ^18.11.9
     "@types/nodemon": ^1.19.2
-    amcl-js: ^3.0.0
+    amcl-js: ^3.1.0
     jest: ^29.3.1
     js-sha512: ^0.8.0
     nodemon: ^2.0.20
