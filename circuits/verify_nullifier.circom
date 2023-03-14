@@ -4,7 +4,7 @@ include "./node_modules/circom-ecdsa/circuits/ecdsa.circom";
 include "./node_modules/circom-ecdsa/circuits/secp256k1.circom";
 include "./node_modules/circom-ecdsa/circuits/secp256k1_func.circom";
 include "./node_modules/secp256k1_hash_to_curve_circom/circom/hash_to_curve.circom";
-include "./node_modules/secp256k1_hash_to_curve_circom/circom/sha256.circom";
+include "./node_modules/secp256k1_hash_to_curve_circom/circom/Sha256.circom";
 include "./node_modules/circomlib/circuits/bitify.circom";
 
 // Verifies that a nullifier belongs to a specific public key
