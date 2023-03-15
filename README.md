@@ -34,7 +34,7 @@ https://blog.aayushg.com/posts/nullifier
 https://ivy-docs.notion.site/PLUME-ERC-Draft-5558bbd43b674bcb881f5c535ced5893
 
 ### Demo
-nullifier.xyz
+https://nullifier.xyz
 
 ### Circom Proofs
 https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/7
