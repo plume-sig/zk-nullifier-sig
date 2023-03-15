@@ -36,14 +36,20 @@ https://ivy-docs.notion.site/PLUME-ERC-Draft-5558bbd43b674bcb881f5c535ced5893
 ### Demo
 https://nullifier.xyz
 
-### Circom Proofs
-https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/7
-
-### Hash to Curve Code
-https://github.com/geometryresearch/secp256k1_hash_to_curve/
-
 ### Talk
 https://www.youtube.com/watch?v=6ajBnMdJGoY
+
+### Circom Proofs
+https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/7
+6.5 million constraints. Mostly dominated by EC operations, but the hashes are very expensive too.
+
+sha256 ~1.5M
+hash_to_curve ~0.5M
+a/b^c ~1.5 each (this is the sub circuit for the first 2 verification equations)
+the remaining 1.5M is probably dominated by calculating g^s and h^s
+
+#### Hash to Curve Circom Code
+https://github.com/geometryresearch/secp256k1_hash_to_curve/
 
 ### Nullifier Calculation Spec
 https://hackmd.io/uZQbMHrVSbOHvoI_HrJJlw
