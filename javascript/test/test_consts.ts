@@ -5,12 +5,11 @@ import {
   computeHashMPk,
   computeHashMPkPowR,
   computeNullifer,
+  computeS,
 } from "../src";
 import {
-  hexToBigInt,
   hexToUint8Array,
   messageToUint8Array,
-  uint8ArrayToBigInt,
 } from "../src/utils/encoding";
 
 export const testSecretKey = hexToUint8Array(
@@ -36,5 +35,4 @@ export const c = computeC(
   gPowR,
   hashMPkPowR
 );
-export const skMultC = (uint8ArrayToBigInt(testSecretKey) * hexToBigInt(c)) % CURVE.n;
-export const s = ((skMultC + uint8ArrayToBigInt(testR)) % CURVE.n);
+export const s = computeS(testR, testSecretKey, c);

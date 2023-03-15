@@ -1,5 +1,11 @@
-import { Point } from "@noble/secp256k1";
-import { concatUint8Arrays, hexToBigInt } from "./utils/encoding";
+import { CURVE, getPublicKey, Point, utils } from "@noble/secp256k1";
+import {
+  concatUint8Arrays,
+  hexToBigInt,
+  hexToUint8Array,
+  messageToUint8Array,
+  uint8ArrayToBigInt,
+} from "./utils/encoding";
 import hashToCurve from "./utils/hashToCurve";
 import { HashedPoint, multiplyPoint } from "./utils/curve";
 import { createHash } from "node:crypto";
@@ -53,4 +59,41 @@ export function computeGPowR(r: Uint8Array) {
 
 export function computeHashMPkPowR(hashMPk: HashedPoint, r: Uint8Array) {
   return multiplyPoint(hashMPk, r);
+}
+
+export function computeS(r: Uint8Array, secretKey: Uint8Array, c: string) {
+  const skC = (uint8ArrayToBigInt(secretKey) * hexToBigInt(c)) % CURVE.n;
+  return ((skC + uint8ArrayToBigInt(r)) % CURVE.n).toString(16);
+}
+
+export function computeAllInputs(
+  message: string | Uint8Array,
+  secretKey: string | Uint8Array,
+  r?: string | Uint8Array
+) {
+  const secretKeyBytes =
+    typeof secretKey === "string" ? hexToUint8Array(secretKey) : secretKey;
+  const messageBytes =
+    typeof message === "string" ? messageToUint8Array(message) : message;
+  const publicKeyBytes = getPublicKey(secretKeyBytes, true);
+  let rBytes;
+  if (r) {
+    rBytes = typeof r === "string" ? hexToUint8Array(r) : r;
+  } else {
+    rBytes = utils.randomPrivateKey();
+  }
+  const hashMPK = computeHashMPk(messageBytes, publicKeyBytes);
+  const nullifier = computeNullifer(hashMPK, secretKeyBytes);
+  const hashMPKPowR = computeHashMPkPowR(hashMPK, rBytes);
+  const gPowR = computeGPowR(rBytes);
+  const c = computeC(publicKeyBytes, hashMPK, nullifier, gPowR, hashMPKPowR);
+  const s = computeS(rBytes, secretKeyBytes, c);
+  return {
+    plume: nullifier,
+    s,
+    publicKey: publicKeyBytes,
+    c,
+    gPowR,
+    hashMPKPowR,
+  };
 }
