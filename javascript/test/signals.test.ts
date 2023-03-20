@@ -7,7 +7,7 @@ import {
   computeHashMPkPowR,
   computeNullifer,
   computeS,
-} from "../src";
+} from "../src/signals";
 import { hexToUint8Array, messageToUint8Array } from "../src/utils/encoding";
 
 const testSecretKey = hexToUint8Array(
