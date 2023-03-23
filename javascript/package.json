@@ -3,7 +3,7 @@
   "version": "1.5.0",
   "packageManager": "yarn@3.2.4",
   "devDependencies": {
-    "@types/jest": "^29.2.3",
+    "@types/jest": "^29.5.0",
     "@types/js-sha512": "^0",
     "@types/node": "^18.11.9",
     "@types/nodemon": "^1.19.2",

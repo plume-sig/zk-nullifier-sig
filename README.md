@@ -8,10 +8,33 @@ This allows for the construction of deterministic nullifiers. We intend to deplo
 - `rust-arkworks`: Rust, using arkworks
 - `javascript`: JavaScript, using MIRACL
 
+## Testing the circom circuit
+
+First, clone this repository and navigate to the `javascript/` directory.
+
+Install dependencies:
+
+```bash
+npm i
+```
+
+Then, navigate to the `circuits/` directory and install the dependencies there:
+
+```bash
+npm i
+```
+
+Run the tests:
+```bash
+npm run flatten-deps && \
+npm run test
+```
+
+Be prepared to wait around 20-40 minutes for the tests to complete.
+
 ## TODO
 
-- zk verifier circuits (WIP Circom here: https://github.com/geometryresearch/secp256k1_hash_to_curve/tree/main/circuits)
-- change SHA512 to Poseidon (wallets are onboard)
+- change SHA256 to Poseidon (wallets are onboard)
 - improve `rust-k256` to use a similar interface as `rust-arkworks` - i.e.
   generate/accept arbitrary keypairs and `r` values, and not just hardcoded
   values

@@ -9,6 +9,7 @@ import {
 import hashToCurve from "./utils/hashToCurve";
 import { sha512 } from "js-sha512";
 import { HashedPoint, multiplyPoint } from "./utils/curve";
+import { createHash } from "node:crypto";
 
 export function computeHashMPk(
   message: Uint8Array,
@@ -44,7 +45,9 @@ export function computeC(
     gPowRBytes,
     hashMPkPowRBytes,
   ]);
-  return sha512(preimage).slice(0, 64);
+  return createHash("sha256")
+    .update(preimage)
+    .digest('hex')
 }
 
 export function computeNullifer(hashMPk: HashedPoint, secretKey: Uint8Array) {
@@ -60,8 +63,8 @@ export function computeHashMPkPowR(hashMPk: HashedPoint, r: Uint8Array) {
 }
 
 export function computeS(r: Uint8Array, secretKey: Uint8Array, c: string) {
-  const skC = (uint8ArrayToBigInt(secretKey) * hexToBigInt(c)) % CURVE.P;
-  return ((skC + uint8ArrayToBigInt(r)) % CURVE.P).toString(16);
+  const skC = (uint8ArrayToBigInt(secretKey) * hexToBigInt(c)) % CURVE.n;
+  return ((skC + uint8ArrayToBigInt(r)) % CURVE.n).toString(16);
 }
 
 /**
