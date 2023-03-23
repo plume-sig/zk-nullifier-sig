@@ -105,7 +105,7 @@ describe("Nullifier Circuit", () => {
     const w = await circuit.calculateWitness({
       // Main circuit inputs 
       c: scalarToCircuitValue(hexToBigInt(c)),
-      s: scalarToCircuitValue(s),
+      s: scalarToCircuitValue(hexToBigInt(s)),
       msg: message_bytes,
       public_key: pointToCircuitValue(testPublicKeyPoint),
       nullifier: pointToCircuitValue(nullifier),

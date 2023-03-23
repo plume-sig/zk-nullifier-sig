@@ -5,11 +5,18 @@ export function messageToUint8Array(message: string): Uint8Array {
 }
 
 export function hexToUint8Array(hexString: string): Uint8Array {
-  return Uint8Array.from(Buffer.from(hexString, "hex"));
+  // Source: https://stackoverflow.com/questions/38987784/how-to-convert-a-hexadecimal-string-to-uint8array-and-back-in-javascript/50868276#50868276
+  return Uint8Array.from(
+    hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+  );
 }
 
-export function uint8ArrayToHex(buffer: Uint8Array) {
-  return Buffer.from(buffer).toString("hex");
+export function uint8ArrayToHex(uint8Array: Uint8Array) {
+  // Source: https://stackoverflow.com/questions/38987784/how-to-convert-a-hexadecimal-string-to-uint8array-and-back-in-javascript/50868276#50868276
+  return uint8Array.reduce(
+    (str, byte) => str + byte.toString(16).padStart(2, "0"),
+    ""
+  );
 }
 
 export function hexToBigInt(hex: string): bigint {

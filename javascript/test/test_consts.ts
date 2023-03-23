@@ -6,7 +6,7 @@ import {
   computeHashMPkPowR,
   computeNullifer,
   computeS,
-} from "../src";
+} from "../src/signals";
 import {
   hexToUint8Array,
   messageToUint8Array,
