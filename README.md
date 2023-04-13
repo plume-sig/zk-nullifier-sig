@@ -34,12 +34,11 @@ Be prepared to wait around 20-40 minutes for the tests to complete.
 
 ## TODO
 
-- change SHA256 to Poseidon (wallets are onboard)
-- improve `rust-k256` to use a similar interface as `rust-arkworks` - i.e.
-  generate/accept arbitrary keypairs and `r` values, and not just hardcoded
-  values
-- rewrite in halo2
+- Incorporate the [V2 proposed by poseidon](https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff) to be a codepath both in the wallet [WIP PR](https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/9) and in the circom (task still open)
+- improve `rust-k256` to use a similar interface as `rust-arkworks` - i.e. generate/accept arbitrary keypairs and `r` values, and not just hardcoded values
+- rewrite in halo2 (WIP by blakemscurr and vuvoth, dm to contribute via a grant!)
 - reduce number of arguments to c via Wei Dai's + [Poseidons](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4) suggestions
+- Edit: Poseidon will be too slow in Ledger and is a newer hash function -- given that we have reasonably efficient sha256 hashing with (zkevm)[https://github.com/Brechtpd/zkevm-circuits/tree/sha256], we do not intend to switch the hash function
 
 ## Resources
 
