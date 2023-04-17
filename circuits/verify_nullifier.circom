@@ -14,6 +14,9 @@ template verify_nullifier(n, k, msg_length) {
     signal input public_key[2][k];
     signal input nullifier[2][k];
 
+    signal output g_pow_r[2][k];
+    signal output h_pow_r[2][k];
+
     // precomputed values for the hash_to_curve component
     signal input q0_gx1_sqrt[4];
     signal input q0_gx2_sqrt[4];
@@ -38,13 +41,13 @@ template verify_nullifier(n, k, msg_length) {
         g_pow_s.privkey[i] <== s[i];
     }
 
-    component g_pow_r = a_div_b_pow_c(n, k);
+    component g_pow_r_comp = a_div_b_pow_c(n, k);
     for (var i = 0; i < k; i++) {
-        g_pow_r.a[0][i] <== g_pow_s.pubkey[0][i];
-        g_pow_r.a[1][i] <== g_pow_s.pubkey[1][i];
-        g_pow_r.b[0][i] <== public_key[0][i];
-        g_pow_r.b[1][i] <== public_key[1][i];
-        g_pow_r.c[i] <== c[i];
+        g_pow_r_comp.a[0][i] <== g_pow_s.pubkey[0][i];
+        g_pow_r_comp.a[1][i] <== g_pow_s.pubkey[1][i];
+        g_pow_r_comp.b[0][i] <== public_key[0][i];
+        g_pow_r_comp.b[1][i] <== public_key[1][i];
+        g_pow_r_comp.c[i] <== c[i];
     }
 
     // Calculate hash[m, pk]^r
@@ -89,13 +92,20 @@ template verify_nullifier(n, k, msg_length) {
         h_pow_s.point[1][i] <== h.out[1][i];
     }
 
-    component h_pow_r = a_div_b_pow_c(n, k);
+    component h_pow_r_comp = a_div_b_pow_c(n, k);
     for (var i = 0; i < k; i++) {
-        h_pow_r.a[0][i] <== h_pow_s.out[0][i];
-        h_pow_r.a[1][i] <== h_pow_s.out[1][i];
-        h_pow_r.b[0][i] <== nullifier[0][i];
-        h_pow_r.b[1][i] <== nullifier[1][i];
-        h_pow_r.c[i] <== c[i];
+        h_pow_r_comp.a[0][i] <== h_pow_s.out[0][i];
+        h_pow_r_comp.a[1][i] <== h_pow_s.out[1][i];
+        h_pow_r_comp.b[0][i] <== nullifier[0][i];
+        h_pow_r_comp.b[1][i] <== nullifier[1][i];
+        h_pow_r_comp.c[i] <== c[i];
+    }
+
+    for (var i = 0; i < k; i++) {
+        h_pow_r[0][i] <== h_pow_r_comp.out[0][i];
+        h_pow_r[1][i] <== h_pow_r_comp.out[1][i];
+        g_pow_r[0][i] <== g_pow_r_comp.out[0][i];
+        g_pow_r[1][i] <== g_pow_r_comp.out[1][i];
     }
 }
 

@@ -31,10 +31,6 @@ describe("Nullifier Circuit", () => {
     hashMPkPowR,
   ]
 
-  const sha256_preimage_bits = bufToSha256PaddedBitArr(Buffer.from(
-    concatUint8Arrays(points.map((point) => point.toRawBytes(true)))
-  ));
-
   test("hash_to_curve outputs same value", async () => {
     const p = join(__dirname, 'hash_to_curve_test.circom')
     const circuit = await wasm_tester(p, {"json":true, "sym": true})
@@ -85,15 +81,14 @@ describe("Nullifier Circuit", () => {
 
     const w = await circuit.calculateWitness({
       // Main circuit inputs 
-      c: scalarToCircuitValue(hexToBigInt(c)),
       s: scalarToCircuitValue(hexToBigInt(s)),
       msg: message_bytes,
       public_key: pointToCircuitValue(testPublicKeyPoint),
       nullifier: pointToCircuitValue(nullifier),
       ...htci,
-      sha256_preimage_bit_length,
     })
     await circuit.checkConstraints(w)
+    await circuit.assertOut(w, {g_pow_r: pointToCircuitValue(gPowR), h_pow_r: pointToCircuitValue(hashMPkPowR)});
   })
 
   // This tests that our circuit correctly computes g^s/(g^sk)^c = g^r, and that the first two equations are
