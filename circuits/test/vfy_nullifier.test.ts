@@ -80,7 +80,8 @@ describe("Nullifier Circuit", () => {
     const {msg: _, ...htci} = hash_to_curve_inputs;
 
     const w = await circuit.calculateWitness({
-      // Main circuit inputs 
+      // Main circuit inputs
+      c: scalarToCircuitValue(hexToBigInt(c)),
       s: scalarToCircuitValue(hexToBigInt(s)),
       msg: message_bytes,
       public_key: pointToCircuitValue(testPublicKeyPoint),
@@ -88,7 +89,12 @@ describe("Nullifier Circuit", () => {
       ...htci,
     })
     await circuit.checkConstraints(w)
-    await circuit.assertOut(w, {g_pow_r: pointToCircuitValue(gPowR), h_pow_r: pointToCircuitValue(hashMPkPowR)});
+    // assertOut builds a huge json string containing the whole witness and fails with "Cannot create a string longer than 0x1fffffe8 characters"
+    // Instead we just slice into the witness, and the outputs start at 1 (where 0 always equals 1 due to a property of the underlying proof system)
+    expect(w.slice(1, 5)).toEqual(pointToCircuitValue(gPowR)[0])
+    expect(w.slice(5, 9)).toEqual(pointToCircuitValue(gPowR)[1])
+    expect(w.slice(9, 13)).toEqual(pointToCircuitValue(hashMPkPowR)[0])
+    expect(w.slice(13, 17)).toEqual(pointToCircuitValue(hashMPkPowR)[1])
   })
 
   // This tests that our circuit correctly computes g^s/(g^sk)^c = g^r, and that the first two equations are

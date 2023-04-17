@@ -9,6 +9,7 @@ include "./node_modules/circomlib/circuits/bitify.circom";
 // Verifies that a nullifier belongs to a specific public key
 // This blog explains the intuition behind the construction https://blog.aayushg.com/posts/nullifier
 template verify_nullifier(n, k, msg_length) {
+    signal input c[k];
     signal input s[k];
     signal input msg[msg_length];
     signal input public_key[2][k];
@@ -200,42 +201,4 @@ template verify_ec_compression(n, k) {
     for (var i = 0; i < k; i++) {
         uncompressed[0][i] === l_bytes[i];
     }
-}
-
-// Equivalent to get_gx and get_gy in circom-ecdsa, except we also have values for n = 64, k = 4.
-// This is necessary because hash_to_curve is only implemented for n = 64, k = 4 but circom-ecdsa
-// only g's coordinates for n = 86, k = 3
-// TODO: merge this upstream into circom-ecdsa
-function get_genx(n, k) {
-    assert((n == 86 && k == 3) || (n == 64 && k == 4));
-    var ret[100];
-    if (n == 86 && k == 3) {
-        ret[0] = 17117865558768631194064792;
-        ret[1] = 12501176021340589225372855;
-        ret[2] = 9198697782662356105779718;
-    }
-    if (n == 64 && k == 4) {
-        ret[0] = 6481385041966929816;
-        ret[1] = 188021827762530521;
-        ret[2] = 6170039885052185351;
-        ret[3] = 8772561819708210092;
-    }
-    return ret;
-}
-
-function get_geny(n, k) {
-    assert((n == 86 && k == 3) || (n == 64 && k == 4));
-    var ret[100];
-    if (n == 86 && k == 3) {
-        ret[0] = 6441780312434748884571320;
-        ret[1] = 57953919405111227542741658;
-        ret[2] = 5457536640262350763842127;
-    }
-    if (n == 64 && k == 4) {
-        ret[0] = 11261198710074299576;
-        ret[1] = 18237243440184513561;
-        ret[2] = 6747795201694173352;
-        ret[3] = 5204712524664259685;
-    }
-    return ret;
 }
