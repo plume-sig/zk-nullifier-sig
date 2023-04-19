@@ -11,6 +11,12 @@ import { sha512 } from "js-sha512";
 import { HashedPoint, multiplyPoint } from "./utils/curve";
 import { createHash } from "node:crypto";
 
+// PLUME version
+export enum PlumeVersion {
+  V1,
+  V2,
+}
+
 export function computeHashMPk(
   message: Uint8Array,
   publicKey: Uint8Array
@@ -22,7 +28,23 @@ export function computeHashMPk(
   return hashToCurve(Array.from(preimage));
 }
 
-export function computeC(
+export function computeC_V2(
+  nullifier: Point,
+  gPowR: Point,
+  hashMPkPowR: Point
+) {
+  const nullifierBytes = nullifier.toRawBytes(true);
+  const gPowRBytes = gPowR.toRawBytes(true);
+  const hashMPkPowRBytes = hashMPkPowR.toRawBytes(true);
+  const preimage = concatUint8Arrays([
+    nullifierBytes,
+    gPowRBytes,
+    hashMPkPowRBytes,
+  ]);
+  return createHash("sha256").update(preimage).digest("hex");
+}
+
+export function computeC_V1(
   publicKeyBytes: Uint8Array,
   hashMPk: HashedPoint,
   nullifier: Point,
@@ -45,9 +67,7 @@ export function computeC(
     gPowRBytes,
     hashMPkPowRBytes,
   ]);
-  return createHash("sha256")
-    .update(preimage)
-    .digest('hex')
+  return createHash("sha256").update(preimage).digest("hex");
 }
 
 export function computeNullifer(hashMPk: HashedPoint, secretKey: Uint8Array) {
@@ -77,7 +97,8 @@ export function computeS(r: Uint8Array, secretKey: Uint8Array, c: string) {
 export function computeAllInputs(
   message: string | Uint8Array,
   secretKey: string | Uint8Array,
-  r?: string | Uint8Array
+  r?: string | Uint8Array,
+  version: PlumeVersion = PlumeVersion.V1
 ) {
   const secretKeyBytes =
     typeof secretKey === "string" ? hexToUint8Array(secretKey) : secretKey;
@@ -94,7 +115,10 @@ export function computeAllInputs(
   const nullifier = computeNullifer(hashMPK, secretKeyBytes);
   const hashMPKPowR = computeHashMPkPowR(hashMPK, rBytes);
   const gPowR = computeGPowR(rBytes);
-  const c = computeC(publicKeyBytes, hashMPK, nullifier, gPowR, hashMPKPowR);
+  const c =
+    version == PlumeVersion.V1
+      ? computeC_V1(publicKeyBytes, hashMPK, nullifier, gPowR, hashMPKPowR)
+      : computeC_V2(nullifier, gPowR, hashMPKPowR);
   const s = computeS(rBytes, secretKeyBytes, c);
   return {
     plume: nullifier,
