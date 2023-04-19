@@ -2,13 +2,15 @@ import { join } from 'path';
 import { wasm as wasm_tester } from 'circom_tester'
 import { describe, expect, test } from '@jest/globals';
 import { hexToBigInt } from "../../javascript/src/utils/encoding";
-import { c, gPowR, hashMPk, hashMPkPowR, nullifier, s, testMessage, testPublicKey, testPublicKeyPoint, testSecretKey } from "../../javascript/test/test_consts"
+import { c, gPowR, hashMPk, hashMPkPowR, nullifier, s, testMessage, testPublicKey, testPublicKeyPoint, testR, testSecretKey } from "../../javascript/test/test_consts"
 import { Point } from "../../javascript/node_modules/@noble/secp256k1";
 import { generate_inputs_from_array } from "secp256k1_hash_to_curve_circom/ts/generate_inputs";
 import { bufToSha256PaddedBitArr } from "secp256k1_hash_to_curve_circom/ts/utils";
 import { utils } from "ffjavascript"
 import { concatUint8Arrays } from '../../javascript/src/utils/encoding';
 import { circuitValueToScalar, pointToCircuitValue, scalarToCircuitValue } from '../utils';
+import { createHash } from "node:crypto";
+import { computeS } from "../../javascript/src/signals";
 
 jest.setTimeout(2_000_000);
 
@@ -36,7 +38,10 @@ describe("Nullifier Circuit", () => {
   ));
   const v1_sha256_preimage_bit_length = parseInt(v1_sha256_preimage_bits.slice(-64), 2)
 
-  const v1_binary_c = BigInt("0x" + c).toString(2).split('').map(Number);
+  const v1_c = createHash("sha256")
+    .update(concatUint8Arrays(sha_preimage_points.map(p => p.toRawBytes(true))))
+    .digest('hex')
+  const v1_binary_c = BigInt("0x" + v1_c).toString(2).split('').map(Number);
 
   test("hash_to_curve outputs same value", async () => {
     const p = join(__dirname, 'hash_to_curve_test.circom')
@@ -96,8 +101,27 @@ describe("Nullifier Circuit", () => {
     }
   })
 
-  test("Circuit verifies valid nullifier", async () => {
-    const p = join(__dirname, 'vfy_test.circom')
+  test("V1 circuit works", async () => {
+    const p = join(__dirname, 'v1_test.circom')
+    const circuit = await wasm_tester(p)
+
+    const {msg: _, ...htci} = hash_to_curve_inputs;
+    const w = await circuit.calculateWitness({
+      // Main circuit inputs
+      c: scalarToCircuitValue(hexToBigInt(v1_c)),
+      s: scalarToCircuitValue(hexToBigInt(computeS(testR, testSecretKey, v1_c))),
+      msg: message_bytes,
+      public_key: pointToCircuitValue(testPublicKeyPoint),
+      nullifier: pointToCircuitValue(nullifier),
+      ...htci,
+      sha256_preimage_bit_length: v1_sha256_preimage_bit_length,
+      
+    })
+    await circuit.checkConstraints(w)
+  })
+
+  test("V2 circuit works", async () => {
+    const p = join(__dirname, 'v2_test.circom')
     const circuit = await wasm_tester(p)
 
     const {msg: _, ...htci} = hash_to_curve_inputs;
@@ -118,6 +142,12 @@ describe("Nullifier Circuit", () => {
     expect(w.slice(5, 9)).toEqual(pointToCircuitValue(gPowR)[1])
     expect(w.slice(9, 13)).toEqual(pointToCircuitValue(hashMPkPowR)[0])
     expect(w.slice(13, 17)).toEqual(pointToCircuitValue(hashMPkPowR)[1])
+
+    // In v2 we check the challenge point c outside the circuit
+    // Note, in a real application you would get the nullifier, g^r, and h^r as public outputs/inputs of the proof
+    expect(createHash("sha256")
+    .update(concatUint8Arrays([nullifier.toRawBytes(true), gPowR.toRawBytes(true), hashMPkPowR.toRawBytes(true)]))
+    .digest('hex')).toEqual(c)
   })
 
   // This tests that our circuit correctly computes g^s/(g^sk)^c = g^r, and that the first two equations are

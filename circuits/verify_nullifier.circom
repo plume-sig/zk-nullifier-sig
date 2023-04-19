@@ -9,7 +9,96 @@ include "./node_modules/circomlib/circuits/bitify.circom";
 
 // Verifies that a nullifier belongs to a specific public key
 // This blog explains the intuition behind the construction https://blog.aayushg.com/posts/nullifier
-template verify_nullifier(n, k, msg_length) {
+template plume_v1(n, k, msg_length) {
+    signal input c[k];
+    signal input s[k];
+    signal input msg[msg_length];
+    signal input public_key[2][k];
+    signal input nullifier[2][k];
+
+    // precomputed values for the hash_to_curve component
+    signal input q0_gx1_sqrt[4];
+    signal input q0_gx2_sqrt[4];
+    signal input q0_y_pos[4];
+    signal input q0_x_mapped[4];
+    signal input q0_y_mapped[4];
+
+    signal input q1_gx1_sqrt[4];
+    signal input q1_gx2_sqrt[4];
+    signal input q1_y_pos[4];
+    signal input q1_x_mapped[4];
+    signal input q1_y_mapped[4];
+
+    // precomputed value for the sha256 component. TODO: calculate internally in circom to simplify API
+    signal input sha256_preimage_bit_length;
+
+    component check_ec_equations = check_ec_equations(n, k, msg_length);
+    for (var i = 0; i < k; i++) {
+        check_ec_equations.c[i] <== c[i];
+        check_ec_equations.s[i] <== s[i];
+        check_ec_equations.public_key[0][i] <== public_key[0][i];
+        check_ec_equations.public_key[1][i] <== public_key[1][i];
+        check_ec_equations.nullifier[0][i] <== nullifier[0][i];
+        check_ec_equations.nullifier[1][i] <== nullifier[1][i];
+    }
+
+    for (var i = 0; i < msg_length; i++) {
+        check_ec_equations.msg[i] <== msg[i];
+    }
+
+    for (var i = 0; i < 4; i++) {
+        check_ec_equations.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        check_ec_equations.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        check_ec_equations.q0_y_pos[i] <== q0_y_pos[i];
+        check_ec_equations.q0_x_mapped[i] <== q0_x_mapped[i];
+        check_ec_equations.q0_y_mapped[i] <== q0_y_mapped[i];
+
+        check_ec_equations.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        check_ec_equations.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        check_ec_equations.q1_y_pos[i] <== q1_y_pos[i];
+        check_ec_equations.q1_x_mapped[i] <== q1_x_mapped[i];
+        check_ec_equations.q1_y_mapped[i] <== q1_y_mapped[i];
+    }
+
+    // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
+    component c_sha256 = sha256_12_coordinates(n, k);
+    var g[2][100];
+    g[0] = get_genx(n, k);
+    g[1] = get_geny(n, k);
+    c_sha256.preimage_bit_length <== sha256_preimage_bit_length;
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            c_sha256.coordinates[i][j] <== g[i][j];
+            c_sha256.coordinates[2+i][j] <== public_key[i][j];
+            c_sha256.coordinates[4+i][j] <== check_ec_equations.h[i][j];
+            c_sha256.coordinates[6+i][j] <== nullifier[i][j];
+            c_sha256.coordinates[8+i][j] <== check_ec_equations.g_pow_r[i][j];
+            c_sha256.coordinates[10+i][j] <== check_ec_equations.h_pow_r[i][j];
+        }
+    }
+
+    // check that the input c is the same as the hash value c
+    component c_bits[k];
+    for (var i = 0; i < k; i++) {
+        c_bits[i] = Num2Bits(n);
+        c_bits[i].in <== c[i];
+    }
+
+    for (var i = 0; i < k; i++) {
+        for (var j = 0; j < n; j++) {
+            // We may have 3 registers of 86 bits, which means we end up getting two extra 0 bits which don't have to be equal to the sha256 hash
+            // TODO: verify that we don't have to equate these to 0
+            if (i*k + j < 256) {
+                c_sha256.out[i*n + j] === c_bits[k-1-i].out[n-1-j]; // The sha256 output is little endian, whereas the c_bits is big endian (both at the register and bit level)
+            }
+        }
+    }
+}
+
+// v2 is the same as v1, except that the sha256 check is done outside the circuit.
+// We output g_pow_r and h_pow_r as public values so that the verifier can calculate the hash themselves.
+// The change is explained here https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff
+template plume_v2(n, k, msg_length) {
     signal input c[k];
     signal input s[k];
     signal input msg[msg_length];
@@ -32,8 +121,65 @@ template verify_nullifier(n, k, msg_length) {
     signal input q1_x_mapped[4];
     signal input q1_y_mapped[4];
 
-    // precomputed value for the sha256 component. TODO: calculate internally in circom to simplify API
-    signal input sha256_preimage_bit_length;
+    component check_ec_equations = check_ec_equations(n, k, msg_length);
+    for (var i = 0; i < k; i++) {
+        check_ec_equations.c[i] <== c[i];
+        check_ec_equations.s[i] <== s[i];
+        check_ec_equations.public_key[0][i] <== public_key[0][i];
+        check_ec_equations.public_key[1][i] <== public_key[1][i];
+        check_ec_equations.nullifier[0][i] <== nullifier[0][i];
+        check_ec_equations.nullifier[1][i] <== nullifier[1][i];
+    }
+
+    for (var i = 0; i < msg_length; i++) {
+        check_ec_equations.msg[i] <== msg[i];
+    }
+
+    for (var i = 0; i < 4; i++) {
+        check_ec_equations.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        check_ec_equations.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        check_ec_equations.q0_y_pos[i] <== q0_y_pos[i];
+        check_ec_equations.q0_x_mapped[i] <== q0_x_mapped[i];
+        check_ec_equations.q0_y_mapped[i] <== q0_y_mapped[i];
+
+        check_ec_equations.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        check_ec_equations.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        check_ec_equations.q1_y_pos[i] <== q1_y_pos[i];
+        check_ec_equations.q1_x_mapped[i] <== q1_x_mapped[i];
+        check_ec_equations.q1_y_mapped[i] <== q1_y_mapped[i];
+    }
+
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            h_pow_r[i][j] <== check_ec_equations.h_pow_r[i][j];
+            g_pow_r[i][j] <== check_ec_equations.g_pow_r[i][j];
+        }
+    }
+}
+
+template check_ec_equations(n, k, msg_length) {
+    signal input c[k];
+    signal input s[k];
+    signal input msg[msg_length];
+    signal input public_key[2][k];
+    signal input nullifier[2][k];
+
+    signal output g_pow_r[2][k];
+    signal output h_pow_r[2][k];
+    signal output h[2][k];
+
+    // precomputed values for the hash_to_curve component
+    signal input q0_gx1_sqrt[4];
+    signal input q0_gx2_sqrt[4];
+    signal input q0_y_pos[4];
+    signal input q0_x_mapped[4];
+    signal input q0_y_mapped[4];
+
+    signal input q1_gx1_sqrt[4];
+    signal input q1_gx2_sqrt[4];
+    signal input q1_y_pos[4];
+    signal input q1_x_mapped[4];
+    signal input q1_y_mapped[4];
 
     // calculate g^r
     // g^r = g^s / pk^c (where g is the generator)
@@ -60,9 +206,9 @@ template verify_nullifier(n, k, msg_length) {
     // Note this implicitly checks the second equation in the blog
 
     // Calculate hash[m, pk]^r
-    component h = HashToCurve(msg_length + 33);
+    component h_comp = HashToCurve(msg_length + 33);
     for (var i = 0; i < msg_length; i++) {
-        h.msg[i] <== msg[i];
+        h_comp.msg[i] <== msg[i];
     }
 
     component pk_compressor = compress_ec_point(n, k);
@@ -73,28 +219,28 @@ template verify_nullifier(n, k, msg_length) {
     }
 
     for (var i = 0; i < 33; i++) {
-        h.msg[msg_length + i] <== pk_compressor.compressed[i];
+        h_comp.msg[msg_length + i] <== pk_compressor.compressed[i];
     }
 
     // Input precalculated values into HashToCurve
     for (var i = 0; i < k; i++) {
-        h.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
-        h.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
-        h.q0_y_pos[i] <== q0_y_pos[i];
-        h.q0_x_mapped[i] <== q0_x_mapped[i];
-        h.q0_y_mapped[i] <== q0_y_mapped[i];
-        h.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
-        h.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
-        h.q1_y_pos[i] <== q1_y_pos[i];
-        h.q1_x_mapped[i] <== q1_x_mapped[i];
-        h.q1_y_mapped[i] <== q1_y_mapped[i];
+        h_comp.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        h_comp.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        h_comp.q0_y_pos[i] <== q0_y_pos[i];
+        h_comp.q0_x_mapped[i] <== q0_x_mapped[i];
+        h_comp.q0_y_mapped[i] <== q0_y_mapped[i];
+        h_comp.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        h_comp.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        h_comp.q1_y_pos[i] <== q1_y_pos[i];
+        h_comp.q1_x_mapped[i] <== q1_x_mapped[i];
+        h_comp.q1_y_mapped[i] <== q1_y_mapped[i];
     }
 
     component h_pow_s = Secp256k1ScalarMult(n, k);
     for (var i = 0; i < k; i++) {
         h_pow_s.scalar[i] <== s[i];
-        h_pow_s.point[0][i] <== h.out[0][i];
-        h_pow_s.point[1][i] <== h.out[1][i];
+        h_pow_s.point[0][i] <== h_comp.out[0][i];
+        h_pow_s.point[1][i] <== h_comp.out[1][i];
     }
 
     component h_pow_r_comp = a_div_b_pow_c(n, k);
@@ -107,44 +253,12 @@ template verify_nullifier(n, k, msg_length) {
     }
 
     for (var i = 0; i < k; i++) {
+        h[0][i] <== h_comp.out[0][i];
+        h[1][i] <== h_comp.out[1][i];
         h_pow_r[0][i] <== h_pow_r_comp.out[0][i];
         h_pow_r[1][i] <== h_pow_r_comp.out[1][i];
         g_pow_r[0][i] <== g_pow_r_comp.out[0][i];
         g_pow_r[1][i] <== g_pow_r_comp.out[1][i];
-    }
-
-    // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
-    component c_sha256 = sha256_12_coordinates(n, k);
-    var g[2][100];
-    g[0] = get_genx(n, k);
-    g[1] = get_geny(n, k);
-    c_sha256.preimage_bit_length <== sha256_preimage_bit_length;
-    for (var i = 0; i < 2; i++) {
-        for (var j = 0; j < k; j++) {
-            c_sha256.coordinates[i][j] <== g[i][j];
-            c_sha256.coordinates[2+i][j] <== public_key[i][j];
-            c_sha256.coordinates[4+i][j] <== h.out[i][j];
-            c_sha256.coordinates[6+i][j] <== nullifier[i][j];
-            c_sha256.coordinates[8+i][j] <== g_pow_r.out[i][j];
-            c_sha256.coordinates[10+i][j] <== h_pow_r.out[i][j];
-        }
-    }
-
-    // check that the input c is the same as the hash value c
-    component c_bits[k];
-    for (var i = 0; i < k; i++) {
-        c_bits[i] = Num2Bits(n);
-        c_bits[i].in <== c[i];
-    }
-
-    for (var i = 0; i < k; i++) {
-        for (var j = 0; j < n; j++) {
-            // We may have 3 registers of 86 bits, which means we end up getting two extra 0 bits which don't have to be equal to the sha256 hash
-            // TODO: verify that we don't have to equate these to 0
-            if (i*k + j < 256) {
-                c_sha256.out[i*n + j] === c_bits[k-1-i].out[n-1-j]; // The sha256 output is little endian, whereas the c_bits is big endian (both at the register and bit level)
-            }
-        }
     }
 }
 
@@ -301,4 +415,42 @@ template verify_ec_compression(n, k) {
     for (var i = 0; i < k; i++) {
         uncompressed[0][i] === l_bytes[i];
     }
+}
+
+// Equivalent to get_gx and get_gy in circom-ecdsa, except we also have values for n = 64, k = 4.
+// This is necessary because hash_to_curve is only implemented for n = 64, k = 4 but circom-ecdsa
+// only g's coordinates for n = 86, k = 3
+// TODO: merge this upstream into circom-ecdsa
+function get_genx(n, k) {
+    assert((n == 86 && k == 3) || (n == 64 && k == 4));
+    var ret[100];
+    if (n == 86 && k == 3) {
+        ret[0] = 17117865558768631194064792;
+        ret[1] = 12501176021340589225372855;
+        ret[2] = 9198697782662356105779718;
+    }
+    if (n == 64 && k == 4) {
+        ret[0] = 6481385041966929816;
+        ret[1] = 188021827762530521;
+        ret[2] = 6170039885052185351;
+        ret[3] = 8772561819708210092;
+    }
+    return ret;
+}
+
+function get_geny(n, k) {
+    assert((n == 86 && k == 3) || (n == 64 && k == 4));
+    var ret[100];
+    if (n == 86 && k == 3) {
+        ret[0] = 6441780312434748884571320;
+        ret[1] = 57953919405111227542741658;
+        ret[2] = 5457536640262350763842127;
+    }
+    if (n == 64 && k == 4) {
+        ret[0] = 11261198710074299576;
+        ret[1] = 18237243440184513561;
+        ret[2] = 6747795201694173352;
+        ret[3] = 5204712524664259685;
+    }
+    return ret;
 }
