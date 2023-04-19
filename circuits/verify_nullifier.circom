@@ -4,6 +4,7 @@ include "./node_modules/circom-ecdsa/circuits/ecdsa.circom";
 include "./node_modules/circom-ecdsa/circuits/secp256k1.circom";
 include "./node_modules/circom-ecdsa/circuits/secp256k1_func.circom";
 include "./node_modules/secp256k1_hash_to_curve_circom/circom/hash_to_curve.circom";
+include "./node_modules/secp256k1_hash_to_curve_circom/circom/Sha256.circom";
 include "./node_modules/circomlib/circuits/bitify.circom";
 
 // Verifies that a nullifier belongs to a specific public key
@@ -30,6 +31,9 @@ template verify_nullifier(n, k, msg_length) {
     signal input q1_y_pos[4];
     signal input q1_x_mapped[4];
     signal input q1_y_mapped[4];
+
+    // precomputed value for the sha256 component. TODO: calculate internally in circom to simplify API
+    signal input sha256_preimage_bit_length;
 
     // calculate g^r
     // g^r = g^s / pk^c (where g is the generator)
@@ -108,6 +112,40 @@ template verify_nullifier(n, k, msg_length) {
         g_pow_r[0][i] <== g_pow_r_comp.out[0][i];
         g_pow_r[1][i] <== g_pow_r_comp.out[1][i];
     }
+
+    // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
+    component c_sha256 = sha256_12_coordinates(n, k);
+    var g[2][100];
+    g[0] = get_genx(n, k);
+    g[1] = get_geny(n, k);
+    c_sha256.preimage_bit_length <== sha256_preimage_bit_length;
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            c_sha256.coordinates[i][j] <== g[i][j];
+            c_sha256.coordinates[2+i][j] <== public_key[i][j];
+            c_sha256.coordinates[4+i][j] <== h.out[i][j];
+            c_sha256.coordinates[6+i][j] <== nullifier[i][j];
+            c_sha256.coordinates[8+i][j] <== g_pow_r.out[i][j];
+            c_sha256.coordinates[10+i][j] <== h_pow_r.out[i][j];
+        }
+    }
+
+    // check that the input c is the same as the hash value c
+    component c_bits[k];
+    for (var i = 0; i < k; i++) {
+        c_bits[i] = Num2Bits(n);
+        c_bits[i].in <== c[i];
+    }
+
+    for (var i = 0; i < k; i++) {
+        for (var j = 0; j < n; j++) {
+            // We may have 3 registers of 86 bits, which means we end up getting two extra 0 bits which don't have to be equal to the sha256 hash
+            // TODO: verify that we don't have to equate these to 0
+            if (i*k + j < 256) {
+                c_sha256.out[i*n + j] === c_bits[k-1-i].out[n-1-j]; // The sha256 output is little endian, whereas the c_bits is big endian (both at the register and bit level)
+            }
+        }
+    }
 }
 
 template a_div_b_pow_c(n, k) {
@@ -147,6 +185,68 @@ template a_div_b_pow_c(n, k) {
     for (var i = 0; i < k; i++) {
         out[0][i] <== final_result.out[0][i];
         out[1][i] <== final_result.out[1][i];
+    }
+}
+
+template sha256_12_coordinates(n, k) {
+    signal input coordinates[12][k];
+    signal input preimage_bit_length;
+    signal output out[256];
+
+    // compress coordinates
+    component compressors[6];
+    for (var i = 0; i < 6; i++) {
+        compressors[i] = compress_ec_point(n, k);
+        for (var j = 0; j < k; j++) {
+            compressors[i].uncompressed[0][j] <== coordinates[2*i][j];
+            compressors[i].uncompressed[1][j] <== coordinates[2*i + 1][j];
+        }
+    }
+
+    // decompose coordinates inputs into binary
+    component binary[6*33];
+    for (var i = 0; i < 6; i++) { // for each compressor
+        for (var j = 0; j < 33; j++) { // for each byte
+            binary[33*i + j] = Num2Bits(8);
+            binary[33*i + j].in <== compressors[i].compressed[j];
+        }
+    }
+
+    var message_bits = 6*33*8; // 6 compressed coordinates of 33 bytes
+    var total_bits = (message_bits \ 512) * 512;
+    if (message_bits % 512 != 0) {
+        total_bits += 512;
+    }
+
+    component sha256 = Sha256Hash(total_bits);
+    for (var i = 0; i < 6*33; i++) {
+        for (var j = 0; j < 8; j++) {
+            sha256.msg[8*i + 7 - j] <== binary[i].out[j]; // Num2Bits is little endian, but compressed EC key form is big endian
+        }
+    }
+
+    for (var i = message_bits; i < total_bits; i++) {
+        sha256.msg[i] <== 0;
+    }
+
+    // Message is padded with 1, a series of 0s, then the bit length of the message https://en.wikipedia.org/wiki/SHA-2#Pseudocode:~:text=append%20a%20single%20%271%27%20bit
+    // TODO: move padding calculating into upstream repo to simplify API
+    for (var i = 0; i < total_bits - 64; i++) {
+        if (i == 1584) {
+            sha256.padded_bits[1584] <== 1;
+        } else {
+            sha256.padded_bits[i] <== sha256.msg[i];
+        }
+    }
+
+    component bit_length_binary = Num2Bits(64);
+    bit_length_binary.in <== preimage_bit_length;
+    for (var i = 0; i < 64; i++) {
+        sha256.padded_bits[total_bits - i - 1] <== bit_length_binary.out[i];
+    }
+
+    for (var i = 0; i < 256; i++) {
+        out[i] <== sha256.out[i];
     }
 }
 
