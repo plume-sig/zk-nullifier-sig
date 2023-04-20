@@ -9,7 +9,7 @@ include "./node_modules/circomlib/circuits/bitify.circom";
 
 // Verifies that a nullifier belongs to a specific public key
 // This blog explains the intuition behind the construction https://blog.aayushg.com/posts/nullifier
-template verify_nullifier(n, k, msg_length) {
+template plume_v1(n, k, msg_length) {
     signal input c[k];
     signal input s[k];
     signal input msg[msg_length];
@@ -32,75 +32,32 @@ template verify_nullifier(n, k, msg_length) {
     // precomputed value for the sha256 component. TODO: calculate internally in circom to simplify API
     signal input sha256_preimage_bit_length;
 
-    // calculate g^r
-    // g^r = g^s / pk^c (where g is the generator)
-    // Note this implicitly checks the first equation in the blog
-
-    // Calculates g^s. Note, turning a private key to a public key is the same operation as
-    // raising the generator g to some power, and we are *not* dealing with private keys in this circuit.
-    component g_pow_s = ECDSAPrivToPub(n, k);
+    component check_ec_equations = check_ec_equations(n, k, msg_length);
     for (var i = 0; i < k; i++) {
-        g_pow_s.privkey[i] <== s[i];
+        check_ec_equations.c[i] <== c[i];
+        check_ec_equations.s[i] <== s[i];
+        check_ec_equations.public_key[0][i] <== public_key[0][i];
+        check_ec_equations.public_key[1][i] <== public_key[1][i];
+        check_ec_equations.nullifier[0][i] <== nullifier[0][i];
+        check_ec_equations.nullifier[1][i] <== nullifier[1][i];
     }
 
-    component g_pow_r = a_div_b_pow_c(n, k);
-    for (var i = 0; i < k; i++) {
-        g_pow_r.a[0][i] <== g_pow_s.pubkey[0][i];
-        g_pow_r.a[1][i] <== g_pow_s.pubkey[1][i];
-        g_pow_r.b[0][i] <== public_key[0][i];
-        g_pow_r.b[1][i] <== public_key[1][i];
-        g_pow_r.c[i] <== c[i];
-    }
-
-    // Calculate hash[m, pk]^r
-    // hash[m, pk]^r = hash[m, pk]^s / (hash[m, pk]^sk)^c
-    // Note this implicitly checks the second equation in the blog
-
-    // Calculate hash[m, pk]^r
-    component h = HashToCurve(msg_length + 33);
     for (var i = 0; i < msg_length; i++) {
-        h.msg[i] <== msg[i];
+        check_ec_equations.msg[i] <== msg[i];
     }
 
-    component pk_compressor = compress_ec_point(n, k);
-    for (var i = 0; i < 2; i++) {
-        for (var j = 0; j < k; j++) {
-            pk_compressor.uncompressed[i][j] <== public_key[i][j];
-        }
-    }
+    for (var i = 0; i < 4; i++) {
+        check_ec_equations.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        check_ec_equations.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        check_ec_equations.q0_y_pos[i] <== q0_y_pos[i];
+        check_ec_equations.q0_x_mapped[i] <== q0_x_mapped[i];
+        check_ec_equations.q0_y_mapped[i] <== q0_y_mapped[i];
 
-    for (var i = 0; i < 33; i++) {
-        h.msg[msg_length + i] <== pk_compressor.compressed[i];
-    }
-
-    // Input precalculated values into HashToCurve
-    for (var i = 0; i < k; i++) {
-        h.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
-        h.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
-        h.q0_y_pos[i] <== q0_y_pos[i];
-        h.q0_x_mapped[i] <== q0_x_mapped[i];
-        h.q0_y_mapped[i] <== q0_y_mapped[i];
-        h.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
-        h.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
-        h.q1_y_pos[i] <== q1_y_pos[i];
-        h.q1_x_mapped[i] <== q1_x_mapped[i];
-        h.q1_y_mapped[i] <== q1_y_mapped[i];
-    }
-
-    component h_pow_s = Secp256k1ScalarMult(n, k);
-    for (var i = 0; i < k; i++) {
-        h_pow_s.scalar[i] <== s[i];
-        h_pow_s.point[0][i] <== h.out[0][i];
-        h_pow_s.point[1][i] <== h.out[1][i];
-    }
-
-    component h_pow_r = a_div_b_pow_c(n, k);
-    for (var i = 0; i < k; i++) {
-        h_pow_r.a[0][i] <== h_pow_s.out[0][i];
-        h_pow_r.a[1][i] <== h_pow_s.out[1][i];
-        h_pow_r.b[0][i] <== nullifier[0][i];
-        h_pow_r.b[1][i] <== nullifier[1][i];
-        h_pow_r.c[i] <== c[i];
+        check_ec_equations.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        check_ec_equations.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        check_ec_equations.q1_y_pos[i] <== q1_y_pos[i];
+        check_ec_equations.q1_x_mapped[i] <== q1_x_mapped[i];
+        check_ec_equations.q1_y_mapped[i] <== q1_y_mapped[i];
     }
 
     // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
@@ -113,10 +70,10 @@ template verify_nullifier(n, k, msg_length) {
         for (var j = 0; j < k; j++) {
             c_sha256.coordinates[i][j] <== g[i][j];
             c_sha256.coordinates[2+i][j] <== public_key[i][j];
-            c_sha256.coordinates[4+i][j] <== h.out[i][j];
+            c_sha256.coordinates[4+i][j] <== check_ec_equations.h[i][j];
             c_sha256.coordinates[6+i][j] <== nullifier[i][j];
-            c_sha256.coordinates[8+i][j] <== g_pow_r.out[i][j];
-            c_sha256.coordinates[10+i][j] <== h_pow_r.out[i][j];
+            c_sha256.coordinates[8+i][j] <== check_ec_equations.g_pow_r[i][j];
+            c_sha256.coordinates[10+i][j] <== check_ec_equations.h_pow_r[i][j];
         }
     }
 
@@ -135,6 +92,173 @@ template verify_nullifier(n, k, msg_length) {
                 c_sha256.out[i*n + j] === c_bits[k-1-i].out[n-1-j]; // The sha256 output is little endian, whereas the c_bits is big endian (both at the register and bit level)
             }
         }
+    }
+}
+
+// v2 is the same as v1, except that the sha256 check is done outside the circuit.
+// We output g_pow_r and h_pow_r as public values so that the verifier can calculate the hash themselves.
+// The change is explained here https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff
+template plume_v2(n, k, msg_length) {
+    signal input c[k];
+    signal input s[k];
+    signal input msg[msg_length];
+    signal input public_key[2][k];
+    signal input nullifier[2][k];
+
+    signal output g_pow_r[2][k];
+    signal output h_pow_r[2][k];
+
+    // precomputed values for the hash_to_curve component
+    signal input q0_gx1_sqrt[4];
+    signal input q0_gx2_sqrt[4];
+    signal input q0_y_pos[4];
+    signal input q0_x_mapped[4];
+    signal input q0_y_mapped[4];
+
+    signal input q1_gx1_sqrt[4];
+    signal input q1_gx2_sqrt[4];
+    signal input q1_y_pos[4];
+    signal input q1_x_mapped[4];
+    signal input q1_y_mapped[4];
+
+    component check_ec_equations = check_ec_equations(n, k, msg_length);
+    for (var i = 0; i < k; i++) {
+        check_ec_equations.c[i] <== c[i];
+        check_ec_equations.s[i] <== s[i];
+        check_ec_equations.public_key[0][i] <== public_key[0][i];
+        check_ec_equations.public_key[1][i] <== public_key[1][i];
+        check_ec_equations.nullifier[0][i] <== nullifier[0][i];
+        check_ec_equations.nullifier[1][i] <== nullifier[1][i];
+    }
+
+    for (var i = 0; i < msg_length; i++) {
+        check_ec_equations.msg[i] <== msg[i];
+    }
+
+    for (var i = 0; i < 4; i++) {
+        check_ec_equations.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        check_ec_equations.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        check_ec_equations.q0_y_pos[i] <== q0_y_pos[i];
+        check_ec_equations.q0_x_mapped[i] <== q0_x_mapped[i];
+        check_ec_equations.q0_y_mapped[i] <== q0_y_mapped[i];
+
+        check_ec_equations.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        check_ec_equations.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        check_ec_equations.q1_y_pos[i] <== q1_y_pos[i];
+        check_ec_equations.q1_x_mapped[i] <== q1_x_mapped[i];
+        check_ec_equations.q1_y_mapped[i] <== q1_y_mapped[i];
+    }
+
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            h_pow_r[i][j] <== check_ec_equations.h_pow_r[i][j];
+            g_pow_r[i][j] <== check_ec_equations.g_pow_r[i][j];
+        }
+    }
+}
+
+template check_ec_equations(n, k, msg_length) {
+    signal input c[k];
+    signal input s[k];
+    signal input msg[msg_length];
+    signal input public_key[2][k];
+    signal input nullifier[2][k];
+
+    signal output g_pow_r[2][k];
+    signal output h_pow_r[2][k];
+    signal output h[2][k];
+
+    // precomputed values for the hash_to_curve component
+    signal input q0_gx1_sqrt[4];
+    signal input q0_gx2_sqrt[4];
+    signal input q0_y_pos[4];
+    signal input q0_x_mapped[4];
+    signal input q0_y_mapped[4];
+
+    signal input q1_gx1_sqrt[4];
+    signal input q1_gx2_sqrt[4];
+    signal input q1_y_pos[4];
+    signal input q1_x_mapped[4];
+    signal input q1_y_mapped[4];
+
+    // calculate g^r
+    // g^r = g^s / pk^c (where g is the generator)
+    // Note this implicitly checks the first equation in the blog
+
+    // Calculates g^s. Note, turning a private key to a public key is the same operation as
+    // raising the generator g to some power, and we are *not* dealing with private keys in this circuit.
+    component g_pow_s = ECDSAPrivToPub(n, k);
+    for (var i = 0; i < k; i++) {
+        g_pow_s.privkey[i] <== s[i];
+    }
+
+    component g_pow_r_comp = a_div_b_pow_c(n, k);
+    for (var i = 0; i < k; i++) {
+        g_pow_r_comp.a[0][i] <== g_pow_s.pubkey[0][i];
+        g_pow_r_comp.a[1][i] <== g_pow_s.pubkey[1][i];
+        g_pow_r_comp.b[0][i] <== public_key[0][i];
+        g_pow_r_comp.b[1][i] <== public_key[1][i];
+        g_pow_r_comp.c[i] <== c[i];
+    }
+
+    // Calculate hash[m, pk]^r
+    // hash[m, pk]^r = hash[m, pk]^s / (hash[m, pk]^sk)^c
+    // Note this implicitly checks the second equation in the blog
+
+    // Calculate hash[m, pk]^r
+    component h_comp = HashToCurve(msg_length + 33);
+    for (var i = 0; i < msg_length; i++) {
+        h_comp.msg[i] <== msg[i];
+    }
+
+    component pk_compressor = compress_ec_point(n, k);
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            pk_compressor.uncompressed[i][j] <== public_key[i][j];
+        }
+    }
+
+    for (var i = 0; i < 33; i++) {
+        h_comp.msg[msg_length + i] <== pk_compressor.compressed[i];
+    }
+
+    // Input precalculated values into HashToCurve
+    for (var i = 0; i < k; i++) {
+        h_comp.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        h_comp.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        h_comp.q0_y_pos[i] <== q0_y_pos[i];
+        h_comp.q0_x_mapped[i] <== q0_x_mapped[i];
+        h_comp.q0_y_mapped[i] <== q0_y_mapped[i];
+        h_comp.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        h_comp.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        h_comp.q1_y_pos[i] <== q1_y_pos[i];
+        h_comp.q1_x_mapped[i] <== q1_x_mapped[i];
+        h_comp.q1_y_mapped[i] <== q1_y_mapped[i];
+    }
+
+    component h_pow_s = Secp256k1ScalarMult(n, k);
+    for (var i = 0; i < k; i++) {
+        h_pow_s.scalar[i] <== s[i];
+        h_pow_s.point[0][i] <== h_comp.out[0][i];
+        h_pow_s.point[1][i] <== h_comp.out[1][i];
+    }
+
+    component h_pow_r_comp = a_div_b_pow_c(n, k);
+    for (var i = 0; i < k; i++) {
+        h_pow_r_comp.a[0][i] <== h_pow_s.out[0][i];
+        h_pow_r_comp.a[1][i] <== h_pow_s.out[1][i];
+        h_pow_r_comp.b[0][i] <== nullifier[0][i];
+        h_pow_r_comp.b[1][i] <== nullifier[1][i];
+        h_pow_r_comp.c[i] <== c[i];
+    }
+
+    for (var i = 0; i < k; i++) {
+        h[0][i] <== h_comp.out[0][i];
+        h[1][i] <== h_comp.out[1][i];
+        h_pow_r[0][i] <== h_pow_r_comp.out[0][i];
+        h_pow_r[1][i] <== h_pow_r_comp.out[1][i];
+        g_pow_r[0][i] <== g_pow_r_comp.out[0][i];
+        g_pow_r[1][i] <== g_pow_r_comp.out[1][i];
     }
 }
 
