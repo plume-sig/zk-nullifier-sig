@@ -1,0 +1,8 @@
+[package]
+name = "PLUME-halo2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+halo2-base = { git = "https://github.com/axiom-crypto/halo2-lib.git", default-features = false, features = ["halo2-pse"] }
+halo2-ecc = { git = "https://github.com/axiom-crypto/halo2-lib.git", default-features = false, features = ["halo2-pse"] }
