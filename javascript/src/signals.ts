@@ -7,7 +7,6 @@ import {
   uint8ArrayToBigInt,
 } from "./utils/encoding";
 import hashToCurve from "./utils/hashToCurve";
-import { sha512 } from "js-sha512";
 import { HashedPoint, multiplyPoint } from "./utils/curve";
 import { createHash } from "node:crypto";
 
