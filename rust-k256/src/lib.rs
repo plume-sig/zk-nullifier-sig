@@ -20,7 +20,7 @@ const L: usize = 48;
 const COUNT: usize = 2;
 const OUT: usize = L * COUNT;
 const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // Hash to curve algorithm
-const DEFAULT_VERSION:PlumeVersion = PlumeVersion::V1;
+const DEFAULT_VERSION: PlumeVersion = PlumeVersion::V1;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -124,9 +124,7 @@ fn test_gen_signals(
         PlumeVersion::V1 => {
             sha256hash_vec_signal(&[g, pk, hash_m_pk, nullifier, g_r, hash_m_pk_pow_r])
         }
-        PlumeVersion::V2 => {
-            sha256hash_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r])
-        }
+        PlumeVersion::V2 => sha256hash_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r]),
     };
     // This value is part of the discrete log equivalence (DLEQ) proof.
     let r_sk_c = r + sk * c;
@@ -280,7 +278,8 @@ mod tests {
 
         // Fixed key nullifier, secret key, and random value for testing
         // Normally a secure enclave would generate these values, and output to a wallet implementation
-        let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) = test_gen_signals(m, PlumeVersion::V1);
+        let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) =
+            test_gen_signals(m, PlumeVersion::V1);
 
         // The signer's secret key. It is only accessed within the secu`re enclave.
         let sk = gen_test_scalar_sk();
@@ -401,7 +400,8 @@ mod tests {
 
         // Fixed key nullifier, secret key, and random value for testing
         // Normally a secure enclave would generate these values, and output to a wallet implementation
-        let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) = test_gen_signals(m, PlumeVersion::V2);
+        let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) =
+            test_gen_signals(m, PlumeVersion::V2);
 
         // The signer's secret key. It is only accessed within the secu`re enclave.
         let sk = gen_test_scalar_sk();
