@@ -22,9 +22,3 @@ k256 = {version = "0.11.3", features = ["arithmetic", "hash2curve", "expose-fiel
 generic-array = { version = "0.14", default-features = false }
 hex = "0.4.3"
 
-[patch.crates-io]
-ark-ec = { git = "https://github.com/FindoraNetwork/ark-algebra" }
-ark-ff = { git = "https://github.com/FindoraNetwork/ark-algebra" }
-ark-serialize = { git = "https://github.com/FindoraNetwork/ark-algebra" }
-ark-algebra-test-templates = { git = "https://github.com/FindoraNetwork/ark-algebra" }
-ark-std = { git = "https://github.com/FindoraNetwork/ark-std" }
