@@ -34,18 +34,17 @@ Be prepared to wait around 20-40 minutes for the tests to complete.
 
 ## TODO
 
-- change SHA256 to Poseidon (wallets are onboard)
-- improve `rust-k256` to use a similar interface as `rust-arkworks` - i.e.
-  generate/accept arbitrary keypairs and `r` values, and not just hardcoded
-  values
-- rewrite in halo2
+- Incorporate the [V2 proposed by poseidon](https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff) to be a codepath both in the wallet [WIP PR](https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/9) and in the circom (task still open)
+- improve `rust-k256` to use a similar interface as `rust-arkworks` - i.e. generate/accept arbitrary keypairs and `r` values, and not just hardcoded values
+- rewrite in halo2 (WIP by blakemscurr and vuvoth, dm to contribute via a grant!)
 - reduce number of arguments to c via Wei Dai's + [Poseidons](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4) suggestions
+- Edit: Poseidon will be too slow in Ledger and is a newer hash function -- given that we have reasonably efficient sha256 hashing with [zkevm sha256](https://github.com/Brechtpd/zkevm-circuits/tree/sha256), we do not intend to switch the hash function
 
 ## Resources
 
 ### Paper
-https://aayushg.com/thesis.pdf
-https://eprint.iacr.org/2022/1255
+Thesis [most up to date]: https://aayushg.com/thesis.pdf  
+Paper: https://eprint.iacr.org/2022/1255
 
 ### Slides
 https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87hAnY/edit#slide=id.g13e97fbcd2c_0_76
@@ -63,13 +62,13 @@ https://nullifier.xyz
 https://www.youtube.com/watch?v=6ajBnMdJGoY
 
 ### Circom Proofs
-https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/7
-6.5 million constraints. Mostly dominated by EC operations, but the hashes are very expensive too.
+See [this PR](https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/7).   
+6.5 million constraints. Mostly dominated by EC operations, but the hashes are very expensive too.  
 
-sha256 ~1.5M
-hash_to_curve ~0.5M
-a/b^c ~1.5 each (this is the sub circuit for the first 2 verification equations)
-the remaining 1.5M is probably dominated by calculating g^s and h^s
+sha256 ~1.5M. 
+hash_to_curve ~0.5M. 
+a/b^c ~1.5 each (this is the sub circuit for the first 2 verification equations). 
+the remaining 1.5M is probably dominated by calculating g^s and h^s. 
 
 #### Hash to Curve Circom Code
 https://github.com/geometryresearch/secp256k1_hash_to_curve/
