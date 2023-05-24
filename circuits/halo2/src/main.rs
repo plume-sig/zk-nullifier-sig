@@ -10,17 +10,59 @@ use halo2_ecc::fields::{fp::FpConfig, FieldChip};
 use halo2_ecc::ecc::fixed_base;
 use halo2_ecc::ecc::{ec_add_unequal, scalar_multiply, EcPoint};
 
-pub fn verify_nullifier<'v, F: PrimeField, CF: PrimeField, SF: PrimeField, GA>(
+// The verification procedure for a v2 PLUME nullifier
+// Details on PLUME v2 changes: https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff (as compared to v1, i.e., https://blog.aayushg.com/posts/nullifier/)
+pub fn plume_v2<'v, F: PrimeField, CF: PrimeField, SF: PrimeField, GA>(
     base_chip: &FpConfig<F, CF>,
     ctx: &mut Context<'v, F>,
-    var_window_bits: usize,
-    a: &EcPoint<F, <FpConfig<F, CF> as FieldChip<F>>::FieldPoint<'v>>,
-    b: &EcPoint<F, <FpConfig<F, CF> as FieldChip<F>>::FieldPoint<'v>>,
+    var_window_bits: usize, // TODO: what is this?
     c: &CRTInteger<'v, F>,
-) -> EcPoint<F, <FpConfig<F, CF> as FieldChip<F>>::FieldPoint<'v>>
+    s: &CRTInteger<'v, F>,
+    // msg: TODO
+    pub_key: &EcPoint<F, <FpConfig<F, CF> as FieldChip<F>>::FieldPoint<'v>>,
+    nullifier: &EcPoint<F, <FpConfig<F, CF> as FieldChip<F>>::FieldPoint<'v>>,
+) -> (
+    EcPoint<F, <FpConfig<F, CF> as FieldChip<F>>::FieldPoint<'v>>,
+    EcPoint<F, <FpConfig<F, CF> as FieldChip<F>>::FieldPoint<'v>>,
+)
 where
     GA: CurveAffineExt<Base = CF, ScalarExt = SF>,
 {
+    // calculate g^s
+    let g = GA::generator();
+    let g_pow_s = fixed_base::scalar_multiply(
+        base_chip,
+        ctx,
+        &g,
+        &s.truncation.limbs,
+        s.truncation.max_limb_bits, // TODO: guesswork - is this right??
+        var_window_bits,            // TODO: cargoculted - is this right??
+    );
+
+    // calculate g_pow_r, thereby verifying equation 1
+    let g_pow_r =
+        a_div_b_pow_c::<F, CF, SF, GA>(base_chip, ctx, var_window_bits, &g_pow_s, pub_key, c);
+
+    // hash message to curve
+    // compress public key
+    let h = &g_pow_r; // *THIS IS JUST A SIMPLE STANDIN WITH THE RIGHT TYPE. TODO: calculate this correctly by implementing hash_to_curve
+
+    // calculate h_pow_s
+    let h_pow_s = scalar_multiply(
+        base_chip,
+        ctx,
+        h,
+        &s.truncation.limbs,
+        s.truncation.max_limb_bits, // TODO: guesswork - is this right??
+        var_window_bits,            // TODO: cargoculted - is this right??
+    );
+
+    // calculate h_pow_r, thereby verifying equation 2
+    let h_pow_r =
+        a_div_b_pow_c::<F, CF, SF, GA>(base_chip, ctx, var_window_bits, &h_pow_s, nullifier, c);
+
+    // output g_pow_r and h_pow_r for hash verification outside the circuit
+    (g_pow_r, h_pow_r)
 }
 
 // Computes a/b^c where a and b are EC points, and c is a scalar
