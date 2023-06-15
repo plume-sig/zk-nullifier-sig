@@ -10,6 +10,10 @@ use halo2_ecc::fields::{fp::FpConfig, FieldChip};
 use halo2_ecc::ecc::fixed_base;
 use halo2_ecc::ecc::{ec_add_unequal, scalar_multiply, EcPoint};
 
+mod hash_to_curve;
+
+use hash_to_curve::HashToCurve;
+
 // The verification procedure for a v2 PLUME nullifier
 // Details on PLUME v2 changes: https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff (as compared to v1, i.e., https://blog.aayushg.com/posts/nullifier/)
 pub fn plume_v2<'v, F: PrimeField, CF: PrimeField, SF: PrimeField, GA>(
@@ -44,14 +48,15 @@ where
         a_div_b_pow_c::<F, CF, SF, GA>(base_chip, ctx, var_window_bits, &g_pow_s, pub_key, c);
 
     // hash message to curve
-    // compress public key
-    let h = &g_pow_r; // *THIS IS JUST A SIMPLE STANDIN WITH THE RIGHT TYPE. TODO: calculate this correctly by implementing hash_to_curve
+    // TODO: compress public key and concatenate it with the message
+
+    let h = HashToCurve::<F, CF, SF, GA>(base_chip, ctx, var_window_bits, &[], g_pow_r.clone());
 
     // calculate h_pow_s
     let h_pow_s = scalar_multiply(
         base_chip,
         ctx,
-        h,
+        &h,
         &s.truncation.limbs,
         s.truncation.max_limb_bits, // TODO: guesswork - is this right??
         var_window_bits,            // TODO: cargoculted - is this right??
