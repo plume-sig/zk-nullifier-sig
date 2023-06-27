@@ -18,10 +18,10 @@ import { PlumeVersion } from "../src/signals";
 
 describe("signals", () => {
   it("generates hash(m, pk)", () => {
-    expect(hashMPk.x.toString()).toEqual(
+    expect(hashMPk.x.toString(16)).toEqual(
       "bcac2d0e12679f23c218889395abcdc01f2affbc49c54d1136a2190db0800b65"
     );
-    expect(hashMPk.y.toString()).toEqual(
+    expect(hashMPk.y.toString(16)).toEqual(
       "3bcfb339c974c0e757d348081f90a123b0a91a53e32b3752145d87f0cd70966e"
     );
   });

@@ -18,16 +18,12 @@ describe("Nullifier Circuit", () => {
   const public_key_bytes = Array.from(testPublicKey);
   const message_bytes = Array.from(testMessage);
 
-  const hashMPkPoint = new Point(
-    hexToBigInt(hashMPk.x.toString()),
-    hexToBigInt(hashMPk.y.toString())
-  )
   const hash_to_curve_inputs = utils.stringifyBigInts(generate_inputs_from_array(message_bytes.concat(public_key_bytes)));
 
   var sha_preimage_points: Point[] = [
     Point.BASE,
     testPublicKeyPoint,
-    hashMPkPoint,
+    hashMPk,
     nullifier,
     gPowR,
     hashMPkPowR,
@@ -47,7 +43,7 @@ describe("Nullifier Circuit", () => {
       ...hash_to_curve_inputs,
     }, true)
     await circuit.checkConstraints(w)
-    await circuit.assertOut(w, {out: pointToCircuitValue(hashMPkPoint)});
+    await circuit.assertOut(w, {out: pointToCircuitValue(hashMPk)});
   })
 
   test("Correct sha256 value", async () => {

@@ -1,39 +1,50 @@
-import { CURVE, getPublicKey, Point } from "@noble/secp256k1";
-import {
-  computeC_V1,
-  computeC_V2,
-  computeGPowR,
-  computeHashMPk,
-  computeHashMPkPowR,
-  computeNullifer,
-  computeS,
-} from "../src/signals";
-import { hexToUint8Array, messageToUint8Array } from "../src/utils/encoding";
+import * as fs from 'fs';
+import * as path from 'path';
+import { plainToClass } from 'class-transformer';
+import { Transform } from 'class-transformer';
+import { Point } from '@noble/secp256k1';
 
-export const testSecretKey = hexToUint8Array(
-  "519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464"
-);
+class TestData {
+  @Transform(value => new Uint8Array(Object.values(value.value)), { toClassOnly: true })
+  testSecretKey: Uint8Array;
+  @Transform(value => new Point(BigInt(value.value.x), BigInt(value.value.y)), { toClassOnly: true })
+  testPublicKeyPoint: Point;
+  @Transform(value => new Uint8Array(Object.values(value.value)), { toClassOnly: true })
+  testPublicKey: Uint8Array;
+  @Transform(value => new Uint8Array(Object.values(value.value)), { toClassOnly: true })
+  testR: Uint8Array;
+  testMessageString: String;
+  @Transform(value => new Uint8Array(Object.values(value.value)), { toClassOnly: true })
+  testMessage: Uint8Array;
+  @Transform(value => new Point(BigInt(value.value.x), BigInt(value.value.y)), { toClassOnly: true })
+  hashMPk: Point;
+  @Transform(value => new Point(BigInt(value.value.x), BigInt(value.value.y)), { toClassOnly: true })
+  nullifier: Point;
+  @Transform(value => new Point(BigInt(value.value.x), BigInt(value.value.y)), { toClassOnly: true })
+  hashMPkPowR: Point;
+  @Transform(value => new Point(BigInt(value.value.x), BigInt(value.value.y)), { toClassOnly: true })
+  gPowR: Point;
+  c_v1: String;
+  s_v1: String;
+  c_v2: String;
+  s_v2: String;
+}
 
-export const testPublicKeyPoint = Point.fromPrivateKey(testSecretKey);
-export const testPublicKey = getPublicKey(testSecretKey, true);
+var jsonPath = path.join(__dirname, 'test_consts.json');
+let plain = JSON.parse(fs.readFileSync(jsonPath).toString());
+let consts = plainToClass(TestData, plain)
 
-export const testR = hexToUint8Array(
-  "93b9323b629f251b8f3fc2dd11f4672c5544e8230d493eceea98a90bda789808"
-);
-export const testMessageString = "An example app message string";
-export const testMessage = messageToUint8Array(testMessageString);
-export const hashMPk = computeHashMPk(testMessage, Buffer.from(testPublicKey));
-export const nullifier = computeNullifer(hashMPk, testSecretKey);
-export const hashMPkPowR = computeHashMPkPowR(hashMPk, testR);
-export const gPowR = computeGPowR(testR);
-export const c_v1 = computeC_V1(
-  testPublicKey,
-  hashMPk,
-  nullifier as unknown as Point,
-  gPowR,
-  hashMPkPowR
-);
-export const s_v1 = computeS(testR, testSecretKey, c_v1);
-
-export const c_v2 = computeC_V2(nullifier, gPowR, hashMPkPowR);
-export const s_v2 = computeS(testR, testSecretKey, c_v2);
+export const testSecretKey = consts.testSecretKey;
+export const testPublicKeyPoint = consts.testPublicKeyPoint;
+export const testPublicKey = consts.testPublicKey;
+export const testR = consts.testR;
+export const testMessageString = consts.testMessageString;
+export const testMessage = consts.testMessage;
+export const hashMPk = consts.hashMPk;
+export const nullifier = consts.nullifier;
+export const hashMPkPowR = consts.hashMPkPowR;
+export const gPowR = consts.gPowR;
+export const c_v1 = consts.c_v1;
+export const s_v1 = consts.s_v1;
+export const c_v2 = consts.c_v2;
+export const s_v2 = consts.s_v2;

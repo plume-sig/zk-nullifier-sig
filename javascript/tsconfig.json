@@ -13,8 +13,9 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "noFallthroughCasesInSwitch": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "experimentalDecorators": true
   },
   "compileOnSave": true,
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "test/**/*"]
 }
