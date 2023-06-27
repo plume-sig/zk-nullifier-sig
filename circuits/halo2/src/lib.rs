@@ -1,15 +1,9 @@
-use halo2_base::{
-    gates::{GateInstructions, RangeInstructions},
-    utils::{modulus, CurveAffineExt},
-    AssignedValue, Context,
-    QuantumCell::Existing,
-};
+use halo2_base::{utils::CurveAffineExt, Context};
 use halo2_ecc::bigint::ProperCrtUint;
-use halo2_ecc::fields::{fp::FpConfig, FieldChip};
-
 use halo2_ecc::ecc::fixed_base;
-use halo2_ecc::ecc::{ec_add_unequal, scalar_multiply, EcPoint, EccChip};
+use halo2_ecc::ecc::{scalar_multiply, EcPoint, EccChip};
 use halo2_ecc::fields::fp::FpChip;
+use halo2_ecc::fields::FieldChip;
 use halo2_ecc::fields::PrimeField;
 
 mod hash_to_curve;
