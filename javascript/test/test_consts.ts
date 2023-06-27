@@ -13,7 +13,7 @@ class TestData {
   testPublicKey: Uint8Array;
   @Transform(value => new Uint8Array(Object.values(value.value)), { toClassOnly: true })
   testR: Uint8Array;
-  testMessageString: String;
+  testMessageString: string;
   @Transform(value => new Uint8Array(Object.values(value.value)), { toClassOnly: true })
   testMessage: Uint8Array;
   @Transform(value => new Point(BigInt(value.value.x), BigInt(value.value.y)), { toClassOnly: true })
@@ -24,10 +24,10 @@ class TestData {
   hashMPkPowR: Point;
   @Transform(value => new Point(BigInt(value.value.x), BigInt(value.value.y)), { toClassOnly: true })
   gPowR: Point;
-  c_v1: String;
-  s_v1: String;
-  c_v2: String;
-  s_v2: String;
+  c_v1: string;
+  s_v1: string;
+  c_v2: string;
+  s_v2: string;
 }
 
 var jsonPath = path.join(__dirname, 'test_consts.json');

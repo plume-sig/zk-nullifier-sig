@@ -1,16 +1,15 @@
 import { join } from 'path';
 import { wasm as wasm_tester } from 'circom_tester'
 import { describe, expect, test } from '@jest/globals';
-import { hexToBigInt } from "../../javascript/src/utils/encoding";
-import { c_v1, c_v2, gPowR, hashMPk, hashMPkPowR, nullifier, s_v1, s_v2, testMessage, testPublicKey, testPublicKeyPoint, testR, testSecretKey } from "../../javascript/test/test_consts"
-import { Point } from "../../javascript/node_modules/@noble/secp256k1";
+import { hexToBigInt } from "../../../javascript/src/utils/encoding";
+import { c_v1, c_v2, gPowR, hashMPk, hashMPkPowR, nullifier, s_v1, s_v2, testMessage, testPublicKey, testPublicKeyPoint, testR, testSecretKey } from "../../../javascript/test/test_consts"
+import { Point } from "../../../javascript/node_modules/@noble/secp256k1";
 import { generate_inputs_from_array } from "secp256k1_hash_to_curve_circom/ts/generate_inputs";
 import { bufToSha256PaddedBitArr } from "secp256k1_hash_to_curve_circom/ts/utils";
 import { utils } from "ffjavascript"
-import { concatUint8Arrays } from '../../javascript/src/utils/encoding';
+import { concatUint8Arrays } from '../../../javascript/src/utils/encoding';
 import { circuitValueToScalar, pointToCircuitValue, scalarToCircuitValue } from '../utils';
 import { createHash } from "node:crypto";
-import { computeS } from "../../javascript/src/signals";
 
 jest.setTimeout(2_000_000);
 
