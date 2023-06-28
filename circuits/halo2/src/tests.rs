@@ -124,7 +124,7 @@ struct CircuitParams {
 }
 
 fn get_params() -> CircuitParams {
-    let path = "a_div_b_pow_c_circuit.config";
+    let path = "src/configs/a_div_b_pow_c_circuit.config";
     serde_json::from_reader(
         File::open(path).unwrap_or_else(|e| panic!("{path} does not exist: {e:?}")),
     )
