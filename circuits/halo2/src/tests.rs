@@ -12,8 +12,9 @@ use halo2_base::halo2_proofs::{
     halo2curves::secp256k1::{Fp, Fq, Secp256k1Affine},
 };
 use halo2_base::safe_types::RangeChip;
-use halo2_base::utils::fe_to_biguint;
+use halo2_base::utils::{bigint_to_fe, fe_to_biguint};
 use halo2_base::Context;
+use halo2_ecc::bigint;
 use halo2_ecc::ecc::EcPoint;
 use halo2_ecc::fields::FpStrategy;
 use halo2_ecc::secp256k1::FpChip;
@@ -22,9 +23,12 @@ use halo2_ecc::{
     ecc::{ecdsa::ecdsa_verify_no_pubkey_check, EccChip},
     fields::{FieldChip, PrimeField},
 };
+use hex;
+use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 use std::fs::File;
+use std::str::FromStr;
 use test_case::test_case;
 
 use super::a_div_b_pow_c;
@@ -34,13 +38,13 @@ fn test_a_div_b_pow_c() {
     let params = get_params();
     let test_data = get_test_data();
 
-    let gPowS = test_data.s_v1;
+    let gPowS = Secp256k1Affine::from(Secp256k1Affine::generator() * test_data.s_v1);
 
     let circuit = a_div_b_pow_c_circuit(
         gPowS,
         test_data.testPublicKeyPoint,
         test_data.c_v1,
-        test_data.gPowS,
+        gPowS,
         params,
         CircuitBuilderStage::Mock,
         None,
@@ -51,10 +55,10 @@ fn test_a_div_b_pow_c() {
 }
 
 fn a_div_b_pow_c_circuit(
-    a: Point,
-    b: Point,
+    a: Secp256k1Affine,
+    b: Secp256k1Affine,
     c: Fq,
-    expected: Point,
+    expected: Secp256k1Affine,
     params: CircuitParams,
     stage: CircuitBuilderStage,
     break_points: Option<MultiPhaseThreadBreakPoints>,
@@ -82,7 +86,7 @@ fn a_div_b_pow_c_circuit(
     circuit
 }
 
-fn a_div_b_pow_c_test<F: PrimeField, CF: PrimeField>(
+fn a_div_b_pow_c_test<F: PrimeField>(
     ctx: &mut Context<F>,
     params: CircuitParams,
     a: Secp256k1Affine,
@@ -127,34 +131,98 @@ fn get_params() -> CircuitParams {
     .unwrap()
 }
 
+#[derive(Clone, Debug)]
+struct TestData {
+    testSecretKey: Fq,
+    testPublicKeyPoint: Secp256k1Affine,
+    testPublicKeyCompressed: [u8; 33],
+    testR: Fq,
+    testMessageString: String,
+    testMessage: [u8; 29],
+    hashMPk: Secp256k1Affine,
+    nullifier: Secp256k1Affine,
+    hashMPkPowR: Secp256k1Affine,
+    gPowR: Secp256k1Affine,
+    s_v1: Fq,
+    s_v2: Fq,
+    // TODO: add string/bytes versions, since these also exist in the circuit as bytes
+    c_v1: Fq,
+    c_v2: Fq,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 struct Point {
     x: String,
     y: String,
 }
 
+impl Point {
+    fn to_secp(self) -> Secp256k1Affine {
+        Secp256k1Affine {
+            x: decode_bigint_coordinate(self.x),
+            y: decode_bigint_coordinate(self.y),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
-struct TestData {
+struct RawTestData {
     testSecretKey: [u8; 32],
     testPublicKeyPoint: Point,
     #[serde(with = "BigArray")]
     testPublicKey: [u8; 33],
     testR: [u8; 32],
     testMessageString: String,
-    testMessage: [u8; 28],
+    testMessage: [u8; 29],
     hashMPk: Point,
     nullifier: Point,
     hashMPkPowR: Point,
     gPowR: Point,
-    c_v1: String,
     s_v1: String,
-    c_v2: String,
     s_v2: String,
+    c_v1: String,
+    c_v2: String,
 }
+
 fn get_test_data() -> TestData {
     let path = "../../javascript/test/test_consts.json";
-    serde_json::from_reader(
+    let raw: RawTestData = serde_json::from_reader(
         File::open(path).unwrap_or_else(|e| panic!("{path} does not exist: {e:?}")),
     )
-    .unwrap()
+    .unwrap();
+    TestData {
+        testSecretKey: decode_scalar(raw.testSecretKey),
+        testPublicKeyPoint: raw.testPublicKeyPoint.to_secp(),
+        testPublicKeyCompressed: raw.testPublicKey,
+        testR: decode_scalar(raw.testR),
+        testMessageString: raw.testMessageString,
+        testMessage: raw.testMessage,
+        hashMPk: raw.hashMPk.to_secp(),
+        nullifier: raw.nullifier.to_secp(),
+        hashMPkPowR: raw.hashMPkPowR.to_secp(),
+        gPowR: raw.gPowR.to_secp(),
+        s_v1: decode_hex_scalar(raw.s_v1),
+        s_v2: decode_hex_scalar(raw.s_v2),
+        c_v1: decode_hex_scalar(raw.c_v1),
+        c_v2: decode_hex_scalar(raw.c_v2),
+    }
+}
+
+fn decode_scalar(v: [u8; 32]) -> Fq {
+    Fq::from_bytes(&v).expect("Couldn't parse as element in Secp256k1 scalar field")
+}
+
+fn decode_hex_scalar(v: String) -> Fq {
+    decode_scalar(convert_to_array(
+        hex::decode(v).expect("Couldn't decode hex"),
+    ))
+}
+
+fn decode_bigint_coordinate(v: String) -> Fp {
+    bigint_to_fe::<Fp>(&BigInt::from_str(&v).expect("Couldn't parse coordinate"))
+}
+
+fn convert_to_array(v: Vec<u8>) -> [u8; 32] {
+    v.try_into()
+        .unwrap_or_else(|v: Vec<u8>| panic!("Expected a Vec of length 32 but it was {}", v.len()))
 }
