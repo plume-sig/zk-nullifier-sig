@@ -44,7 +44,7 @@ fn test_a_div_b_pow_c() {
         gPowS,
         test_data.testPublicKeyPoint,
         test_data.c_v1,
-        gPowS,
+        test_data.gPowR,
         params,
         CircuitBuilderStage::Mock,
         None,
@@ -99,16 +99,15 @@ fn a_div_b_pow_c_test<F: PrimeField>(
     let fp_chip = FpChip::<F>::new(&range, params.limb_bits, params.num_limbs);
     let fq_chip = FqChip::<F>::new(&range, params.limb_bits, params.num_limbs);
 
-    let c = fq_chip.load_private(ctx, c);
-
     let ecc_chip = EccChip::<F, FpChip<F>>::new(&fp_chip);
     let a = ecc_chip.assign_point(ctx, a);
     let b = ecc_chip.assign_point(ctx, b);
+    let c = fq_chip.load_private(ctx, c);
     let res = a_div_b_pow_c::<F, Fp, Fq, Secp256k1Affine>(&ecc_chip, ctx, 4, a, b, &c);
 
-    let (x, y) = expected.into_coordinates();
-    assert_eq!(res.x().value(), fe_to_biguint(&x));
-    assert_eq!(res.y().value(), fe_to_biguint(&y));
+    let expected = expected.into_coordinates();
+    assert_eq!(res.x().value(), fe_to_biguint(&expected.0));
+    assert_eq!(res.y().value(), fe_to_biguint(&expected.1));
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -157,10 +156,10 @@ struct Point {
 }
 
 impl Point {
-    fn to_secp(self) -> Secp256k1Affine {
+    fn to_secp(&self) -> Secp256k1Affine {
         Secp256k1Affine {
-            x: decode_bigint_coordinate(self.x),
-            y: decode_bigint_coordinate(self.y),
+            x: decode_bigint_coordinate(self.x.to_string()),
+            y: decode_bigint_coordinate(self.y.to_string()),
         }
     }
 }
@@ -213,9 +212,10 @@ fn decode_scalar(v: [u8; 32]) -> Fq {
 }
 
 fn decode_hex_scalar(v: String) -> Fq {
-    decode_scalar(convert_to_array(
-        hex::decode(v).expect("Couldn't decode hex"),
-    ))
+    let v = hex::decode(v).expect("Couldn't decode hex");
+    let mut v = convert_to_array(v);
+    v.reverse(); // convert to little endian
+    decode_scalar(v)
 }
 
 fn decode_bigint_coordinate(v: String) -> Fp {
