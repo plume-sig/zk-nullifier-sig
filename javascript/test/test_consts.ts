@@ -5,16 +5,16 @@ import { Transform } from 'class-transformer';
 import { Point } from '@noble/secp256k1';
 
 class TestData {
-  @Transform(value => new Uint8Array(Object.values(value.value)), { toClassOnly: true })
+  @Transform(value => new Uint8Array(value.value), { toClassOnly: true })
   testSecretKey: Uint8Array;
   @Transform(value => new Point(BigInt(value.value.x), BigInt(value.value.y)), { toClassOnly: true })
   testPublicKeyPoint: Point;
-  @Transform(value => new Uint8Array(Object.values(value.value)), { toClassOnly: true })
+  @Transform(value => new Uint8Array(value.value), { toClassOnly: true })
   testPublicKey: Uint8Array;
-  @Transform(value => new Uint8Array(Object.values(value.value)), { toClassOnly: true })
+  @Transform(value => new Uint8Array(value.value), { toClassOnly: true })
   testR: Uint8Array;
   testMessageString: string;
-  @Transform(value => new Uint8Array(Object.values(value.value)), { toClassOnly: true })
+  @Transform(value => new Uint8Array(value.value), { toClassOnly: true })
   testMessage: Uint8Array;
   @Transform(value => new Point(BigInt(value.value.x), BigInt(value.value.y)), { toClassOnly: true })
   hashMPk: Point;

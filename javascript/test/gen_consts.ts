@@ -45,12 +45,12 @@ const s_v2 = computeS(testR, testSecretKey, c_v2);
     return this.toString();
 };
 export const consts = {
-    testSecretKey: testSecretKey,
+    testSecretKey: Array.from(testSecretKey),
     testPublicKeyPoint: testPublicKeyPoint,
-    testPublicKey: testPublicKey,
-    testR: testR,
+    testPublicKey: Array.from(testPublicKey),
+    testR: Array.from(testR),
     testMessageString: testMessageString,
-    testMessage: testMessage,
+    testMessage: Array.from(testMessage),
     hashMPk: hashMPkPoint,
     nullifier: nullifier,
     hashMPkPowR: hashMPkPowR,
