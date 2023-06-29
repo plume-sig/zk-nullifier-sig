@@ -1,12 +1,8 @@
 #![allow(non_snake_case)]
 use ark_std::{end_timer, start_timer};
-use halo2_base::gates::builder::{
-    CircuitBuilderStage, GateThreadBuilder, MultiPhaseThreadBreakPoints, RangeCircuitBuilder,
-};
-use halo2_base::halo2_proofs::halo2curves::secp256k1::Secp256k1Compressed;
+use halo2_base::gates::builder::{GateThreadBuilder, RangeCircuitBuilder};
 use halo2_base::halo2_proofs::halo2curves::CurveAffineExt;
 use halo2_base::halo2_proofs::{
-    arithmetic::CurveAffine,
     dev::MockProver,
     halo2curves::bn256::Fr,
     halo2curves::secp256k1::{Fp, Fq, Secp256k1Affine},
@@ -14,22 +10,18 @@ use halo2_base::halo2_proofs::{
 use halo2_base::safe_types::RangeChip;
 use halo2_base::utils::{bigint_to_fe, fe_to_biguint};
 use halo2_base::Context;
-use halo2_ecc::bigint;
-use halo2_ecc::ecc::EcPoint;
 use halo2_ecc::fields::FpStrategy;
 use halo2_ecc::secp256k1::FpChip;
 use halo2_ecc::secp256k1::FqChip;
 use halo2_ecc::{
-    ecc::{ecdsa::ecdsa_verify_no_pubkey_check, EccChip},
+    ecc::EccChip,
     fields::{FieldChip, PrimeField},
 };
-use hex;
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 use std::fs::File;
 use std::str::FromStr;
-use test_case::test_case;
 
 use super::a_div_b_pow_c;
 
@@ -37,53 +29,25 @@ use super::a_div_b_pow_c;
 fn test_a_div_b_pow_c() {
     let params = get_params();
     let test_data = get_test_data();
-
     let gPowS = Secp256k1Affine::from(Secp256k1Affine::generator() * test_data.s_v1);
 
-    let circuit = a_div_b_pow_c_circuit(
+    let mut builder: GateThreadBuilder<Fr> = GateThreadBuilder::mock();
+    let start0 = start_timer!(|| "Witness generation for mock circuit");
+    a_div_b_pow_c_test(
+        builder.main(0),
+        params,
         gPowS,
         test_data.testPublicKeyPoint,
         test_data.c_v1,
         test_data.gPowR,
-        params,
-        CircuitBuilderStage::Mock,
-        None,
     );
-    MockProver::run(params.degree, &circuit, vec![])
+
+    builder.config(params.degree as usize, Some(20));
+    MockProver::run(params.degree, &RangeCircuitBuilder::mock(builder), vec![])
         .unwrap()
         .assert_satisfied();
-}
 
-fn a_div_b_pow_c_circuit(
-    a: Secp256k1Affine,
-    b: Secp256k1Affine,
-    c: Fq,
-    expected: Secp256k1Affine,
-    params: CircuitParams,
-    stage: CircuitBuilderStage,
-    break_points: Option<MultiPhaseThreadBreakPoints>,
-) -> RangeCircuitBuilder<Fr> {
-    let mut builder = match stage {
-        CircuitBuilderStage::Mock => GateThreadBuilder::mock(),
-        CircuitBuilderStage::Prover => GateThreadBuilder::prover(),
-        CircuitBuilderStage::Keygen => GateThreadBuilder::keygen(),
-    };
-    let start0 = start_timer!(|| format!("Witness generation for circuit in {stage:?} stage"));
-    a_div_b_pow_c_test(builder.main(0), params, a, b, c, expected);
-
-    let circuit = match stage {
-        CircuitBuilderStage::Mock => {
-            builder.config(params.degree as usize, Some(20));
-            RangeCircuitBuilder::mock(builder)
-        }
-        CircuitBuilderStage::Keygen => {
-            builder.config(params.degree as usize, Some(20));
-            RangeCircuitBuilder::keygen(builder)
-        }
-        CircuitBuilderStage::Prover => RangeCircuitBuilder::prover(builder, break_points.unwrap()),
-    };
     end_timer!(start0);
-    circuit
 }
 
 fn a_div_b_pow_c_test<F: PrimeField>(
