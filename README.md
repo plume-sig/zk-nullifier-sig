@@ -1,6 +1,8 @@
 # PLUME: Verifiably Deterministic Signatures on ECDSA
 
-This allows for the construction of deterministic nullifiers. We intend to deploy it as Privately Linked Unique Message Entities (PLUME).
+This repository provides libraries for the construction of deterministic nullifiers on Ethereum keys, a soon-to-be ERC. We call them Privately Linked Unique Message Entities (or PLUMEs). We hope that wallets integrate the javascript, rust, or (work-in-progress) C repositories for both software and hardware signature generation, and dapps integrate the zk proof in the circuits/ directory.
+
+If you would like to get a grant to create PLUME applications or help to fix bugs and upgrade to a V3, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are ideas both below in the README, or in the issues in Github. Feel free to pick one up, and dm on Twitter or email [Ivy Research](https://ivyresearch.org) to help! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as Richard L, Blake MS, Piotr R, Vu V, Weijie K, Vivek B, and our auditors, as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf).   
 
 ## Implementations
 
@@ -38,13 +40,14 @@ Be prepared to wait around 20-40 minutes for the tests to complete.
 - improve `rust-k256` to use a similar interface as `rust-arkworks` - i.e. generate/accept arbitrary keypairs and `r` values, and not just hardcoded values
 - rewrite in halo2 (WIP by blakemscurr and vuvoth, dm to contribute via a grant!)
 - reduce number of arguments to c via Wei Dai's + [Poseidons](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4) suggestions
+- build stealthdrop MVP, the first anonymous airdrop to any Ethereum keys via PLUME by forking [stealthdrop][url](https://docs.google.com/presentation/d/10ZGJvYpIqpON5O4uDf2pdk-PnT8fEVyPOoRqC3VmFn0/edit)
 - Edit: Poseidon will be too slow in Ledger and is a newer hash function -- given that we have reasonably efficient sha256 hashing with [zkevm sha256](https://github.com/Brechtpd/zkevm-circuits/tree/sha256), we do not intend to switch the hash function
 
 ## Resources
 
 ### Paper
-Thesis [most up to date]: https://aayushg.com/thesis.pdf  
-Paper: https://eprint.iacr.org/2022/1255
+Thesis [most up to date version]: https://aayushg.com/thesis.pdf  
+Paper [slightly out of date]: https://eprint.iacr.org/2022/1255
 
 ### Slides
 https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87hAnY/edit#slide=id.g13e97fbcd2c_0_76
