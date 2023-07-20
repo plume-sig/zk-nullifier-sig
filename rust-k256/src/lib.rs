@@ -9,7 +9,7 @@ use hex_literal::hex;
 use k256::{
     // ecdsa::{signature::Signer, Signature, SigningKey},
     elliptic_curve::group::ff::PrimeField,
-    sha2::{Digest, Sha256, Sha512},
+    sha2::{Digest, Sha256},
     FieldBytes,
     ProjectivePoint,
     Scalar,
@@ -20,7 +20,7 @@ const L: usize = 48;
 const COUNT: usize = 2;
 const OUT: usize = L * COUNT;
 const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // Hash to curve algorithm
-const DEFAULT_VERSION:PlumeVersion = PlumeVersion::V1;
+const DEFAULT_VERSION: PlumeVersion = PlumeVersion::V1;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -32,7 +32,7 @@ fn print_type_of<T>(_: &T) {
 }
 
 // Generates a deterministic secret key for us temporarily. Can be replaced by random oracle anytime.
-fn gen_test_scalar_x() -> Scalar {
+fn gen_test_scalar_sk() -> Scalar {
     Scalar::from_repr(
         hex!("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464").into(),
     )
@@ -70,7 +70,7 @@ fn test_gen_signals(
     let g = ProjectivePoint::GENERATOR;
 
     // The signer's secret key. It is only accessed within the secure enclave.
-    let sk = gen_test_scalar_x();
+    let sk = gen_test_scalar_sk();
 
     // A random value r. It is only accessed within the secure enclave.
     let r = gen_test_scalar_r();
@@ -122,11 +122,9 @@ fn test_gen_signals(
     // The Fiat-Shamir type step.
     let c = match version {
         PlumeVersion::V1 => {
-            sha512hash_vec_signal(&[g, pk, hash_m_pk, nullifier, g_r, hash_m_pk_pow_r])
+            sha256hash_vec_signal(&[g, pk, hash_m_pk, nullifier, g_r, hash_m_pk_pow_r])
         }
-        PlumeVersion::V2 => {
-            sha512hash_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r])
-        }
+        PlumeVersion::V2 => sha256hash_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r]),
     };
     // This value is part of the discrete log equivalence (DLEQ) proof.
     let r_sk_c = r + sk * c;
@@ -135,22 +133,22 @@ fn test_gen_signals(
     (pk, nullifier, c, r_sk_c, Some(g_r), Some(hash_m_pk_pow_r))
 }
 
-fn sha512hash_vec_signal(values: &[ProjectivePoint]) -> Scalar {
+fn sha256hash_vec_signal(values: &[ProjectivePoint]) -> Scalar {
     let preimage_vec = values
         .iter()
         .map(|value| encode_pt(*value).unwrap())
         .collect::<Vec<_>>()
         .concat();
-    let mut sha512_hasher = Sha512::new();
-    sha512_hasher.update(preimage_vec.as_slice());
-    let sha512_hasher_result = sha512_hasher.finalize(); //512 bit hash
+    let mut sha256_hasher = Sha256::new();
+    sha256_hasher.update(preimage_vec.as_slice());
+    let sha512_hasher_result = sha256_hasher.finalize(); //256 bit hash
 
     let bytes = FieldBytes::from_iter(sha512_hasher_result.iter().copied());
     let scalar_res = Scalar::from_repr(bytes).unwrap();
     scalar_res
 }
 
-fn sha512hash6signals(
+fn sha256hash6signals(
     g: &ProjectivePoint,
     pk: &ProjectivePoint,
     hash_m_pk: &ProjectivePoint,
@@ -169,9 +167,9 @@ fn sha512hash6signals(
 
     //println!("c_preimage_vec: {:?}", c_preimage_vec);
 
-    let mut sha512_hasher = Sha512::new();
-    sha512_hasher.update(c_preimage_vec.as_slice());
-    let sha512_hasher_result = sha512_hasher.finalize(); //512 bit hash
+    let mut sha256_hasher = Sha256::new();
+    sha256_hasher.update(c_preimage_vec.as_slice());
+    let sha512_hasher_result = sha256_hasher.finalize(); //512 bit hash
 
     let c_bytes = FieldBytes::from_iter(sha512_hasher_result.iter().copied());
     let c_scalar = Scalar::from_repr(c_bytes).unwrap();
@@ -254,13 +252,13 @@ fn verify_signals(
     // Check if the given hash matches
     match version {
         PlumeVersion::V1 => {
-            if sha512hash_vec_signal(&[*g, *pk, *hash_m_pk, *nullifier, g_r, hash_m_pk_pow_r]) != *c
+            if sha256hash_vec_signal(&[*g, *pk, *hash_m_pk, *nullifier, g_r, hash_m_pk_pow_r]) != *c
             {
                 verified = false;
             }
         }
         PlumeVersion::V2 => {
-            if sha512hash_vec_signal(&[*nullifier, g_r, hash_m_pk_pow_r]) != *c {
+            if sha256hash_vec_signal(&[*nullifier, g_r, hash_m_pk_pow_r]) != *c {
                 verified = false;
             }
         }
@@ -280,10 +278,11 @@ mod tests {
 
         // Fixed key nullifier, secret key, and random value for testing
         // Normally a secure enclave would generate these values, and output to a wallet implementation
-        let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) = test_gen_signals(m, PlumeVersion::V1);
+        let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) =
+            test_gen_signals(m, PlumeVersion::V1);
 
         // The signer's secret key. It is only accessed within the secu`re enclave.
-        let sk = gen_test_scalar_x();
+        let sk = gen_test_scalar_sk();
 
         // The user's public key: g^sk.
         let pk = &g * &sk;
@@ -377,7 +376,7 @@ mod tests {
         let scalar = byte_array_to_scalar(&bytes_to_convert);
         assert_eq!(
             hex::encode(scalar.to_bytes()),
-            "7da1ad3f63c6180beefd0d6a8e3c87620b54f1b1d2c8287d104da9e53b6b5524"
+            "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
         );
 
         // Test the hash-to-curve algorithm
@@ -401,10 +400,11 @@ mod tests {
 
         // Fixed key nullifier, secret key, and random value for testing
         // Normally a secure enclave would generate these values, and output to a wallet implementation
-        let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) = test_gen_signals(m, PlumeVersion::V2);
+        let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) =
+            test_gen_signals(m, PlumeVersion::V2);
 
         // The signer's secret key. It is only accessed within the secu`re enclave.
-        let sk = gen_test_scalar_x();
+        let sk = gen_test_scalar_sk();
 
         // The user's public key: g^sk.
         let pk = &g * &sk;
