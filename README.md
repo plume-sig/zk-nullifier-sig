@@ -2,7 +2,11 @@
 
 This repository provides libraries for the construction of deterministic nullifiers on Ethereum keys, a soon-to-be ERC. We call them Privately Linked Unique Message Entities (or PLUMEs). We hope that wallets integrate the javascript, rust, or (work-in-progress) C repositories for both software and hardware signature generation, and dapps integrate the zk proof in the circuits/ directory.
 
-If you would like to get a grant to create PLUME applications or help to fix bugs and upgrade to a V3, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are ideas both below in the README, or in the issues in Github. Feel free to pick one up, and dm on Twitter or email [Ivy Research](https://ivyresearch.org) to help! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as Richard L, Blake MS, Piotr R, Vu V, Weijie K, Vivek B, and our auditors, as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf).   
+If you would like to get a grant to create PLUME applications or help to fix bugs and upgrade to a V3, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are ideas both below in the README, or in the issues in Github. Feel free to pick one up, and dm on Twitter or email [VII](https://vii.dev) to help! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as Richard L, Blake MS, Piotr R, Vu V, Weijie K, Vivek B, and our auditors, as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf).   
+
+## Contributions
+
+If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any of the bugs in our issues! That includes these: #28 #24 #23 #22 #20 #19 #18 #17 #16 #15 #14 #13
 
 ## Implementations
 
