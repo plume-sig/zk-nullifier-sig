@@ -2,7 +2,7 @@
 
 This repository provides libraries for the construction of deterministic nullifiers on Ethereum keys, a soon-to-be ERC. We call them Privately Linked Unique Message Entities (or PLUMEs). We hope that wallets integrate the javascript, rust, or (work-in-progress) C repositories for both software and hardware signature generation, and dapps integrate the zk proof in the circuits/ directory.
 
-If you would like to get a grant to create PLUME applications or help to fix bugs and upgrade to a V3, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are ideas both below in the README, or in the issues in Github. Feel free to pick one up, and dm on Twitter or email [VII](https://vii.dev) to help! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as Richard L, Blake MS, Piotr R, Vu V, Weijie K, Vivek B, and our auditors, as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf).   
+If you would like to get a grant to create PLUME applications or help to fix bugs and upgrade to a V3, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are ideas both below in the README, or in the issues in Github. Feel free to pick one up, and dm on Twitter or email [VII](https://vii.dev) to help! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as Richard Liu, Blake M Scurr, Piotr Roslaniec, Vu Voth, Weijie Koh, Vivek Bhupatiraju, Poseidon Labs for a V2 proposal, and our auditors, as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf).
 
 ## Contributions
 
@@ -54,7 +54,7 @@ Thesis [most up to date version]: https://aayushg.com/thesis.pdf
 Paper [slightly out of date]: https://eprint.iacr.org/2022/1255
 
 ### Slides
-https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87hAnY/edit#slide=id.g13e97fbcd2c_0_76
+[slides.plume.run](https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87hAnY/edit#slide=id.g13e97fbcd2c_0_76)
 
 ### Blog Post
 https://blog.aayushg.com/posts/nullifier
@@ -69,6 +69,8 @@ https://nullifier.xyz
 https://www.youtube.com/watch?v=6ajBnMdJGoY
 
 ### Circom Proofs
+
+For the V1,
 See [this PR](https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/7).   
 6.5 million constraints. Mostly dominated by EC operations, but the hashes are very expensive too.  
 
@@ -76,6 +78,9 @@ sha256 ~1.5M.
 hash_to_curve ~0.5M. 
 a/b^c ~1.5 each (this is the sub circuit for the first 2 verification equations). 
 the remaining 1.5M is probably dominated by calculating g^s and h^s. 
+
+For the V2,
+the sha256 is 0 cost in the circuit, but is added to the verification cost. THis takes in-circuit constraints down to 5M and adds the sha to the verification.
 
 #### Hash to Curve Circom Code
 https://github.com/geometryresearch/secp256k1_hash_to_curve/
