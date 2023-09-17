@@ -54,13 +54,13 @@ Thesis [most up to date version]: https://aayushg.com/thesis.pdf
 Paper [slightly out of date]: https://eprint.iacr.org/2022/1255
 
 ### Slides
-[slides.plume.run](https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87hAnY/edit#slide=id.g13e97fbcd2c_0_76)
+[http://slides.plume.run](https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87hAnY/edit#slide=id.g13e97fbcd2c_0_76)
 
 ### Blog Post
 https://blog.aayushg.com/posts/nullifier
 
 ### ERC Draft
-https://ivy-docs.notion.site/PLUME-ERC-Draft-5558bbd43b674bcb881f5c535ced5893
+[http://erc.plume.run][https://www.notion.so/vi-institute/PLUME-ERC-Draft-5558bbd43b674bcb881f5c535ced5893]
 
 ### Demo
 https://nullifier.xyz
