@@ -24,6 +24,8 @@ Install dependencies:
 npm i
 ```
 
+If you encounter an error `No prebuilt binaries found`, try switching to node ` v18.17.0` (using [`n`](https://github.com/tj/n), for example) to work around our dependency's [build issue](https://github.com/WiseLibs/better-sqlite3/issues/1027).
+
 Then, navigate to the `circuits/` directory and install the dependencies there:
 
 ```bash
