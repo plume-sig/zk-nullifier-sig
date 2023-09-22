@@ -40,7 +40,7 @@ export function computeC_V2(
     gPowRBytes,
     hashMPkPowRBytes,
   ]);
-  return createHash("sha256").update(preimage).digest("hex");
+  return hexToBigInt(createHash("sha256").update(preimage).digest("hex")) % CURVE.n;
 }
 
 export function computeC_V1(
@@ -66,7 +66,7 @@ export function computeC_V1(
     gPowRBytes,
     hashMPkPowRBytes,
   ]);
-  return createHash("sha256").update(preimage).digest("hex");
+  return hexToBigInt(createHash("sha256").update(preimage).digest("hex")) % CURVE.n;
 }
 
 export function computeNullifer(hashMPk: HashedPoint, secretKey: Uint8Array) {
@@ -81,8 +81,9 @@ export function computeHashMPkPowR(hashMPk: HashedPoint, r: Uint8Array) {
   return multiplyPoint(hashMPk, r);
 }
 
-export function computeS(r: Uint8Array, secretKey: Uint8Array, c: string) {
-  const skC = (uint8ArrayToBigInt(secretKey) * hexToBigInt(c)) % CURVE.n;
+export function computeS(r: Uint8Array, secretKey: Uint8Array, c: bigint) {
+  // TODO it's possible to accept both hexstring and bigint for `c` here
+  const skC = (uint8ArrayToBigInt(secretKey) * c) % CURVE.n;
   return ((skC + uint8ArrayToBigInt(r)) % CURVE.n).toString(16);
 }
 
