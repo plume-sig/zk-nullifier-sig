@@ -47,92 +47,6 @@ fn gen_test_scalar_r() -> Scalar {
     .unwrap()
 }
 
-// These generate test signals as if it were passed from a secure enclave to wallet. Note that leaking these signals would leak pk, but not sk.
-// Outputs these 6 signals, in this order
-// g^sk																(private)
-// hash[m, pk]^sk 													public nullifier
-// c = hash2(g, pk, hash[m, pk], hash[m, pk]^sk, gr, hash[m, pk]^r)	(public or private)
-// r + sk * c														(public or private)
-// g^r																(private, optional)
-// hash[m, pk]^r													(private, optional)
-fn test_gen_signals(
-    m: &[u8],
-    version: PlumeVersion,
-) -> (
-    ProjectivePoint,
-    ProjectivePoint,
-    Scalar,
-    Scalar,
-    Option<ProjectivePoint>,
-    Option<ProjectivePoint>,
-) {
-    // The base point or generator of the curve.
-    let g = ProjectivePoint::GENERATOR;
-
-    // The signer's secret key. It is only accessed within the secure enclave.
-    let sk = gen_test_scalar_sk();
-
-    // A random value r. It is only accessed within the secure enclave.
-    let r = gen_test_scalar_r();
-
-    // The user's public key: g^sk.
-    let pk = &g * &sk;
-
-    // The generator exponentiated by r: g^r.
-    let g_r = &g * &r;
-
-    // hash[m, pk]
-    let hash_m_pk = hash_m_pk_to_secp(m, &pk);
-
-    println!(
-        "h.x: {:?}",
-        hex::encode(hash_m_pk.to_affine().to_encoded_point(false).x().unwrap())
-    );
-    println!(
-        "h.y: {:?}",
-        hex::encode(hash_m_pk.to_affine().to_encoded_point(false).y().unwrap())
-    );
-
-    // hash[m, pk]^r
-    let hash_m_pk_pow_r = &hash_m_pk * &r;
-    println!(
-        "hash_m_pk_pow_r.x: {:?}",
-        hex::encode(
-            hash_m_pk_pow_r
-                .to_affine()
-                .to_encoded_point(false)
-                .x()
-                .unwrap()
-        )
-    );
-    println!(
-        "hash_m_pk_pow_r.y: {:?}",
-        hex::encode(
-            hash_m_pk_pow_r
-                .to_affine()
-                .to_encoded_point(false)
-                .y()
-                .unwrap()
-        )
-    );
-
-    // The public nullifier: hash[m, pk]^sk.
-    let nullifier = &hash_m_pk * &sk;
-
-    // The Fiat-Shamir type step.
-    let c = match version {
-        PlumeVersion::V1 => {
-            sha256hash_vec_signal(&[g, pk, hash_m_pk, nullifier, g_r, hash_m_pk_pow_r])
-        }
-        PlumeVersion::V2 => sha256hash_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r]),
-    };
-    // This value is part of the discrete log equivalence (DLEQ) proof.
-    let r_sk_c = r + sk * c;
-
-    // Return the signature.
-    (pk, nullifier, c, r_sk_c, Some(g_r), Some(hash_m_pk_pow_r))
-}
-
 fn sha256hash_vec_signal(values: &[ProjectivePoint]) -> Scalar {
     let preimage_vec = values
         .iter()
@@ -266,9 +180,121 @@ fn verify_signals(
     verified
 }
 
+/// Format a ProjectivePoint to 64 bytes - the concatenation of the x and y values.  We use 64
+/// bytes instead of SEC1 encoding as our arkworks secp256k1 implementation doesn't support SEC1
+/// encoding yet.
+fn encode_pt(point: ProjectivePoint) -> Result<Vec<u8>, Error> {
+    let encoded = point.to_encoded_point(true);
+    Ok(encoded.to_bytes().to_vec())
+}
+
+/// Convert a 32-byte array to a scalar
+fn byte_array_to_scalar(bytes: &[u8]) -> Scalar {
+    // From https://docs.rs/ark-ff/0.3.0/src/ark_ff/fields/mod.rs.html#371-393
+    assert!(bytes.len() == 32);
+    let mut res = Scalar::from(0u64);
+    let window_size = Scalar::from(256u64);
+    for byte in bytes.iter() {
+        res *= window_size;
+        res += Scalar::from(*byte as u64);
+    }
+    res
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    
+    use helpers::test_gen_signals;
+    mod helpers {
+        use super::*;
+
+        // These generate test signals as if it were passed from a secure enclave to wallet. Note that leaking these signals would leak pk, but not sk.
+        // Outputs these 6 signals, in this order
+        // g^sk																(private)
+        // hash[m, pk]^sk 													public nullifier
+        // c = hash2(g, pk, hash[m, pk], hash[m, pk]^sk, gr, hash[m, pk]^r)	(public or private)
+        // r + sk * c														(public or private)
+        // g^r																(private, optional)
+        // hash[m, pk]^r													(private, optional)
+        pub fn test_gen_signals(
+            m: &[u8],
+            version: PlumeVersion,
+        ) -> (
+            ProjectivePoint,
+            ProjectivePoint,
+            Scalar,
+            Scalar,
+            Option<ProjectivePoint>,
+            Option<ProjectivePoint>,
+        ) {
+            // The base point or generator of the curve.
+            let g = ProjectivePoint::GENERATOR;
+
+            // The signer's secret key. It is only accessed within the secure enclave.
+            let sk = gen_test_scalar_sk();
+
+            // A random value r. It is only accessed within the secure enclave.
+            let r = gen_test_scalar_r();
+
+            // The user's public key: g^sk.
+            let pk = &g * &sk;
+
+            // The generator exponentiated by r: g^r.
+            let g_r = &g * &r;
+
+            // hash[m, pk]
+            let hash_m_pk = hash_m_pk_to_secp(m, &pk);
+
+            println!(
+                "h.x: {:?}",
+                hex::encode(hash_m_pk.to_affine().to_encoded_point(false).x().unwrap())
+            );
+            println!(
+                "h.y: {:?}",
+                hex::encode(hash_m_pk.to_affine().to_encoded_point(false).y().unwrap())
+            );
+
+            // hash[m, pk]^r
+            let hash_m_pk_pow_r = &hash_m_pk * &r;
+            println!(
+                "hash_m_pk_pow_r.x: {:?}",
+                hex::encode(
+                    hash_m_pk_pow_r
+                        .to_affine()
+                        .to_encoded_point(false)
+                        .x()
+                        .unwrap()
+                )
+            );
+            println!(
+                "hash_m_pk_pow_r.y: {:?}",
+                hex::encode(
+                    hash_m_pk_pow_r
+                        .to_affine()
+                        .to_encoded_point(false)
+                        .y()
+                        .unwrap()
+                )
+            );
+
+            // The public nullifier: hash[m, pk]^sk.
+            let nullifier = &hash_m_pk * &sk;
+
+            // The Fiat-Shamir type step.
+            let c = match version {
+                PlumeVersion::V1 => {
+                    sha256hash_vec_signal(&[g, pk, hash_m_pk, nullifier, g_r, hash_m_pk_pow_r])
+                }
+                PlumeVersion::V2 => sha256hash_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r]),
+            };
+            // This value is part of the discrete log equivalence (DLEQ) proof.
+            let r_sk_c = r + sk * c;
+
+            // Return the signature.
+            (pk, nullifier, c, r_sk_c, Some(g_r), Some(hash_m_pk_pow_r))
+        }
+    }
 
     #[test]
     fn plume_v1_test() {
@@ -424,25 +450,4 @@ mod tests {
         );
         assert!(verified)
     }
-}
-
-/// Format a ProjectivePoint to 64 bytes - the concatenation of the x and y values.  We use 64
-/// bytes instead of SEC1 encoding as our arkworks secp256k1 implementation doesn't support SEC1
-/// encoding yet.
-fn encode_pt(point: ProjectivePoint) -> Result<Vec<u8>, Error> {
-    let encoded = point.to_encoded_point(true);
-    Ok(encoded.to_bytes().to_vec())
-}
-
-/// Convert a 32-byte array to a scalar
-fn byte_array_to_scalar(bytes: &[u8]) -> Scalar {
-    // From https://docs.rs/ark-ff/0.3.0/src/ark_ff/fields/mod.rs.html#371-393
-    assert!(bytes.len() == 32);
-    let mut res = Scalar::from(0u64);
-    let window_size = Scalar::from(256u64);
-    for byte in bytes.iter() {
-        res *= window_size;
-        res += Scalar::from(*byte as u64);
-    }
-    res
 }
