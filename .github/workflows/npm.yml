@@ -1,0 +1,27 @@
+name: Jest NPM test suite (<javascript>, <circuits>)
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: npm test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JavaScript tests
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: |
+          cd javascript
+          npm install
+          npm test
+      
+      - name: JavaScript `circom` tests
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: |
+          cd circuits
+          npm install
+          npm test
