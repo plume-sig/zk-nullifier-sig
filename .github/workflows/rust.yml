@@ -10,8 +10,17 @@ jobs:
       
       - uses: dtolnay/rust-toolchain@nightly
 
+      - name: JavaScript `circom` tests
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: |
+          cd circuits
+          npm install
+          npm test
+
       - name: JavaScript tests
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: 18
       - run: |
