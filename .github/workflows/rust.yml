@@ -1,5 +1,6 @@
 name: Rust test suite
 on: [push, pull_request]
+
 jobs:
   test:
     name: cargo test
