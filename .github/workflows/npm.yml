@@ -22,6 +22,8 @@ jobs:
         with:
           node-version: 18
       - run: |
-          cd circuits
+          cd javascript
           npm install
-          npm test
+          cd ../circuits
+          npm install
+          npm run flatten-deps && npm run test
