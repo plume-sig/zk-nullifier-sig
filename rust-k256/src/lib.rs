@@ -58,8 +58,7 @@ fn sha256hash_vec_signal(values: &[ProjectivePoint]) -> Scalar {
     let sha512_hasher_result = sha256_hasher.finalize(); //256 bit hash
 
     let bytes = FieldBytes::from_iter(sha512_hasher_result.iter().copied());
-    let scalar_res = Scalar::from_repr(bytes).unwrap();
-    scalar_res
+    Scalar::from_repr(bytes).unwrap()
 }
 
 fn sha256hash6signals(
@@ -86,8 +85,7 @@ fn sha256hash6signals(
     let sha512_hasher_result = sha256_hasher.finalize(); //512 bit hash
 
     let c_bytes = FieldBytes::from_iter(sha512_hasher_result.iter().copied());
-    let c_scalar = Scalar::from_repr(c_bytes).unwrap();
-    c_scalar
+    Scalar::from_repr(c_bytes).unwrap()
 }
 
 // Calls the hash to curve function for secp256k1, and returns the result as a ProjectivePoint
