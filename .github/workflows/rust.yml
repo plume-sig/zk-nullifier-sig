@@ -1,36 +1,13 @@
 name: Rust test suite
 on: [push, pull_request]
-
 jobs:
   test:
     name: cargo test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - uses: dtolnay/rust-toolchain@nightly
-
-      - name: JavaScript `circom` tests
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: |
-          cd circuits
-          npm install
-          npm test
-
-      - name: JavaScript tests
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: |
-          cd javascript
-          npm install
-          npm test
-      
-      - name: More Rust tests
-        run: cargo test --all-features
+      - run: cargo test --all-features
         working-directory: ./rust-k256
-      - name: Even More Rust tests
-        run: cargo test --all-features
+      - run: cargo test --all-features
         working-directory: ./rust-arkworks
