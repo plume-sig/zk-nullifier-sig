@@ -7,8 +7,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: dtolnay/rust-toolchain@nightly
-      - run: cargo test --all-features
+
+      - name: JavaScript tests
+        uses: actions/setup-node@v2
+        with:
+          node-version: 18
+      - run: |
+          cd javascript
+          npm install
+          npm test
+      
+      - name: More Rust tests
+        run: cargo test --all-features
         working-directory: ./rust-k256
-      - run: cargo test --all-features
+      - name: Even More Rust tests
+        run: cargo test --all-features
         working-directory: ./rust-arkworks
