@@ -1,0 +1,30 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build `rust-k256`
+      run: cargo build --verbose
+      working-directory: ./rust-k256
+    - name: Run tests `rust-k256`
+      run: cargo test --verbose
+      working-directory: ./rust-k256
+    - name: Build `rust-arkworks`
+      run: cargo build --verbose
+      working-directory: ./rust-arkworks
+    - name: Run tests `rust-k256`
+      run: cargo test --verbose
+      working-directory: ./rust-arkworks
