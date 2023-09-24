@@ -231,8 +231,8 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
         PlumeVersion::V1
     ).unwrap();
 
-    assert_eq!(coord_to_hex(sig.c.into()), "00000000000000007da1ad3f63c6180beefd0d6a8e3c87620b54f1b1d2c8287d104da9e53b6b5524");
-    assert_eq!(coord_to_hex(sig.s.into()), "0000000000000000638330fea277e97ad407b32c9dc4d522454f5483abd903e6710a59d14f6fbdf2");
+    assert_eq!(coord_to_hex(sig.c.into()), "0000000000000000c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254");
+    assert_eq!(coord_to_hex(sig.s.into()), "0000000000000000e69f027d84cb6fe5f761e333d12e975fb190d163e8ea132d7de0bd6079ba28ca");
 
     let sig = Scheme::sign_with_r(
         &pp,
@@ -242,7 +242,7 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
         PlumeVersion::V2
     ).unwrap();
 
-    assert_eq!(coord_to_hex(sig.c.into()), "0000000000000000d898f5fa7e4af2d694cb948cfe3226aebd602852beb7b32f5e9225a10c2bc925");
-    assert_eq!(coord_to_hex(sig.s.into()), "00000000000000009231fa7cc28765f013def6b24310f09c8c25cb276b461d22162da027c90e348c");
+    assert_eq!(coord_to_hex(sig.c.into()), "00000000000000003dbfb717705010d4f44a70720c95e74b475bd3a783ab0b9e8a6b3b363434eb96");
+    assert_eq!(coord_to_hex(sig.s.into()), "0000000000000000528e8fbb6452f82200797b1a73b2947a92524bd611085a920f1177cb8098136b");
 
 }

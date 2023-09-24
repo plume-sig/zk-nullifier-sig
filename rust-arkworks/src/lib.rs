@@ -14,7 +14,8 @@ pub mod sig {
     };
     use ark_std::{marker::PhantomData, rand::Rng, UniformRand};
     use secp256k1::sec1::Sec1EncodePoint;
-    use sha2::{Digest, Sha512};
+    use sha2::digest::Output;
+    use sha2::{Digest, Sha256};
 
     pub enum PlumeVersion {
         V1,
@@ -48,7 +49,6 @@ pub mod sig {
         Ok(hash_to_curve::hash_to_curve::<Fq, P>(message, pk))
     }
 
-    // TODO [replace SHA-512](https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732497672)
     fn compute_c_v1<P: SWModelParameters>(
         g: &GroupAffine<P>,
         pk: &GroupAffine<P>,
@@ -56,8 +56,7 @@ pub mod sig {
         nul: &GroupAffine<P>,
         g_r: &GroupAffine<P>,
         z: &GroupAffine<P>,
-    // should be `Output<Sha256>` when tests are fixed <https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732538695>
-    ) -> Vec<u8> {
+    ) -> Output<Sha256> {
         // Compute c = sha512([g, pk, h, nul, g^r, z])
         let g_bytes = affine_to_bytes::<P>(g);
         let pk_bytes = affine_to_bytes::<P>(pk);
@@ -68,18 +67,14 @@ pub mod sig {
 
         let c_preimage_vec = [g_bytes, pk_bytes, h_bytes, nul_bytes, g_r_bytes, z_bytes].concat();
 
-        let mut sha512_hasher = Sha512::new();
-        sha512_hasher.update(c_preimage_vec.as_slice());
-        sha512_hasher.finalize()[0..32].to_owned()
+        Sha256::digest(c_preimage_vec.as_slice())
     }
 
-    // TODO [replace SHA-512](https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732497672)
     fn compute_c_v2<P: SWModelParameters>(
         nul: &GroupAffine<P>,
         g_r: &GroupAffine<P>,
         z: &GroupAffine<P>,
-    // should be `Output<Sha256>` when tests are fixed <https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732538695>
-    ) -> Vec<u8> {
+    ) -> Output<Sha256> {
         // Compute c = sha512([nul, g^r, z])
         let nul_bytes = affine_to_bytes::<P>(nul);
         let g_r_bytes = affine_to_bytes::<P>(g_r);
@@ -87,9 +82,7 @@ pub mod sig {
 
         let c_preimage_vec = [nul_bytes, g_r_bytes, z_bytes].concat();
 
-        let mut sha512_hasher = Sha512::new();
-        sha512_hasher.update(c_preimage_vec.as_slice());
-        sha512_hasher.finalize()[0..32].to_owned()
+        Sha256::digest(c_preimage_vec.as_slice())
     }
 
     pub trait VerifiableUnpredictableFunction {
