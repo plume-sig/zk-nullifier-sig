@@ -71,8 +71,6 @@ pub mod sig {
         let mut sha512_hasher = Sha512::new();
         sha512_hasher.update(c_preimage_vec.as_slice());
         sha512_hasher.finalize()[0..32].to_owned()
-        // here some code to pass current tests which need to be fixed 
-        // let tests_result = [0; 32];
     }
 
     // TODO [replace SHA-512](https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732497672)
