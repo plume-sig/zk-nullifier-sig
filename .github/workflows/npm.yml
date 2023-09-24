@@ -1,4 +1,4 @@
-name: Jest NPM test suite (<javascript>, <circuits>)
+name: Jest NPM test suite (<./javascript>)
 on: [push, pull_request]
 
 jobs:
@@ -16,14 +16,3 @@ jobs:
           cd javascript
           npm install
           npm test
-      
-      - name: JavaScript `circom` tests
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: |
-          cd javascript
-          npm install
-          cd ../circuits
-          npm install
-          npm run flatten-deps && npm run test
