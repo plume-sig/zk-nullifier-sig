@@ -3,9 +3,13 @@
 // #![feature(generic_const_expr)]
 // #![allow(incomplete_features)]
 
+use digest::Output;
+use elliptic_curve::bigint::ArrayEncoding;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
+use elliptic_curve::ops::Reduce;
 use elliptic_curve::sec1::ToEncodedPoint;
 use hex_literal::hex;
+use k256::U256;
 use k256::{
     // ecdsa::{signature::Signer, Signature, SigningKey},
     elliptic_curve::group::ff::PrimeField,
@@ -47,7 +51,7 @@ fn gen_test_scalar_r() -> Scalar {
     .unwrap()
 }
 
-fn sha256hash_vec_signal(values: &[ProjectivePoint]) -> Scalar {
+fn sha256hash_vec_signal(values: &[ProjectivePoint]) -> Output<Sha256> {
     let preimage_vec = values
         .iter()
         .map(|value| encode_pt(*value).unwrap())
@@ -55,10 +59,7 @@ fn sha256hash_vec_signal(values: &[ProjectivePoint]) -> Scalar {
         .concat();
     let mut sha256_hasher = Sha256::new();
     sha256_hasher.update(preimage_vec.as_slice());
-    let sha512_hasher_result = sha256_hasher.finalize(); //256 bit hash
-
-    let bytes = FieldBytes::from_iter(sha512_hasher_result.iter().copied());
-    Scalar::from_repr(bytes).unwrap()
+    sha256_hasher.finalize() //256 bit hash
 }
 
 fn sha256hash6signals(
@@ -123,7 +124,7 @@ fn verify_signals(
     m: &[u8],
     pk: &ProjectivePoint,
     nullifier: &ProjectivePoint,
-    c: &Scalar,
+    c: &Output<Sha256>,
     r_sk_c: &Scalar,
     g_r_option: &Option<ProjectivePoint>,
     hash_m_pk_pow_r_option: &Option<ProjectivePoint>,
@@ -139,27 +140,29 @@ fn verify_signals(
 
     // Check whether g^r equals g^s * pk^{-c}
     let g_r: ProjectivePoint;
+    // TODO should we use non-zero `Scalar`?
+    let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(*c));
     match *g_r_option {
         Some(_g_r_value) => {
-            if (g * r_sk_c - pk * c) != _g_r_value {
+            if (g * r_sk_c - pk * c_scalar) != _g_r_value {
                 verified = false;
             }
         }
         None => println!("g^r not provided, check skipped"),
     }
-    g_r = g * r_sk_c - pk * c;
+    g_r = g * r_sk_c - pk * c_scalar;
 
     // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
     let hash_m_pk_pow_r: ProjectivePoint;
     match *hash_m_pk_pow_r_option {
         Some(_hash_m_pk_pow_r_value) => {
-            if (hash_m_pk * r_sk_c - nullifier * c) != _hash_m_pk_pow_r_value {
+            if (hash_m_pk * r_sk_c - nullifier * c_scalar) != _hash_m_pk_pow_r_value {
                 verified = false;
             }
         }
         None => println!("hash_m_pk_pow_r not provided, check skipped"),
     }
-    hash_m_pk_pow_r = hash_m_pk * r_sk_c - nullifier * c;
+    hash_m_pk_pow_r = hash_m_pk * r_sk_c - nullifier * c_scalar;
 
     // Check if the given hash matches
     match version {
@@ -221,7 +224,7 @@ mod tests {
         ) -> (
             ProjectivePoint,
             ProjectivePoint,
-            Scalar,
+            Output<Sha256>,
             Scalar,
             Option<ProjectivePoint>,
             Option<ProjectivePoint>,
@@ -286,8 +289,10 @@ mod tests {
                 }
                 PlumeVersion::V2 => sha256hash_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r]),
             };
+            
+            let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.clone()));
             // This value is part of the discrete log equivalence (DLEQ) proof.
-            let r_sk_c = r + sk * c;
+            let r_sk_c = r + sk * c_scalar;
 
             // Return the signature.
             (pk, nullifier, c, r_sk_c, Some(g_r), Some(hash_m_pk_pow_r))
@@ -337,7 +342,7 @@ mod tests {
         );
 
         // Print c
-        println!("c: {:?}", hex::encode(&c.to_bytes()));
+        println!("c: {:?}", hex::encode(&c));
 
         // Print r_sk_c
         println!("r_sk_c: {:?}", hex::encode(r_sk_c.to_bytes()));
@@ -396,8 +401,7 @@ mod tests {
         );
 
         // Test byte_array_to_scalar()
-        let bytes_to_convert = c.to_bytes();
-        let scalar = byte_array_to_scalar(&bytes_to_convert);
+        let scalar = byte_array_to_scalar(&c); // TODO this `fn` looks suspicious as in reproducing const time ops
         assert_eq!(
             hex::encode(scalar.to_bytes()),
             "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
