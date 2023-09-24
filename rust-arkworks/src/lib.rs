@@ -48,6 +48,7 @@ pub mod sig {
         Ok(hash_to_curve::hash_to_curve::<Fq, P>(message, pk))
     }
 
+    // TODO [replace SHA-512](https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732497672)
     fn compute_c_v1<P: SWModelParameters>(
         g: &GroupAffine<P>,
         pk: &GroupAffine<P>,
@@ -55,7 +56,8 @@ pub mod sig {
         nul: &GroupAffine<P>,
         g_r: &GroupAffine<P>,
         z: &GroupAffine<P>,
-    ) -> P::ScalarField {
+    // should be `Output<Sha256>` when tests are fixed <https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732538695>
+    ) -> Vec<u8> {
         // Compute c = sha512([g, pk, h, nul, g^r, z])
         let g_bytes = affine_to_bytes::<P>(g);
         let pk_bytes = affine_to_bytes::<P>(pk);
@@ -68,26 +70,18 @@ pub mod sig {
 
         let mut sha512_hasher = Sha512::new();
         sha512_hasher.update(c_preimage_vec.as_slice());
-        let sha512_hasher_result = sha512_hasher.finalize();
-
-        // Take the first 32 bytes
-        let mut first_32 = Vec::<u8>::with_capacity(32);
-        for i in 0..32 {
-            first_32.push(sha512_hasher_result[i]);
-        }
-
-        // Convert digest bytes to a scalar
-        let c = first_32.as_slice();
-        let c_be = P::ScalarField::from_be_bytes_mod_order(c);
-
-        P::ScalarField::from(c_be)
+        sha512_hasher.finalize()[0..32].to_owned()
+        // here some code to pass current tests which need to be fixed 
+        // let tests_result = [0; 32];
     }
 
+    // TODO [replace SHA-512](https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732497672)
     fn compute_c_v2<P: SWModelParameters>(
         nul: &GroupAffine<P>,
         g_r: &GroupAffine<P>,
         z: &GroupAffine<P>,
-    ) -> P::ScalarField {
+    // should be `Output<Sha256>` when tests are fixed <https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732538695>
+    ) -> Vec<u8> {
         // Compute c = sha512([nul, g^r, z])
         let nul_bytes = affine_to_bytes::<P>(nul);
         let g_r_bytes = affine_to_bytes::<P>(g_r);
@@ -97,19 +91,7 @@ pub mod sig {
 
         let mut sha512_hasher = Sha512::new();
         sha512_hasher.update(c_preimage_vec.as_slice());
-        let sha512_hasher_result = sha512_hasher.finalize();
-
-        // Take the first 32 bytes
-        let mut first_32 = Vec::<u8>::with_capacity(32);
-        for i in 0..32 {
-            first_32.push(sha512_hasher_result[i]);
-        }
-
-        // Convert digest bytes to a scalar
-        let c = first_32.as_slice();
-        let c_be = P::ScalarField::from_be_bytes_mod_order(c);
-
-        P::ScalarField::from(c_be)
+        sha512_hasher.finalize()[0..32].to_owned()
     }
 
     pub trait VerifiableUnpredictableFunction {
@@ -214,10 +196,11 @@ pub mod sig {
             let nul = h.mul(*keypair.1).into_affine();
 
             // Compute c = sha512([g, pk, h, nul, g^r, z])
-            let c_scalar: P::ScalarField = match version {
+            let c = match version {
                 PlumeVersion::V1 => compute_c_v1::<P>(&g, keypair.0, &h, &nul, &g_r, &z),
                 PlumeVersion::V2 => compute_c_v2(&nul, &g_r, &z),
             };
+            let c_scalar = P::ScalarField::from_be_bytes_mod_order(c.as_ref());
             // Compute s = r + sk ⋅ c
             let sk_c = keypair.1.into_repr().into() * c_scalar.into_repr().into();
             let s = r.into_repr().into() + sk_c;
@@ -257,12 +240,14 @@ pub mod sig {
             // Compute h = htc([m, pk])
             let h = compute_h::<C, Fq, P>(pk, message).unwrap();
 
+            // TODO [replace SHA-512](https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732497672)
             // Compute c' = sha512([g, pk, h, nul, g^r, z]) for v1
             //         c' = sha512([nul, g^r, z]) for v2
-            let c_scalar: P::ScalarField = match version {
+            let c = match version {
                 PlumeVersion::V1 => compute_c_v1::<P>(&pp.g, pk, &h, &sig.nul, &sig.g_r, &sig.z),
                 PlumeVersion::V2 => compute_c_v2(&sig.nul, &sig.g_r, &sig.z),
             };
+            let c_scalar = P::ScalarField::from_be_bytes_mod_order(c.as_ref());
 
             // Reject if g^s ⋅ pk^{-c} != g^r
             let g_s = pp.g.mul(sig.s);
