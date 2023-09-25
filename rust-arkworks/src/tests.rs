@@ -40,7 +40,6 @@ pub fn test_k256_affine_to_arkworks_secp256k1_affine() {
 
         // Convert k256_pt to an arkworks point
         let converted_pt = k256_affine_to_arkworks_secp256k1_affine::<
-            secp256k1::fields::Fq,
             Secp256k1Parameters
         >(k256_pt.to_affine());
 
