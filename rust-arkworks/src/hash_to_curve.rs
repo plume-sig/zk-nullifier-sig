@@ -2,7 +2,7 @@ use crate::error::CryptoError;
 use ark_ec::{AffineCurve, ProjectiveCurve};
 use tiny_keccak::{Hasher, Shake, Xof};
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
-use k256::{AffinePoint};
+use k256::AffinePoint;
 use k256::sha2::Sha256;
 use elliptic_curve::sec1::ToEncodedPoint;
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
@@ -31,18 +31,17 @@ pub fn hash_to_curve<
 
     let pt_affine = pt.to_affine();
 
-    k256_affine_to_arkworks_secp256k1_affine::<Fp, P>(pt_affine)
+    k256_affine_to_arkworks_secp256k1_affine::<P>(pt_affine)
 }
 
 pub fn k256_affine_to_arkworks_secp256k1_affine<
-    Fp: ark_ff::PrimeField,
     P: ark_ec::SWModelParameters
 >(
     k_pt: AffinePoint,
 ) -> GroupAffine<P> {
     let encoded_pt = k_pt.to_encoded_point(false);
 
-    let num_field_bytes = 320;
+    let num_field_bytes = 40;
 
     // extract k_pt.x
     let k_pt_x_bytes = encoded_pt.x().unwrap();
