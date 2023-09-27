@@ -181,9 +181,7 @@ fn verify_signals(
     verified
 }
 
-/// Format a ProjectivePoint to 64 bytes - the concatenation of the x and y values.  We use 64
-/// bytes instead of SEC1 encoding as our arkworks secp256k1 implementation doesn't support SEC1
-/// encoding yet.
+/// Encodes the point by compressing it to 33 bytes
 fn encode_pt(point: ProjectivePoint) -> Result<Vec<u8>, Error> {
     let encoded = point.to_encoded_point(true);
     Ok(encoded.to_bytes().to_vec())
