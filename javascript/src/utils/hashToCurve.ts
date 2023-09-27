@@ -30,6 +30,7 @@ function hashToField(ctx, hash, hlen, DST, M, ctr) {
   return u;
 }
 
+// Taken from https://github.com/miracl/core/blob/master/javascript/examples/node/TestHTP.js#L37
 function hashToPairing(ctx, M, ro, hlen) {
   const DSTRO = asciitobytes(ro);
   const u = hashToField(ctx, ctx.HMAC.MC_SHA2, hlen, DSTRO, M, 2);
