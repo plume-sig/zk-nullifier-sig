@@ -12,7 +12,7 @@ import { circuitValueToScalar, pointToCircuitValue, scalarToCircuitValue } from 
 import { createHash } from "node:crypto";
 import { computeS } from "../../javascript/src/signals";
 
-jest.setTimeout(2_000_0000);
+jest.setTimeout(2_000_000);
 
 describe("Nullifier Circuit", () => {
   const public_key_bytes = Array.from(testPublicKey);

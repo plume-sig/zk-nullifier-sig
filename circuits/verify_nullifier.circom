@@ -33,25 +33,32 @@ template plume_v1(n, k, msg_length) {
     signal input sha256_preimage_bit_length;
 
     component check_ec_equations = check_ec_equations(n, k, msg_length);
+    for (var i = 0; i < k; i++) {
+        check_ec_equations.c[i] <== c[i];
+        check_ec_equations.s[i] <== s[i];
+        check_ec_equations.public_key[0][i] <== public_key[0][i];
+        check_ec_equations.public_key[1][i] <== public_key[1][i];
+        check_ec_equations.nullifier[0][i] <== nullifier[0][i];
+        check_ec_equations.nullifier[1][i] <== nullifier[1][i];
+    }
 
-    check_ec_equations.c <== c;
-    check_ec_equations.s <== s;
-    check_ec_equations.public_key <== public_key;
-    check_ec_equations.nullifier <== nullifier;
+    for (var i = 0; i < msg_length; i++) {
+        check_ec_equations.msg[i] <== msg[i];
+    }
 
-    check_ec_equations.msg <== msg;
+    for (var i = 0; i < 4; i++) {
+        check_ec_equations.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        check_ec_equations.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        check_ec_equations.q0_y_pos[i] <== q0_y_pos[i];
+        check_ec_equations.q0_x_mapped[i] <== q0_x_mapped[i];
+        check_ec_equations.q0_y_mapped[i] <== q0_y_mapped[i];
 
-    check_ec_equations.q0_gx1_sqrt <== q0_gx1_sqrt;
-    check_ec_equations.q0_gx2_sqrt <== q0_gx2_sqrt;
-    check_ec_equations.q0_y_pos <== q0_y_pos;
-    check_ec_equations.q0_x_mapped <== q0_x_mapped;
-    check_ec_equations.q0_y_mapped <== q0_y_mapped;
-
-    check_ec_equations.q1_gx1_sqrt <== q1_gx1_sqrt;
-    check_ec_equations.q1_gx2_sqrt <== q1_gx2_sqrt;
-    check_ec_equations.q1_y_pos <== q1_y_pos;
-    check_ec_equations.q1_x_mapped <== q1_x_mapped;
-    check_ec_equations.q1_y_mapped <== q1_y_mapped;
+        check_ec_equations.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        check_ec_equations.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        check_ec_equations.q1_y_pos[i] <== q1_y_pos[i];
+        check_ec_equations.q1_x_mapped[i] <== q1_x_mapped[i];
+        check_ec_equations.q1_y_mapped[i] <== q1_y_mapped[i];
+    }
 
     // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
     component c_sha256 = sha256_12_coordinates(n, k);
@@ -59,7 +66,6 @@ template plume_v1(n, k, msg_length) {
     g[0] = get_genx(n, k);
     g[1] = get_geny(n, k);
     c_sha256.preimage_bit_length <== sha256_preimage_bit_length;
-
     for (var i = 0; i < 2; i++) {
         for (var j = 0; j < k; j++) {
             c_sha256.coordinates[i][j] <== g[i][j];
@@ -116,28 +122,39 @@ template plume_v2(n, k, msg_length) {
     signal input q1_y_mapped[4];
 
     component check_ec_equations = check_ec_equations(n, k, msg_length);
+    for (var i = 0; i < k; i++) {
+        check_ec_equations.c[i] <== c[i];
+        check_ec_equations.s[i] <== s[i];
+        check_ec_equations.public_key[0][i] <== public_key[0][i];
+        check_ec_equations.public_key[1][i] <== public_key[1][i];
+        check_ec_equations.nullifier[0][i] <== nullifier[0][i];
+        check_ec_equations.nullifier[1][i] <== nullifier[1][i];
+    }
 
-    check_ec_equations.c <== c;
-    check_ec_equations.s <== s;
-    check_ec_equations.public_key <== public_key;
-    check_ec_equations.nullifier <== nullifier;
+    for (var i = 0; i < msg_length; i++) {
+        check_ec_equations.msg[i] <== msg[i];
+    }
 
-    check_ec_equations.msg <== msg;
+    for (var i = 0; i < 4; i++) {
+        check_ec_equations.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        check_ec_equations.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        check_ec_equations.q0_y_pos[i] <== q0_y_pos[i];
+        check_ec_equations.q0_x_mapped[i] <== q0_x_mapped[i];
+        check_ec_equations.q0_y_mapped[i] <== q0_y_mapped[i];
 
-    check_ec_equations.q0_gx1_sqrt <== q0_gx1_sqrt;
-    check_ec_equations.q0_gx2_sqrt <== q0_gx2_sqrt;
-    check_ec_equations.q0_y_pos <== q0_y_pos;
-    check_ec_equations.q0_x_mapped <== q0_x_mapped;
-    check_ec_equations.q0_y_mapped <== q0_y_mapped;
+        check_ec_equations.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        check_ec_equations.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        check_ec_equations.q1_y_pos[i] <== q1_y_pos[i];
+        check_ec_equations.q1_x_mapped[i] <== q1_x_mapped[i];
+        check_ec_equations.q1_y_mapped[i] <== q1_y_mapped[i];
+    }
 
-    check_ec_equations.q1_gx1_sqrt <== q1_gx1_sqrt;
-    check_ec_equations.q1_gx2_sqrt <== q1_gx2_sqrt;
-    check_ec_equations.q1_y_pos <== q1_y_pos;
-    check_ec_equations.q1_x_mapped <== q1_x_mapped;
-    check_ec_equations.q1_y_mapped <== q1_y_mapped;
-
-    h_pow_r <== check_ec_equations.h_pow_r;
-    g_pow_r <== check_ec_equations.g_pow_r;
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            h_pow_r[i][j] <== check_ec_equations.h_pow_r[i][j];
+            g_pow_r[i][j] <== check_ec_equations.g_pow_r[i][j];
+        }
+    }
 }
 
 template check_ec_equations(n, k, msg_length) {
@@ -171,12 +188,18 @@ template check_ec_equations(n, k, msg_length) {
     // Calculates g^s. Note, turning a private key to a public key is the same operation as
     // raising the generator g to some power, and we are *not* dealing with private keys in this circuit.
     component g_pow_s = ECDSAPrivToPub(n, k);
-    g_pow_s.privkey <== s;
+    for (var i = 0; i < k; i++) {
+        g_pow_s.privkey[i] <== s[i];
+    }
 
     component g_pow_r_comp = a_div_b_pow_c(n, k);
-    g_pow_r_comp.a <== g_pow_s.pubkey;
-    g_pow_r_comp.b <== public_key;
-    g_pow_r_comp.c <== c;
+    for (var i = 0; i < k; i++) {
+        g_pow_r_comp.a[0][i] <== g_pow_s.pubkey[0][i];
+        g_pow_r_comp.a[1][i] <== g_pow_s.pubkey[1][i];
+        g_pow_r_comp.b[0][i] <== public_key[0][i];
+        g_pow_r_comp.b[1][i] <== public_key[1][i];
+        g_pow_r_comp.c[i] <== c[i];
+    }
 
     // Calculate hash[m, pk]^r
     // hash[m, pk]^r = hash[m, pk]^s / (hash[m, pk]^sk)^c
@@ -189,39 +212,54 @@ template check_ec_equations(n, k, msg_length) {
     }
 
     component pk_compressor = compress_ec_point(n, k);
-
-    pk_compressor.uncompressed <== public_key;    
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            pk_compressor.uncompressed[i][j] <== public_key[i][j];
+        }
+    }
 
     for (var i = 0; i < 33; i++) {
         h_comp.msg[msg_length + i] <== pk_compressor.compressed[i];
     }
 
     // Input precalculated values into HashToCurve
-    h_comp.q0_gx1_sqrt <== q0_gx1_sqrt;
-    h_comp.q0_gx2_sqrt <== q0_gx2_sqrt;
-    h_comp.q0_y_pos <== q0_y_pos;
-    h_comp.q0_x_mapped <== q0_x_mapped;
-    h_comp.q0_y_mapped <== q0_y_mapped;
-    h_comp.q1_gx1_sqrt <== q1_gx1_sqrt;
-    h_comp.q1_gx2_sqrt <== q1_gx2_sqrt;
-    h_comp.q1_y_pos <== q1_y_pos;
-    h_comp.q1_x_mapped <== q1_x_mapped;
-    h_comp.q1_y_mapped <== q1_y_mapped;
+    for (var i = 0; i < k; i++) {
+        h_comp.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        h_comp.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        h_comp.q0_y_pos[i] <== q0_y_pos[i];
+        h_comp.q0_x_mapped[i] <== q0_x_mapped[i];
+        h_comp.q0_y_mapped[i] <== q0_y_mapped[i];
+        h_comp.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        h_comp.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        h_comp.q1_y_pos[i] <== q1_y_pos[i];
+        h_comp.q1_x_mapped[i] <== q1_x_mapped[i];
+        h_comp.q1_y_mapped[i] <== q1_y_mapped[i];
+    }
 
     component h_pow_s = Secp256k1ScalarMult(n, k);
-    h_pow_s.scalar <== s;
-    h_pow_s.point <== h_comp.out;
+    for (var i = 0; i < k; i++) {
+        h_pow_s.scalar[i] <== s[i];
+        h_pow_s.point[0][i] <== h_comp.out[0][i];
+        h_pow_s.point[1][i] <== h_comp.out[1][i];
+    }
 
     component h_pow_r_comp = a_div_b_pow_c(n, k);
-    h_pow_r_comp.a <== h_pow_s.out;
-    h_pow_r_comp.b <== nullifier;
-    h_pow_r_comp.c <== c;
+    for (var i = 0; i < k; i++) {
+        h_pow_r_comp.a[0][i] <== h_pow_s.out[0][i];
+        h_pow_r_comp.a[1][i] <== h_pow_s.out[1][i];
+        h_pow_r_comp.b[0][i] <== nullifier[0][i];
+        h_pow_r_comp.b[1][i] <== nullifier[1][i];
+        h_pow_r_comp.c[i] <== c[i];
+    }
 
-    h <== h_comp.out;
-
-    h_pow_r <== h_pow_r_comp.out;
-
-    g_pow_r <== g_pow_r_comp.out;
+    for (var i = 0; i < k; i++) {
+        h[0][i] <== h_comp.out[0][i];
+        h[1][i] <== h_comp.out[1][i];
+        h_pow_r[0][i] <== h_pow_r_comp.out[0][i];
+        h_pow_r[1][i] <== h_pow_r_comp.out[1][i];
+        g_pow_r[0][i] <== g_pow_r_comp.out[0][i];
+        g_pow_r[1][i] <== g_pow_r_comp.out[1][i];
+    }
 }
 
 template a_div_b_pow_c(n, k) {
@@ -234,8 +272,11 @@ template a_div_b_pow_c(n, k) {
     // discrete log, and these comments follow the spec to make comparison simpler. But the circom-ecdsa library uses
     // additive notation. This is why we appear to calculate an expnentiation using a multiplication component.
     component b_pow_c = Secp256k1ScalarMult(n, k);
-    b_pow_c.scalar <== c;
-    b_pow_c.point <== b; 
+    for (var i = 0; i < k; i++) {
+        b_pow_c.scalar[i] <== c[i];
+        b_pow_c.point[0][i] <== b[0][i];
+        b_pow_c.point[1][i] <== b[1][i];
+    }
 
     // Calculates inverse of b^c by finding the modular inverse of its y coordinate
     var prime[100] = get_secp256k1_prime(n, k);
@@ -244,17 +285,21 @@ template a_div_b_pow_c(n, k) {
         b_pow_c_inv_y.a[i] <== prime[i];
         b_pow_c_inv_y.b[i] <== b_pow_c.out[1][i];
     }
-
     b_pow_c_inv_y.underflow === 0;
 
     // Calculates a^s * (b^c)-1
     component final_result = Secp256k1AddUnequal(n, k);
+    for (var i = 0; i < k; i++) {
+        final_result.a[0][i] <== a[0][i];
+        final_result.a[1][i] <== a[1][i];
+        final_result.b[0][i] <== b_pow_c.out[0][i];
+        final_result.b[1][i] <== b_pow_c_inv_y.out[i];
+    }
 
-    final_result.a <== a;
-    final_result.b[0] <== b_pow_c.out[0];       
-    final_result.b[1] <== b_pow_c_inv_y.out;
-
-    out <== final_result.out;
+    for (var i = 0; i < k; i++) {
+        out[0][i] <== final_result.out[0][i];
+        out[1][i] <== final_result.out[1][i];
+    }
 }
 
 template sha256_12_coordinates(n, k) {
@@ -266,8 +311,10 @@ template sha256_12_coordinates(n, k) {
     component compressors[6];
     for (var i = 0; i < 6; i++) {
         compressors[i] = compress_ec_point(n, k);
-        compressors[i].uncompressed[0] <== coordinates[2*i];
-        compressors[i].uncompressed[1] <== coordinates[2*i + 1];
+        for (var j = 0; j < k; j++) {
+            compressors[i].uncompressed[0][j] <== coordinates[2*i][j];
+            compressors[i].uncompressed[1][j] <== coordinates[2*i + 1][j];
+        }
     }
 
     // decompose coordinates inputs into binary
@@ -312,7 +359,9 @@ template sha256_12_coordinates(n, k) {
         sha256.padded_bits[total_bits - i - 1] <== bit_length_binary.out[i];
     }
 
-    out <== sha256.out;
+    for (var i = 0; i < 256; i++) {
+        out[i] <== sha256.out[i];
+    }
 }
 
 // We use elliptic curve points in uncompressed form to do elliptic curve arithmetic, but we use them in compressed form when
@@ -333,8 +382,14 @@ template compress_ec_point(n, k) {
     }
 
     component verify = verify_ec_compression(n, k);
-    verify.uncompressed <== uncompressed;    
-    verify.compressed <== compressed;
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < k; j++) {
+            verify.uncompressed[i][j] <== uncompressed[i][j];
+        }
+    }
+    for (var i = 0; i < 33; i++) {
+        verify.compressed[i] <== compressed[i];
+    }
 }
 
 // We have a separate internal compression verification template for testing purposes. An adversarial prover
@@ -357,7 +412,9 @@ template verify_ec_compression(n, k) {
         l_bytes[j \ 8] += compressed[33-i] * (256 ** (j % 8));
     }
 
-    uncompressed[0] === l_bytes;
+    for (var i = 0; i < k; i++) {
+        uncompressed[0][i] === l_bytes[i];
+    }
 }
 
 // Equivalent to get_gx and get_gy in circom-ecdsa, except we also have values for n = 64, k = 4.
@@ -397,4 +454,3 @@ function get_geny(n, k) {
     }
     return ret;
 }
-component main = plume_v1(64, 4, 29);
