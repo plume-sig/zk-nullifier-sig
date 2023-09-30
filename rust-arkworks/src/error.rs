@@ -2,7 +2,7 @@ use thiserror::Error;
 
 /// This is an error that could occur when running a cryptograhic primitive
 #[derive(Error, Debug, PartialEq)]
-pub enum CryptoError {
+pub enum EcError {
     #[error("Cannot hash to curve")]
     CannotHashToCurve,
 

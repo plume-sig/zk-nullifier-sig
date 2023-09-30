@@ -4,7 +4,7 @@ mod hash_to_curve;
 mod tests;
 
 pub mod sig {
-    use crate::error::CryptoError;
+    use crate::error::EcError;
     use crate::hash_to_curve;
     use ark_ec::short_weierstrass_jacobian::GroupAffine;
     use ark_ec::{models::SWModelParameters, AffineCurve, ProjectiveCurve};
@@ -42,7 +42,7 @@ pub mod sig {
     fn compute_h<'a, C: ProjectiveCurve, Fq: PrimeField, P: SWModelParameters>(
         pk: &GroupAffine<P>,
         message: &'a [u8],
-    ) -> Result<GroupAffine<P>, CryptoError> {
+    ) -> Result<GroupAffine<P>, EcError> {
         //let pk_affine_bytes_vec = affine_to_bytes::<P>(pk);
         //let m_pk = [message, pk_affine_bytes_vec.as_slice()].concat();
         //hash_to_curve::try_and_increment::<C>(m_pk.as_slice())
@@ -96,7 +96,7 @@ pub mod sig {
         fn keygen<R: Rng>(
             pp: &Self::Parameters,
             rng: &mut R,
-        ) -> Result<(Self::PublicKey, Self::SecretKey), CryptoError>;
+        ) -> Result<(Self::PublicKey, Self::SecretKey), EcError>;
 
         /// Sign a message.
         fn sign<R: Rng>(
@@ -105,7 +105,7 @@ pub mod sig {
             keypair: (&Self::PublicKey, &Self::SecretKey),
             message: Self::Message,
             version: PlumeVersion,
-        ) -> Result<Self::Signature, CryptoError>;
+        ) -> Result<Self::Signature, EcError>;
 
         /// Sign a message using an specified r value
         fn sign_with_r(
@@ -114,7 +114,7 @@ pub mod sig {
             message: Self::Message,
             r: Self::SecretKey,
             version: PlumeVersion,
-        ) -> Result<Self::Signature, CryptoError>;
+        ) -> Result<Self::Signature, EcError>;
 
         fn verify_non_zk(
             pp: &Self::Parameters,
@@ -122,7 +122,7 @@ pub mod sig {
             sig: &Self::Signature,
             message: Self::Message,
             version: PlumeVersion,
-        ) -> Result<bool, CryptoError>;
+        ) -> Result<bool, EcError>;
     }
 
     #[derive(
@@ -161,7 +161,7 @@ pub mod sig {
         fn keygen<R: Rng>(
             pp: &Self::Parameters,
             rng: &mut R,
-        ) -> Result<(Self::PublicKey, Self::SecretKey), CryptoError> {
+        ) -> Result<(Self::PublicKey, Self::SecretKey), EcError> {
             let secret_key = Self::SecretKey::rand(rng).into();
             let public_key = pp.g.mul(secret_key).into();
             Ok((public_key, secret_key))
@@ -173,7 +173,7 @@ pub mod sig {
             message: Self::Message,
             r: P::ScalarField,
             version: PlumeVersion,
-        ) -> Result<Self::Signature, CryptoError> {
+        ) -> Result<Self::Signature, EcError> {
             let g = pp.g;
             let g_r = g.mul(r).into_affine();
 
@@ -214,7 +214,7 @@ pub mod sig {
             keypair: (&Self::PublicKey, &Self::SecretKey),
             message: Self::Message,
             version: PlumeVersion,
-        ) -> Result<Self::Signature, CryptoError> {
+        ) -> Result<Self::Signature, EcError> {
             // Pick a random r from Fp
             let r: P::ScalarField = Self::SecretKey::rand(rng).into();
 
@@ -227,7 +227,7 @@ pub mod sig {
             sig: &Self::Signature,
             message: Self::Message,
             version: PlumeVersion,
-        ) -> Result<bool, CryptoError> {
+        ) -> Result<bool, EcError> {
             // Compute h = htc([m, pk])
             let h = compute_h::<C, Fq, P>(pk, message).unwrap();
 

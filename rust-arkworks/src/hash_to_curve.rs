@@ -1,18 +1,19 @@
-use crate::error::CryptoError;
-use ark_ec::{AffineCurve, ProjectiveCurve};
+use crate::error::EcError;
+// use ark_ec::{AffineCurve, ProjectiveCurve};
+use ark_ec::{AffineRepr, CurveGroup};
 use tiny_keccak::{Hasher, Shake, Xof};
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use k256::AffinePoint;
 use k256::sha2::Sha256;
 use elliptic_curve::sec1::ToEncodedPoint;
-use ark_ec::short_weierstrass_jacobian::GroupAffine;
+// use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use k256::{ProjectivePoint, Secp256k1};
 use ark_ff::FromBytes;
 use secp256k1::Sec1EncodePoint;
 
 pub fn hash_to_curve<
     Fp: ark_ff::PrimeField,
-    P: ark_ec::SWModelParameters,
+    // P: ark_ec::SWModelParameters,
 >(
     msg: &[u8],
     pk: &GroupAffine<P>,
@@ -35,7 +36,7 @@ pub fn hash_to_curve<
 }
 
 pub fn k256_affine_to_arkworks_secp256k1_affine<
-    P: ark_ec::SWModelParameters
+    // P: ark_ec::SWModelParameters
 >(
     k_pt: AffinePoint,
 ) -> GroupAffine<P> {
@@ -70,12 +71,13 @@ pub fn k256_affine_to_arkworks_secp256k1_affine<
 }
 
 /// Kobi's hash_to_curve function, here for reference only
-pub fn _try_and_increment<C: ProjectiveCurve>(msg: &[u8]) -> Result<C::Affine, CryptoError> {
+pub fn _try_and_increment<C: CurveGroup>(msg: &[u8]) -> Result<C::Affine, EcError> {
     for nonce in 0u8..=255 {
         let mut h = Shake::v128();
         h.update(&[nonce]);
         h.update(msg.as_ref());
-        let output_size = C::zero().serialized_size();
+        let output_size = C::zero().serialized_size(ark_serialize::Compress::Yes);
+        // TODO try to replace with an array sized with a generic number
         let mut output = vec![0u8; output_size];
         h.squeeze(&mut output);
 
@@ -84,5 +86,5 @@ pub fn _try_and_increment<C: ProjectiveCurve>(msg: &[u8]) -> Result<C::Affine, C
         }
     }
 
-    Err(CryptoError::CannotHashToCurve)
+    Err(EcError::CannotHashToCurve)
 }
