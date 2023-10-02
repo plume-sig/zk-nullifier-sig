@@ -11,6 +11,8 @@ use k256::{ProjectivePoint, Secp256k1};
 use ark_ff::FromBytes;
 use secp256k1::Sec1EncodePoint;
 
+// for reference see <../examples/>
+
 pub fn hash_to_curve<
     Fp: ark_ff::PrimeField,
     // P: ark_ec::SWModelParameters,
@@ -68,23 +70,4 @@ pub fn k256_affine_to_arkworks_secp256k1_affine<
     let g_y = P::BaseField::read(reader).unwrap();
 
     GroupAffine::<P>::new(g_x, g_y, false)
-}
-
-/// Kobi's hash_to_curve function, here for reference only
-pub fn _try_and_increment<C: CurveGroup>(msg: &[u8]) -> Result<C::Affine, EcError> {
-    for nonce in 0u8..=255 {
-        let mut h = Shake::v128();
-        h.update(&[nonce]);
-        h.update(msg.as_ref());
-        let output_size = C::zero().serialized_size(ark_serialize::Compress::Yes);
-        // TODO try to replace with an array sized with a generic number
-        let mut output = vec![0u8; output_size];
-        h.squeeze(&mut output);
-
-        if let Some(p) = C::Affine::from_random_bytes(&output) {
-            return Ok(p);
-        }
-    }
-
-    Err(EcError::CannotHashToCurve)
 }
