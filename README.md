@@ -42,12 +42,13 @@ Be prepared to wait around 20-40 minutes for the tests to complete.
 
 ## TODO
 
-- Incorporate the [V2 proposed by poseidon](https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff) to be a codepath both in the wallet [WIP PR](https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/9) and in the circom (task still open)
-- improve `rust-k256` to use a similar interface as `rust-arkworks` - i.e. generate/accept arbitrary keypairs and `r` values, and not just hardcoded values
-- rewrite in halo2 (WIP by blakemscurr and vuvoth, dm to contribute via a grant!)
-- reduce number of arguments to c via Wei Dai's + [Poseidons](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4) suggestions
-- build stealthdrop MVP, the first anonymous airdrop to any Ethereum keys via PLUME by forking [stealthdrop][url](https://docs.google.com/presentation/d/10ZGJvYpIqpON5O4uDf2pdk-PnT8fEVyPOoRqC3VmFn0/edit)
-- Edit: Poseidon will be too slow in Ledger and is a newer hash function -- given that we have reasonably efficient sha256 hashing with [zkevm sha256](https://github.com/Brechtpd/zkevm-circuits/tree/sha256), we do not intend to switch the hash function
+- [DONE] Incorporate the [V2 proposed by poseidon](https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff) to be a codepath both in the wallet [WIP PR](https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/9) and in the circom
+- Improve `rust-k256` to use a similar interface as `rust-arkworks` - i.e. generate/accept arbitrary keypairs and `r` values, and not just hardcoded values
+- Rewrite in halo2 (WIP by blakemscurr and vuvoth)
+  - [$500 Bounty] Implement hash to curve in halo2
+- Reduce number of arguments to c via Wei Dai's + [Poseidons](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4) suggestions (potentially just g^sk, h[m, pk], g^r is fine) and write a proof in the Algebraic Group Model for the change.
+- [$500 Bounty] Fix stealthdrop MVP, the first anonymous airdrop to any Ethereum keys via PLUMEs -- [repo](https://github.com/stealthdrop/stealthdrop/) and [slides](https://docs.google.com/presentation/d/10ZGJvYpIqpON5O4uDf2pdk-PnT8fEVyPOoRqC3VmFn0/edit).
+- Edit: Poseidon hash will be too slow in Ledger and is a newer hash function -- given that we have reasonably efficient sha256 hashing with [halo2 zkevm sha256](https://github.com/Brechtpd/zkevm-circuits/tree/sha256) as well as efficient EVM computation in the V2 proposal, we do not intend to switch the hash function away from SHA256.
 
 ## Resources
 
