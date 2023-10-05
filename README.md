@@ -1,8 +1,8 @@
 # PLUME: Verifiably Deterministic Signatures on ECDSA
 
-This repository provides libraries for the construction of deterministic nullifiers on Ethereum keys, ERC 7524. We call them Privately Linked Unique Message Entities (or PLUMEs). We hope that wallets integrate the javascript, rust, or (work-in-progress) C repositories for both software and hardware signature generation, and dapps integrate the zk proof in the circuits/ directory.
+This repository provides libraries for the construction of deterministic nullifiers on Ethereum keys, [ERC 7524]([https://ethereum-magicians.org/t/erc-7524-plume-signature-in-wallets/15902](https://github.com/ethereum/EIPs/pull/7775)). We call them Privately Linked Unique Message Entities (or PLUMEs). We hope that wallets integrate the javascript, rust, or C repositories for both software and hardware signature generation, and dapps integrate the zk proof in the circuits/ directory.
 
-If you would like to get a grant to create PLUME applications or help to fix bugs and upgrade to a V3, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are ideas both below in the README, or in the issues in Github. Feel free to pick one up, and dm on Twitter or email [VII](https://vii.dev) to help! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as Richard Liu, Blake M Scurr, Piotr Roslaniec, Vu Voth, Weijie Koh, Vivek Bhupatiraju, Poseidon Labs for a V2 proposal, and our auditors, as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf).
+If you would like to get a grant to create PLUME applications or improve the library, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are projects ideas both below in the README, as well as bountied every issue in Github has a $50 bounty on it. Feel free to pick one up, and dm us on Twitter/Telegram (@yush_g) or email [Provenant Research](https://provenant.dev) to help! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as yush_g, Oren Yomtov, Richard Liu, Blake M Scurr, Piotr Roslaniec, Vu Voth, Weijie Koh, and Vivek Bhupatiraju who directly contributed to the code. Thanks to Poseidon Labs for a V2 proposal and Weiking Chen for a V3 proposal, and our auditors (0xbok), as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf) and [blog post](https://blog.aayushg.com/posts/plume).
 
 ## Contributions
 
@@ -70,7 +70,7 @@ https://nullifier.xyz
 ### Talk
 https://www.youtube.com/watch?v=6ajBnMdJGoY
 
-### Circom Proofs
+### Circom Proof Data
 
 For the V1,
 See [this PR](https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/7).   
@@ -82,10 +82,13 @@ a/b^c ~1.5 each (this is the sub circuit for the first 2 verification equations)
 the remaining 1.5M is probably dominated by calculating g^s and h^s. 
 
 For the V2,
-the sha256 is 0 cost in the circuit, but is added to the verification cost. THis takes in-circuit constraints down to 5M and adds the sha to the verification.
+the sha256 is 0 cost in the circuit, but is added to the verification cost. This takes in-circuit constraints down to 5M and adds the sha to the verification.
 
 #### Hash to Curve Circom Code
 https://github.com/geometryresearch/secp256k1_hash_to_curve/
+https://geometry.xyz/notebook/Hashing-to-the-secp256k1-Elliptic-Curve
+
+We are giving a $500 grant for an implementation of this in halo2.
 
 ### Nullifier Calculation Spec
 https://hackmd.io/uZQbMHrVSbOHvoI_HrJJlw
