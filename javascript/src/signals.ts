@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 
 // PLUME version
 export enum PlumeVersion {
-  V1,
+  V1 = 1,
   V2,
 }
 
