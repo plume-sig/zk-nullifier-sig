@@ -16,7 +16,7 @@
   "dependencies": {
     "@noble/secp256k1": "^1.7.0",
     "amcl-js": "^3.1.0",
-    "js-sha512": "^0.8.0"
+    "js-sha256": "^0.10.1"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
