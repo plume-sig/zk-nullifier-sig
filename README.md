@@ -60,10 +60,14 @@ Paper [slightly out of date]: https://eprint.iacr.org/2022/1255
 [http://slides.plume.run](https://docs.google.com/presentation/d/1mKtOI4XgKrWBEPpKFAYkRjxZsBomwhy6Cc2Ia87hAnY/edit#slide=id.g13e97fbcd2c_0_76)
 
 ### Blog Post
-https://blog.aayushg.com/posts/nullifier
+[blog.aayushg.com/posts/nullifier](https://blog.aayushg.com/posts/nullifier)
 
-### ERC Draft
-[http://erc.plume.run][https://www.notion.so/vi-institute/PLUME-ERC-Draft-5558bbd43b674bcb881f5c535ced5893]
+This describes the construction as well as explains our choices for the various hash/hash-to-curve functions.
+
+### ERC 7524
+[Official ERC: erc.plume.run](https://erc.plume.run)
+
+[Discussion](https://ethereum-magicians.org/t/erc-7524-plume-signature-in-wallets/15902/2)
 
 ### Demo
 https://nullifier.xyz
