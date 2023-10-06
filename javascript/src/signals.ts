@@ -8,7 +8,7 @@ import {
 } from "./utils/encoding";
 import hashToCurve from "./utils/hashToCurve";
 import { HashedPoint, multiplyPoint } from "./utils/curve";
-const { sha256 } =require('js-sha256');
+const { sha256 } = require('js-sha256');
 
 // PLUME version
 export enum PlumeVersion {
