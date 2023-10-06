@@ -97,7 +97,7 @@ export function computeAllInputs(
   message: string | Uint8Array,
   secretKey: string | Uint8Array,
   r?: string | Uint8Array,
-  version: PlumeVersion = PlumeVersion.V1
+  version: PlumeVersion = PlumeVersion.V2
 ) {
   const secretKeyBytes =
     typeof secretKey === "string" ? hexToUint8Array(secretKey) : secretKey;
