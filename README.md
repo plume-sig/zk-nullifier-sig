@@ -69,6 +69,8 @@ This describes the construction as well as explains our choices for the various 
 
 [Discussion](https://ethereum-magicians.org/t/erc-7524-plume-signature-in-wallets/15902/2)
 
+[ERC 7524 Taho Wallet Integration](https://github.com/tahowallet/extension/pull/3638)
+
 ### Demo
 https://nullifier.xyz
 
