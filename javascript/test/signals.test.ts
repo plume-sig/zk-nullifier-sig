@@ -65,7 +65,8 @@ describe("signals", () => {
       const { plume, s, publicKey, c, gPowR, hashMPKPowR } = computeAllInputs(
         testMessage,
         testSecretKey,
-        testR
+        testR,
+        PlumeVersion.V1,
       );
       expect(publicKey).toEqual(testPublicKey);
       expect(gPowR.x.toString(16)).toEqual(

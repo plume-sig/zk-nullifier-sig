@@ -8,7 +8,7 @@ import {
 } from "./utils/encoding";
 import hashToCurve from "./utils/hashToCurve";
 import { HashedPoint, multiplyPoint } from "./utils/curve";
-const { sha256 } =require('js-sha256');
+const { sha256 } = require('js-sha256');
 
 // PLUME version
 export enum PlumeVersion {
@@ -97,7 +97,7 @@ export function computeAllInputs(
   message: string | Uint8Array,
   secretKey: string | Uint8Array,
   r?: string | Uint8Array,
-  version: PlumeVersion = PlumeVersion.V1
+  version: PlumeVersion = PlumeVersion.V2
 ) {
   const secretKeyBytes =
     typeof secretKey === "string" ? hexToUint8Array(secretKey) : secretKey;
