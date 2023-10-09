@@ -35,7 +35,7 @@ fn print_type_of<T>(_: &T) {
     println!("{}", std::any::type_name::<T>());
 }
 
-// Generates a deterministic secret key for us temporarily. Can be replaced by random oracle anytime.
+// Generates a deterministic secret key for deterministic testing. Should be replaced by random oracle in production deployments.
 fn gen_test_scalar_sk() -> Scalar {
     Scalar::from_repr(
         hex!("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464").into(),
@@ -43,7 +43,7 @@ fn gen_test_scalar_sk() -> Scalar {
     .unwrap()
 }
 
-// Generates a deterministic r for us temporarily. Can be replaced by random oracle anytime.
+// Generates a deterministic r for deterministic testing. Should be replaced by random oracle in production deployments.
 fn gen_test_scalar_r() -> Scalar {
     Scalar::from_repr(
         hex!("93b9323b629f251b8f3fc2dd11f4672c5544e8230d493eceea98a90bda789808").into(),
@@ -308,7 +308,7 @@ mod tests {
         let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) =
             test_gen_signals(m, PlumeVersion::V1);
 
-        // The signer's secret key. It is only accessed within the secu`re enclave.
+        // The signer's secret key. It is only accessed within the secure enclave.
         let sk = gen_test_scalar_sk();
 
         // The user's public key: g^sk.
