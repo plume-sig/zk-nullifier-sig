@@ -14,6 +14,8 @@ If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any 
 - `rust-arkworks`: Rust, using arkworks
 - `javascript`: JavaScript, using MIRACL
 
+We have been audited by 0xbok for these three implementations V1 and V2 implementations, as well as for V1 circuits in circom. We expect the halo2 circuits to be runnable on mobile (once we have recursive proving infrastructure setup).
+
 ## Testing the circom circuit
 
 First, clone this repository and navigate to the `javascript/` directory.
