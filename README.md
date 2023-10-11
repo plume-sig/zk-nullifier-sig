@@ -4,7 +4,7 @@ This repository provides libraries for the construction of deterministic nullifi
 
 We hope that wallets integrate the javascript, rust, or C repositories for both software and hardware signature generation, and dapps integrate the zk proof in the circuits/ directory.
 
-If you would like to get a grant to create PLUME applications or improve the library, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are projects ideas both below in the README, as well as bountied every issue in Github has a $50 bounty on it. Feel free to pick one up, and dm us on Twitter/Telegram (@yush_g) for guidance and help, or join the discussion in the public channel in the [PSE Discord](https://discord.gg/pse) for progress updates and community questions! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as yush_g, Oren Yomtov, Richard Liu, Blake M Scurr, Piotr Roslaniec, Vu Voth, Weijie Koh, and Vivek Bhupatiraju who directly contributed to the code. Thanks to Poseidon Labs for a [V2 proposal](https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff) and Weiking Chen for a V3 proposal, and our auditors (0xbok), as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf) and [blog post](https://blog.aayushg.com/posts/plume).
+If you would like to get a grant to create PLUME applications or improve the library, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are projects ideas both below in the README, as well as bountied every issue in Github has a $50 bounty on it. Feel free to pick one up, and dm us on Twitter/Telegram (@yush_g) for guidance and help, or join the discussion in the public channel in the [PSE Discord](https://discord.gg/pse) for progress updates and community questions! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as yush_g, Oren Yomtov, Richard Liu, Blake M Scurr, Piotr Roslaniec, Vu Voth, Weijie Koh, and Vivek Bhupatiraju who directly contributed to the code. Thanks to Poseidon Labs for a [V2 proposal](https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff) and Weiking Chen for his filed issues, and our auditors (0xbok), as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf) and [blog post](https://blog.aayushg.com/posts/plume).
 
 ## Contributions
 
@@ -20,8 +20,8 @@ If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any 
 
 - Mina: Uses it for nullifiers [here](https://github.com/o1-labs/o1js/blob/main/src/lib/nullifier.ts) and [here](https://github.com/o1-labs/o1js/blob/main/src/mina-signer/src/nullifier.ts). We are working with them to be fully ERC compliant!
 - Taho: We have an [open PR](https://github.com/tahowallet/extension/pull/3638) that we are waiting on them to merge!
-- Metamask: We have an [open PR set ([rpc](https://github.com/MetaMask/eth-json-rpc-middleware/pull/198
-), [api](https://github.com/MetaMask/api-specs/pull/120), [core](https://github.com/MetaMask/metamask-extension/pull/17482))] that we are waiting on them to merge!
+- Metamask: We have an open PR set ([rpc](https://github.com/MetaMask/eth-json-rpc-middleware/pull/198
+), [api](https://github.com/MetaMask/api-specs/pull/120), [core](https://github.com/MetaMask/metamask-extension/pull/17482)) that we are waiting on them to merge!
 - Aztec: WIP, grant out to implement in Noir.
 
 ### Audits
@@ -57,8 +57,8 @@ Be prepared to wait around 20-40 minutes for the tests to complete.
 
 We invite contributors to collaborate on this effort. There are great tasks for beginners (the issues), a halo2 intermediate level (circuits), cryptography intermediate level (the v1 improvement to make it v2 compatible below), and on the application layer (building apps that use PLUME).  
 
-- Rewrite in halo2 (WIP by blakemscurr and vuvoth)
-  - [$500 Bounty] Implement hash to curve in halo2
+- Rewrite in halo2 ([WIP](https://github.com/blakemscurr/zk-nullifier-sig/tree/halo2) by blakemscurr and vuvoth)
+  - [$500 Bounty] Implement hash to curve in halo2 and add it to the [existing WIP implementation](https://github.com/blakemscurr/zk-nullifier-sig/tree/halo2)
 - Reduce number of arguments to c in V1 via Wei Dai's + [Poseidons](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4) suggestions (potentially just g^sk, h[m, pk], g^r is fine) that are currently used in the V2, and write a proof in the Algebraic Group Model for the change.
 - [$500 Bounty] Fix stealthdrop MVP, the first anonymous airdrop to any Ethereum keys via PLUMEs -- [repo](https://github.com/stealthdrop/stealthdrop/) and [slides](https://docs.google.com/presentation/d/10ZGJvYpIqpON5O4uDf2pdk-PnT8fEVyPOoRqC3VmFn0/edit).
 - [$500 Bounty] Implement ZK voting via PLUMEs, as described in [Poseidons proposal](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4).
