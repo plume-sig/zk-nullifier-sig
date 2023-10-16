@@ -12,6 +12,21 @@ use ark_ff::FromBytes;
 use secp256k1::Sec1EncodePoint;
 
 // for reference see <../examples/>
+/* <https://aayushg.com/thesis.pdf>:
+> 2.1 Hashing
+> Our nullifier algorithm relies on several hashing algorithms, including SHA256, SHA512,
+> and the IETF RFC standard hash to curve algorithm for secp256k1 QUUX-V01-
+> CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_ (we will abbreviate this last algorithm as hash2curve henceforth, for brevity) [13].
+> There are many SNARK-friendly hash functions, like MiMC, Poseidon, or Pederson. However, we didn’t use those in our initial proof of concept and paper due to
+> unclear wallet compatibility and unclear security. We want to guarantee maximum
+> compatibility and probability of adoption by wallets, and these hash functions have
+> not extensively been certified via researchers or use in the wild.
+> Note that our construction also relies on a hash to curve algorithm, because a
+> hash multiplied by the generator would break the existential unforgeability of any
+> signature scheme dependent on it [35].
+> We assume these hash algorithms are collision resistant and deriving a preimage
+> is hard given the hashed value, and breaking each requires 2
+> 𝑛 queries for some n */
 
 pub fn hash_to_curve<
     Fp: ark_ff::PrimeField,
