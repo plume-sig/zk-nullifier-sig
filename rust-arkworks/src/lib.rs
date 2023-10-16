@@ -1,7 +1,5 @@
 mod error;
 mod hash_to_curve;
-#[cfg(test)]
-mod tests;
 
 pub mod sig {
     use crate::error::CryptoError;
@@ -50,22 +48,22 @@ pub mod sig {
     }
 
     fn compute_c_v1<P: SWModelParameters>(
-        g: &GroupAffine<P>,
+        generator: &GroupAffine<P>,
         pk: &GroupAffine<P>,
-        h: &GroupAffine<P>,
-        nul: &GroupAffine<P>,
-        g_r: &GroupAffine<P>,
-        z: &GroupAffine<P>,
+        hash1: &GroupAffine<P>,
+        nullifier: &GroupAffine<P>,
+        r_point: &GroupAffine<P>,
+        hash1_r: &GroupAffine<P>,
     ) -> Output<Sha256> {
         // Compute c = sha512([g, pk, h, nul, g^r, z])
-        let g_bytes = affine_to_bytes::<P>(g);
-        let pk_bytes = affine_to_bytes::<P>(pk);
-        let h_bytes = affine_to_bytes::<P>(h);
-        let nul_bytes = affine_to_bytes::<P>(nul);
-        let g_r_bytes = affine_to_bytes::<P>(g_r);
-        let z_bytes = affine_to_bytes::<P>(z);
-
-        let c_preimage_vec = [g_bytes, pk_bytes, h_bytes, nul_bytes, g_r_bytes, z_bytes].concat();
+        let c_preimage_vec = [
+            affine_to_bytes::<P>(generator),
+            affine_to_bytes::<P>(pk),
+            affine_to_bytes::<P>(hash1),
+            affine_to_bytes::<P>(nullifier),
+            affine_to_bytes::<P>(r_point),
+            affine_to_bytes::<P>(hash1_r)
+        ].concat();
 
         Sha256::digest(c_preimage_vec.as_slice())
     }
@@ -267,3 +265,6 @@ pub mod sig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
