@@ -16,4 +16,6 @@ num-bigint = "0.4.3"
 num-integer = "0.1.45"
 k256 = {version = "0.11.3", features = ["arithmetic", "hash2curve", "expose-field", "sha2"]}
 elliptic-curve = { version = "0.12.2", features = ["arithmetic"]}
+
+[dev-dependencies]
 hex = "0.4.3"
