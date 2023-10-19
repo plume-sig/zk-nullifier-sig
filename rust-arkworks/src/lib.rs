@@ -48,21 +48,21 @@ pub mod sig {
     }
 
     fn compute_c_v1<P: SWModelParameters>(
-        generator: &GroupAffine<P>,
+        g_point: &GroupAffine<P>,
         pk: &GroupAffine<P>,
-        hash1: &GroupAffine<P>,
+        hash_to_curve: &GroupAffine<P>,
         nullifier: &GroupAffine<P>,
         r_point: &GroupAffine<P>,
-        hash1_r: &GroupAffine<P>,
+        hash_to_curve_r: &GroupAffine<P>,
     ) -> Output<Sha256> {
         // Compute c = sha512([g, pk, h, nul, g^r, z])
         let c_preimage_vec = [
-            affine_to_bytes::<P>(generator),
+            affine_to_bytes::<P>(g_point),
             affine_to_bytes::<P>(pk),
-            affine_to_bytes::<P>(hash1),
+            affine_to_bytes::<P>(hash_to_curve),
             affine_to_bytes::<P>(nullifier),
             affine_to_bytes::<P>(r_point),
-            affine_to_bytes::<P>(hash1_r)
+            affine_to_bytes::<P>(hash_to_curve_r)
         ].concat();
 
         Sha256::digest(c_preimage_vec.as_slice())
