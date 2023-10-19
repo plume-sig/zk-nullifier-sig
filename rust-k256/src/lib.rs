@@ -8,7 +8,6 @@ use elliptic_curve::bigint::ArrayEncoding;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::ops::Reduce;
 use elliptic_curve::sec1::ToEncodedPoint;
-use hex_literal::hex;
 use k256::U256;
 use k256::{
     // ecdsa::{signature::Signer, Signature, SigningKey},
@@ -33,22 +32,6 @@ pub enum Error {
 
 fn print_type_of<T>(_: &T) {
     println!("{}", std::any::type_name::<T>());
-}
-
-// Generates a deterministic secret key for deterministic testing. Should be replaced by random oracle in production deployments.
-fn gen_test_scalar_sk() -> Scalar {
-    Scalar::from_repr(
-        hex!("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464").into(),
-    )
-    .unwrap()
-}
-
-// Generates a deterministic r for deterministic testing. Should be replaced by random oracle in production deployments.
-fn gen_test_scalar_r() -> Scalar {
-    Scalar::from_repr(
-        hex!("93b9323b629f251b8f3fc2dd11f4672c5544e8230d493eceea98a90bda789808").into(),
-    )
-    .unwrap()
 }
 
 fn sha256hash_vec_signal(values: &[ProjectivePoint]) -> Output<Sha256> {
@@ -204,9 +187,26 @@ fn byte_array_to_scalar(bytes: &[u8]) -> Scalar {
 mod tests {
     use super::*;
     
-    use helpers::test_gen_signals;
+    use helpers::{test_gen_signals, gen_test_scalar_sk};
     mod helpers {
         use super::*;
+        use hex_literal::hex;
+
+        // Generates a deterministic secret key for deterministic testing. Should be replaced by random oracle in production deployments.
+        pub fn gen_test_scalar_sk() -> Scalar {
+            Scalar::from_repr(
+                hex!("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464").into(),
+            )
+            .unwrap()
+        }
+
+        // Generates a deterministic r for deterministic testing. Should be replaced by random oracle in production deployments.
+        fn gen_test_scalar_r() -> Scalar {
+            Scalar::from_repr(
+                hex!("93b9323b629f251b8f3fc2dd11f4672c5544e8230d493eceea98a90bda789808").into(),
+            )
+            .unwrap()
+        }
 
         // These generate test signals as if it were passed from a secure enclave to wallet. Note that leaking these signals would leak pk, but not sk.
         // Outputs these 6 signals, in this order
