@@ -62,17 +62,17 @@ describe("signals", () => {
     });
 
     it("generates all signals", () => {
-      const { plume, s, publicKey, c, gPowR, hashMPKPowR } = computeAllInputs(
+      const { plume, s, pk, c, rPoint, hashedToCurveR } = computeAllInputs(
         testMessage,
         testSecretKey,
         testR,
         PlumeVersion.V1,
       );
-      expect(publicKey).toEqual(testPublicKey);
-      expect(gPowR.x.toString(16)).toEqual(
+      expect(pk).toEqual(testPublicKey);
+      expect(rPoint.x.toString(16)).toEqual(
         "9d8ca4350e7e2ad27abc6d2a281365818076662962a28429590e2dc736fe9804"
       );
-      expect(gPowR.y.toString(16)).toEqual(
+      expect(rPoint.y.toString(16)).toEqual(
         "ff08c30b8afd4e854623c835d9c3aac6bcebe45112472d9b9054816a7670c5a1"
       );
       expect(plume.x.toString(16)).toEqual(
@@ -81,7 +81,7 @@ describe("signals", () => {
       expect(plume.y.toString(16)).toEqual(
         "6a2f41488d58f33ae46edd2188e111609f9f3ae67ea38fa891d6087fe59ecb73"
       );
-      expect(hashMPKPowR.x.toString(16)).toEqual(
+      expect(hashedToCurveR.x.toString(16)).toEqual(
         "6d017c6f63c59fa7a5b1e9a654e27d2869579f4d152131db270558fccd27b97c"
       );
       expect(c).toEqual(
@@ -90,7 +90,7 @@ describe("signals", () => {
       expect(s).toEqual(
         "e69f027d84cb6fe5f761e333d12e975fb190d163e8ea132d7de0bd6079ba28ca"
       );
-      expect(hashMPKPowR.y.toString(16)).toEqual(
+      expect(hashedToCurveR.y.toString(16)).toEqual(
         "586c43fb5c99818c564a8f80a88a65f83e3f44d3c6caf5a1a4e290b777ac56ed"
       );
     });
@@ -124,17 +124,17 @@ describe("signals", () => {
     });
 
     it("generates all signals", () => {
-      const { plume, s, publicKey, c, gPowR, hashMPKPowR } = computeAllInputs(
+      const { plume, s, pk, c, rPoint, hashedToCurveR } = computeAllInputs(
         testMessage,
         testSecretKey,
         testR,
         PlumeVersion.V2
       );
-      expect(publicKey).toEqual(testPublicKey);
-      expect(gPowR.x.toString(16)).toEqual(
+      expect(pk).toEqual(testPublicKey);
+      expect(rPoint.x.toString(16)).toEqual(
         "9d8ca4350e7e2ad27abc6d2a281365818076662962a28429590e2dc736fe9804"
       );
-      expect(gPowR.y.toString(16)).toEqual(
+      expect(rPoint.y.toString(16)).toEqual(
         "ff08c30b8afd4e854623c835d9c3aac6bcebe45112472d9b9054816a7670c5a1"
       );
       expect(plume.x.toString(16)).toEqual(
@@ -143,7 +143,7 @@ describe("signals", () => {
       expect(plume.y.toString(16)).toEqual(
         "6a2f41488d58f33ae46edd2188e111609f9f3ae67ea38fa891d6087fe59ecb73"
       );
-      expect(hashMPKPowR.x.toString(16)).toEqual(
+      expect(hashedToCurveR.x.toString(16)).toEqual(
         "6d017c6f63c59fa7a5b1e9a654e27d2869579f4d152131db270558fccd27b97c"
       );
       expect(c).toEqual(
@@ -152,7 +152,7 @@ describe("signals", () => {
       expect(s).toEqual(
         "528e8fbb6452f82200797b1a73b2947a92524bd611085a920f1177cb8098136b"
       );
-      expect(hashMPKPowR.y.toString(16)).toEqual(
+      expect(hashedToCurveR.y.toString(16)).toEqual(
         "586c43fb5c99818c564a8f80a88a65f83e3f44d3c6caf5a1a4e290b777ac56ed"
       );
     });
