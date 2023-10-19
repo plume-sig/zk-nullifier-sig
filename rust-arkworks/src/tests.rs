@@ -89,7 +89,7 @@ pub fn hardcoded_msg() -> String {
 #[test]
 pub fn test_keygen() {
     let (mut rng, g) = test_template();
-    let pp = Parameters{ g };
+    let pp = Parameters{ g_point: g };
 
     let (pk, sk) = Scheme::keygen(&pp, &mut rng).unwrap();
 
@@ -100,7 +100,7 @@ pub fn test_keygen() {
 #[test]
 pub fn test_sign_and_verify() {
     let (mut rng, g) = test_template();
-    let pp = Parameters{ g };
+    let pp = Parameters{ g_point: g };
 
     let message = b"Message";
     let keypair = Scheme::keygen(&pp, &mut rng).unwrap();
@@ -217,7 +217,7 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
     let message = message.as_bytes();
     let sk = hex_to_fr(&hardcoded_sk());
     let (_, g) = test_template();
-    let pp = Parameters{ g };
+    let pp = Parameters{ g_point: g };
     let pk_projective = g.mul(sk);
     let pk = GroupAffine::<Secp256k1Parameters>::from(pk_projective);
 
