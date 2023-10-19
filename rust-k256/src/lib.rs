@@ -34,7 +34,7 @@ fn print_type_of<T>(_: &T) {
     println!("{}", std::any::type_name::<T>());
 }
 
-fn sha256hash_vec_signal(values: &[ProjectivePoint]) -> Output<Sha256> {
+fn c_sha256_vec_signal(values: &[ProjectivePoint]) -> Output<Sha256> {
     let preimage_vec = values
         .iter()
         .map(|value| encode_pt(*value).unwrap())
@@ -42,7 +42,7 @@ fn sha256hash_vec_signal(values: &[ProjectivePoint]) -> Output<Sha256> {
         .concat();
     let mut sha256_hasher = Sha256::new();
     sha256_hasher.update(preimage_vec.as_slice());
-    sha256_hasher.finalize() //256 bit hash
+    sha256_hasher.finalize()
 }
 
 fn sha256hash6signals(
@@ -72,19 +72,8 @@ fn sha256hash6signals(
     Scalar::from_repr(c_bytes).unwrap()
 }
 
-// Calls the hash to curve function for secp256k1, and returns the result as a ProjectivePoint
-fn hash_to_secp(s: &[u8]) -> ProjectivePoint {
-    let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
-        &[s],
-        //b"CURVE_XMD:SHA-256_SSWU_RO_"
-        DST,
-    )
-    .unwrap();
-    pt
-}
-
 // Hashes two values to the curve
-fn hash_m_pk_to_secp(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
+fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
     let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
         &[[m, &encode_pt(*pk).unwrap()].concat().as_slice()],
         //b"CURVE_XMD:SHA-256_SSWU_RO_",
@@ -104,13 +93,13 @@ enum PlumeVersion {
 // hash[m, gsk]^[r + sk * c] / (hash[m, pk]^sk)^c = hash[m, pk]^r
 // c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
 fn verify_signals(
-    m: &[u8],
+    message: &[u8],
     pk: &ProjectivePoint,
     nullifier: &ProjectivePoint,
     c: &Output<Sha256>,
-    r_sk_c: &Scalar,
-    g_r_option: &Option<ProjectivePoint>,
-    hash_m_pk_pow_r_option: &Option<ProjectivePoint>,
+    s: &Scalar,
+    r_point_optional: &Option<ProjectivePoint>,
+    hashed_to_curve_optional: &Option<ProjectivePoint>,
     version: PlumeVersion,
 ) -> bool {
     let mut verified: bool = true;
@@ -119,44 +108,44 @@ fn verify_signals(
     let g = &ProjectivePoint::GENERATOR;
 
     // hash[m, pk]
-    let hash_m_pk = &hash_m_pk_to_secp(m, pk);
+    let hashed_to_curve = &hash_to_curve(message, pk);
 
     // Check whether g^r equals g^s * pk^{-c}
     let g_r: ProjectivePoint;
     // TODO should we use non-zero `Scalar`?
     let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(*c));
-    match *g_r_option {
+    match *r_point_optional {
         Some(_g_r_value) => {
-            if (g * r_sk_c - pk * c_scalar) != _g_r_value {
+            if (g * s - pk * c_scalar) != _g_r_value {
                 verified = false;
             }
         }
         None => println!("g^r not provided, check skipped"),
     }
-    g_r = g * r_sk_c - pk * c_scalar;
+    g_r = g * s - pk * c_scalar;
 
     // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
     let hash_m_pk_pow_r: ProjectivePoint;
-    match *hash_m_pk_pow_r_option {
+    match *hashed_to_curve_optional {
         Some(_hash_m_pk_pow_r_value) => {
-            if (hash_m_pk * r_sk_c - nullifier * c_scalar) != _hash_m_pk_pow_r_value {
+            if (hashed_to_curve * s - nullifier * c_scalar) != _hash_m_pk_pow_r_value {
                 verified = false;
             }
         }
         None => println!("hash_m_pk_pow_r not provided, check skipped"),
     }
-    hash_m_pk_pow_r = hash_m_pk * r_sk_c - nullifier * c_scalar;
+    hash_m_pk_pow_r = hashed_to_curve * s - nullifier * c_scalar;
 
     // Check if the given hash matches
     match version {
         PlumeVersion::V1 => {
-            if sha256hash_vec_signal(&[*g, *pk, *hash_m_pk, *nullifier, g_r, hash_m_pk_pow_r]) != *c
+            if c_sha256_vec_signal(&[*g, *pk, *hashed_to_curve, *nullifier, g_r, hash_m_pk_pow_r]) != *c
             {
                 verified = false;
             }
         }
         PlumeVersion::V2 => {
-            if sha256hash_vec_signal(&[*nullifier, g_r, hash_m_pk_pow_r]) != *c {
+            if c_sha256_vec_signal(&[*nullifier, g_r, hash_m_pk_pow_r]) != *c {
                 verified = false;
             }
         }
@@ -187,7 +176,7 @@ fn byte_array_to_scalar(bytes: &[u8]) -> Scalar {
 mod tests {
     use super::*;
     
-    use helpers::{test_gen_signals, gen_test_scalar_sk};
+    use helpers::{test_gen_signals, gen_test_scalar_sk, hash_to_secp};
     mod helpers {
         use super::*;
         use hex_literal::hex;
@@ -206,6 +195,17 @@ mod tests {
                 hex!("93b9323b629f251b8f3fc2dd11f4672c5544e8230d493eceea98a90bda789808").into(),
             )
             .unwrap()
+        }
+
+        // Calls the hash to curve function for secp256k1, and returns the result as a ProjectivePoint
+        pub fn hash_to_secp(s: &[u8]) -> ProjectivePoint {
+            let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
+                &[s],
+                //b"CURVE_XMD:SHA-256_SSWU_RO_"
+                DST,
+            )
+            .unwrap();
+            pt
         }
 
         // These generate test signals as if it were passed from a secure enclave to wallet. Note that leaking these signals would leak pk, but not sk.
@@ -243,7 +243,7 @@ mod tests {
             let g_r = &g * &r;
 
             // hash[m, pk]
-            let hash_m_pk = hash_m_pk_to_secp(m, &pk);
+            let hash_m_pk = hash_to_curve(m, &pk);
 
             println!(
                 "h.x: {:?}",
@@ -283,9 +283,9 @@ mod tests {
             // The Fiat-Shamir type step.
             let c = match version {
                 PlumeVersion::V1 => {
-                    sha256hash_vec_signal(&[g, pk, hash_m_pk, nullifier, g_r, hash_m_pk_pow_r])
+                    c_sha256_vec_signal(&[g, pk, hash_m_pk, nullifier, g_r, hash_m_pk_pow_r])
                 }
-                PlumeVersion::V2 => sha256hash_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r]),
+                PlumeVersion::V2 => c_sha256_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r]),
             };
             
             let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.clone()));
