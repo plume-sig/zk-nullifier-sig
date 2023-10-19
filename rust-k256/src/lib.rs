@@ -102,16 +102,16 @@ fn verify_signals(
     hashed_to_curve_optional: &Option<ProjectivePoint>,
     version: PlumeVersion,
 ) -> bool {
-    let mut verified: bool = true;
+    let mut verified: bool = true; // looks like antipattern to @skaunov; also see #22
 
     // The base point or generator of the curve.
     let g = &ProjectivePoint::GENERATOR;
 
     // hash[m, pk]
-    let hashed_to_curve = &hash_to_curve(message, pk);
+    let hashed_to_curve_computed = &hash_to_curve(message, pk);
 
     // Check whether g^r equals g^s * pk^{-c}
-    let g_r: ProjectivePoint;
+    let r_point_computed: ProjectivePoint;
     // TODO should we use non-zero `Scalar`?
     let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(*c));
     match *r_point_optional {
@@ -122,30 +122,30 @@ fn verify_signals(
         }
         None => println!("g^r not provided, check skipped"),
     }
-    g_r = g * s - pk * c_scalar;
+    r_point_computed = g * s - pk * c_scalar;
 
     // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
-    let hash_m_pk_pow_r: ProjectivePoint;
+    let hashed_to_curve_r_computed: ProjectivePoint;
     match *hashed_to_curve_optional {
         Some(_hash_m_pk_pow_r_value) => {
-            if (hashed_to_curve * s - nullifier * c_scalar) != _hash_m_pk_pow_r_value {
+            if (hashed_to_curve_computed * s - nullifier * c_scalar) != _hash_m_pk_pow_r_value {
                 verified = false;
             }
         }
         None => println!("hash_m_pk_pow_r not provided, check skipped"),
     }
-    hash_m_pk_pow_r = hashed_to_curve * s - nullifier * c_scalar;
+    hashed_to_curve_r_computed = hashed_to_curve_computed * s - nullifier * c_scalar;
 
     // Check if the given hash matches
     match version {
         PlumeVersion::V1 => {
-            if c_sha256_vec_signal(&[*g, *pk, *hashed_to_curve, *nullifier, g_r, hash_m_pk_pow_r]) != *c
+            if c_sha256_vec_signal(&[*g, *pk, *hashed_to_curve_computed, *nullifier, r_point_computed, hashed_to_curve_r_computed]) != *c
             {
                 verified = false;
             }
         }
         PlumeVersion::V2 => {
-            if c_sha256_vec_signal(&[*nullifier, g_r, hash_m_pk_pow_r]) != *c {
+            if c_sha256_vec_signal(&[*nullifier, r_point_computed, hashed_to_curve_r_computed]) != *c {
                 verified = false;
             }
         }
