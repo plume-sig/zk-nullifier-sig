@@ -139,13 +139,22 @@ fn verify_signals(
     // Check if the given hash matches
     match version {
         PlumeVersion::V1 => {
-            if c_sha256_vec_signal(&[*g, *pk, *hashed_to_curve_computed, *nullifier, r_point_computed, hashed_to_curve_r_computed]) != *c
+            if c_sha256_vec_signal(&[
+                *g,
+                *pk,
+                *hashed_to_curve_computed,
+                *nullifier,
+                r_point_computed,
+                hashed_to_curve_r_computed,
+            ]) != *c
             {
                 verified = false;
             }
         }
         PlumeVersion::V2 => {
-            if c_sha256_vec_signal(&[*nullifier, r_point_computed, hashed_to_curve_r_computed]) != *c {
+            if c_sha256_vec_signal(&[*nullifier, r_point_computed, hashed_to_curve_r_computed])
+                != *c
+            {
                 verified = false;
             }
         }
@@ -175,8 +184,8 @@ fn byte_array_to_scalar(bytes: &[u8]) -> Scalar {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
-    use helpers::{test_gen_signals, gen_test_scalar_sk, hash_to_secp};
+
+    use helpers::{gen_test_scalar_sk, hash_to_secp, test_gen_signals};
     mod helpers {
         use super::*;
         use hex_literal::hex;
@@ -287,7 +296,7 @@ mod tests {
                 }
                 PlumeVersion::V2 => c_sha256_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r]),
             };
-            
+
             let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.clone()));
             // This value is part of the discrete log equivalence (DLEQ) proof.
             let r_sk_c = r + sk * c_scalar;
