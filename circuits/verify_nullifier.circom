@@ -7,13 +7,13 @@ include "./node_modules/secp256k1_hash_to_curve_circom/circom/hash_to_curve.circ
 include "./node_modules/secp256k1_hash_to_curve_circom/circom/Sha256.circom";
 include "./node_modules/circomlib/circuits/bitify.circom";
 
-// Verifies that a nullifier belongs to a specific public key
+// Verifies that a nullifier belongs to a specific public key \
 // This blog explains the intuition behind the construction https://blog.aayushg.com/posts/nullifier
-template plume_v1(n, k, msg_length) {
+template plume_v1(n, k, message_length) {
     signal input c[k];
     signal input s[k];
-    signal input msg[msg_length];
-    signal input public_key[2][k];
+    signal input plume_message[message_length];
+    signal input pk[2][k];
     signal input nullifier[2][k];
 
     // precomputed values for the hash_to_curve component
@@ -32,18 +32,18 @@ template plume_v1(n, k, msg_length) {
     // precomputed value for the sha256 component. TODO: calculate internally in circom to simplify API
     signal input sha256_preimage_bit_length;
 
-    component check_ec_equations = check_ec_equations(n, k, msg_length);
+    component check_ec_equations = check_ec_equations(n, k, message_length);
     for (var i = 0; i < k; i++) {
         check_ec_equations.c[i] <== c[i];
         check_ec_equations.s[i] <== s[i];
-        check_ec_equations.public_key[0][i] <== public_key[0][i];
-        check_ec_equations.public_key[1][i] <== public_key[1][i];
+        check_ec_equations.pk[0][i] <== pk[0][i];
+        check_ec_equations.pk[1][i] <== pk[1][i];
         check_ec_equations.nullifier[0][i] <== nullifier[0][i];
         check_ec_equations.nullifier[1][i] <== nullifier[1][i];
     }
 
-    for (var i = 0; i < msg_length; i++) {
-        check_ec_equations.msg[i] <== msg[i];
+    for (var i = 0; i < message_length; i++) {
+        check_ec_equations.plume_message[i] <== plume_message[i];
     }
 
     for (var i = 0; i < 4; i++) {
@@ -69,11 +69,11 @@ template plume_v1(n, k, msg_length) {
     for (var i = 0; i < 2; i++) {
         for (var j = 0; j < k; j++) {
             c_sha256.coordinates[i][j] <== g[i][j];
-            c_sha256.coordinates[2+i][j] <== public_key[i][j];
-            c_sha256.coordinates[4+i][j] <== check_ec_equations.h[i][j];
+            c_sha256.coordinates[2+i][j] <== pk[i][j];
+            c_sha256.coordinates[4+i][j] <== check_ec_equations.hashed_to_curve[i][j];
             c_sha256.coordinates[6+i][j] <== nullifier[i][j];
-            c_sha256.coordinates[8+i][j] <== check_ec_equations.g_pow_r[i][j];
-            c_sha256.coordinates[10+i][j] <== check_ec_equations.h_pow_r[i][j];
+            c_sha256.coordinates[8+i][j] <== check_ec_equations.r_point[i][j];
+            c_sha256.coordinates[10+i][j] <== check_ec_equations.hashed_to_curve_r[i][j];
         }
     }
 
@@ -96,17 +96,17 @@ template plume_v1(n, k, msg_length) {
 }
 
 // v2 is the same as v1, except that the sha256 check is done outside the circuit.
-// We output g_pow_r and h_pow_r as public values so that the verifier can calculate the hash themselves.
+// We output `r_point` ($g^r$) and `hashed_to_curve_r` ($hash^r$) as public values so that the verifier can calculate the hash themselves.
 // The change is explained here https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff
-template plume_v2(n, k, msg_length) {
+template plume_v2(n, k, message_length) {
     signal input c[k];
     signal input s[k];
-    signal input msg[msg_length];
-    signal input public_key[2][k];
+    signal input plume_message[message_length];
+    signal input pk[2][k];
     signal input nullifier[2][k];
 
-    signal output g_pow_r[2][k];
-    signal output h_pow_r[2][k];
+    signal output r_point[2][k];
+    signal output hashed_to_curve_r[2][k];
 
     // precomputed values for the hash_to_curve component
     signal input q0_gx1_sqrt[4];
@@ -121,18 +121,18 @@ template plume_v2(n, k, msg_length) {
     signal input q1_x_mapped[4];
     signal input q1_y_mapped[4];
 
-    component check_ec_equations = check_ec_equations(n, k, msg_length);
+    component check_ec_equations = check_ec_equations(n, k, message_length);
     for (var i = 0; i < k; i++) {
         check_ec_equations.c[i] <== c[i];
         check_ec_equations.s[i] <== s[i];
-        check_ec_equations.public_key[0][i] <== public_key[0][i];
-        check_ec_equations.public_key[1][i] <== public_key[1][i];
+        check_ec_equations.pk[0][i] <== pk[0][i];
+        check_ec_equations.pk[1][i] <== pk[1][i];
         check_ec_equations.nullifier[0][i] <== nullifier[0][i];
         check_ec_equations.nullifier[1][i] <== nullifier[1][i];
     }
 
-    for (var i = 0; i < msg_length; i++) {
-        check_ec_equations.msg[i] <== msg[i];
+    for (var i = 0; i < message_length; i++) {
+        check_ec_equations.plume_message[i] <== plume_message[i];
     }
 
     for (var i = 0; i < 4; i++) {
@@ -151,22 +151,22 @@ template plume_v2(n, k, msg_length) {
 
     for (var i = 0; i < 2; i++) {
         for (var j = 0; j < k; j++) {
-            h_pow_r[i][j] <== check_ec_equations.h_pow_r[i][j];
-            g_pow_r[i][j] <== check_ec_equations.g_pow_r[i][j];
+            hashed_to_curve_r[i][j] <== check_ec_equations.hashed_to_curve_r[i][j];
+            r_point[i][j] <== check_ec_equations.r_point[i][j];
         }
     }
 }
 
-template check_ec_equations(n, k, msg_length) {
+template check_ec_equations(n, k, message_length) {
     signal input c[k];
     signal input s[k];
-    signal input msg[msg_length];
-    signal input public_key[2][k];
+    signal input plume_message[message_length];
+    signal input pk[2][k];
     signal input nullifier[2][k];
 
-    signal output g_pow_r[2][k];
-    signal output h_pow_r[2][k];
-    signal output h[2][k];
+    signal output r_point[2][k];
+    signal output hashed_to_curve_r[2][k];
+    signal output hashed_to_curve[2][k];
 
     // precomputed values for the hash_to_curve component
     signal input q0_gx1_sqrt[4];
@@ -187,18 +187,18 @@ template check_ec_equations(n, k, msg_length) {
 
     // Calculates g^s. Note, turning a private key to a public key is the same operation as
     // raising the generator g to some power, and we are *not* dealing with private keys in this circuit.
-    component g_pow_s = ECDSAPrivToPub(n, k);
+    component s_point = ECDSAPrivToPub(n, k);
     for (var i = 0; i < k; i++) {
-        g_pow_s.privkey[i] <== s[i];
+        s_point.privkey[i] <== s[i];
     }
 
-    component g_pow_r_comp = a_div_b_pow_c(n, k);
+    component r_point_comp = a_div_b_pow_c(n, k);
     for (var i = 0; i < k; i++) {
-        g_pow_r_comp.a[0][i] <== g_pow_s.pubkey[0][i];
-        g_pow_r_comp.a[1][i] <== g_pow_s.pubkey[1][i];
-        g_pow_r_comp.b[0][i] <== public_key[0][i];
-        g_pow_r_comp.b[1][i] <== public_key[1][i];
-        g_pow_r_comp.c[i] <== c[i];
+        r_point_comp.a[0][i] <== s_point.pubkey[0][i];
+        r_point_comp.a[1][i] <== s_point.pubkey[1][i];
+        r_point_comp.b[0][i] <== pk[0][i];
+        r_point_comp.b[1][i] <== pk[1][i];
+        r_point_comp.c[i] <== c[i];
     }
 
     // Calculate hash[m, pk]^r
@@ -206,59 +206,59 @@ template check_ec_equations(n, k, msg_length) {
     // Note this implicitly checks the second equation in the blog
 
     // Calculate hash[m, pk]^r
-    component h_comp = HashToCurve(msg_length + 33);
-    for (var i = 0; i < msg_length; i++) {
-        h_comp.msg[i] <== msg[i];
+    component hash_to_curve = HashToCurve(message_length + 33);
+    for (var i = 0; i < message_length; i++) {
+        hash_to_curve.msg[i] <== plume_message[i];
     }
 
     component pk_compressor = compress_ec_point(n, k);
     for (var i = 0; i < 2; i++) {
         for (var j = 0; j < k; j++) {
-            pk_compressor.uncompressed[i][j] <== public_key[i][j];
+            pk_compressor.uncompressed[i][j] <== pk[i][j];
         }
     }
 
     for (var i = 0; i < 33; i++) {
-        h_comp.msg[msg_length + i] <== pk_compressor.compressed[i];
+        hash_to_curve.msg[message_length + i] <== pk_compressor.compressed[i];
     }
 
     // Input precalculated values into HashToCurve
     for (var i = 0; i < k; i++) {
-        h_comp.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
-        h_comp.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
-        h_comp.q0_y_pos[i] <== q0_y_pos[i];
-        h_comp.q0_x_mapped[i] <== q0_x_mapped[i];
-        h_comp.q0_y_mapped[i] <== q0_y_mapped[i];
-        h_comp.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
-        h_comp.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
-        h_comp.q1_y_pos[i] <== q1_y_pos[i];
-        h_comp.q1_x_mapped[i] <== q1_x_mapped[i];
-        h_comp.q1_y_mapped[i] <== q1_y_mapped[i];
+        hash_to_curve.q0_gx1_sqrt[i] <== q0_gx1_sqrt[i];
+        hash_to_curve.q0_gx2_sqrt[i] <== q0_gx2_sqrt[i];
+        hash_to_curve.q0_y_pos[i] <== q0_y_pos[i];
+        hash_to_curve.q0_x_mapped[i] <== q0_x_mapped[i];
+        hash_to_curve.q0_y_mapped[i] <== q0_y_mapped[i];
+        hash_to_curve.q1_gx1_sqrt[i] <== q1_gx1_sqrt[i];
+        hash_to_curve.q1_gx2_sqrt[i] <== q1_gx2_sqrt[i];
+        hash_to_curve.q1_y_pos[i] <== q1_y_pos[i];
+        hash_to_curve.q1_x_mapped[i] <== q1_x_mapped[i];
+        hash_to_curve.q1_y_mapped[i] <== q1_y_mapped[i];
     }
 
     component h_pow_s = Secp256k1ScalarMult(n, k);
     for (var i = 0; i < k; i++) {
         h_pow_s.scalar[i] <== s[i];
-        h_pow_s.point[0][i] <== h_comp.out[0][i];
-        h_pow_s.point[1][i] <== h_comp.out[1][i];
+        h_pow_s.point[0][i] <== hash_to_curve.out[0][i];
+        h_pow_s.point[1][i] <== hash_to_curve.out[1][i];
     }
 
-    component h_pow_r_comp = a_div_b_pow_c(n, k);
+    component hashed_to_curve_r_comp = a_div_b_pow_c(n, k);
     for (var i = 0; i < k; i++) {
-        h_pow_r_comp.a[0][i] <== h_pow_s.out[0][i];
-        h_pow_r_comp.a[1][i] <== h_pow_s.out[1][i];
-        h_pow_r_comp.b[0][i] <== nullifier[0][i];
-        h_pow_r_comp.b[1][i] <== nullifier[1][i];
-        h_pow_r_comp.c[i] <== c[i];
+        hashed_to_curve_r_comp.a[0][i] <== h_pow_s.out[0][i];
+        hashed_to_curve_r_comp.a[1][i] <== h_pow_s.out[1][i];
+        hashed_to_curve_r_comp.b[0][i] <== nullifier[0][i];
+        hashed_to_curve_r_comp.b[1][i] <== nullifier[1][i];
+        hashed_to_curve_r_comp.c[i] <== c[i];
     }
 
     for (var i = 0; i < k; i++) {
-        h[0][i] <== h_comp.out[0][i];
-        h[1][i] <== h_comp.out[1][i];
-        h_pow_r[0][i] <== h_pow_r_comp.out[0][i];
-        h_pow_r[1][i] <== h_pow_r_comp.out[1][i];
-        g_pow_r[0][i] <== g_pow_r_comp.out[0][i];
-        g_pow_r[1][i] <== g_pow_r_comp.out[1][i];
+        hashed_to_curve[0][i] <== hash_to_curve.out[0][i];
+        hashed_to_curve[1][i] <== hash_to_curve.out[1][i];
+        hashed_to_curve_r[0][i] <== hashed_to_curve_r_comp.out[0][i];
+        hashed_to_curve_r[1][i] <== hashed_to_curve_r_comp.out[1][i];
+        r_point[0][i] <== r_point_comp.out[0][i];
+        r_point[1][i] <== r_point_comp.out[1][i];
     }
 }
 
@@ -270,7 +270,7 @@ template a_div_b_pow_c(n, k) {
 
     // Calculates b^c. Note that the spec uses multiplicative notation to preserve intuitions about
     // discrete log, and these comments follow the spec to make comparison simpler. But the circom-ecdsa library uses
-    // additive notation. This is why we appear to calculate an expnentiation using a multiplication component.
+    // additive notation. This is why we appear to calculate an exponentiation using a multiplication component.
     component b_pow_c = Secp256k1ScalarMult(n, k);
     for (var i = 0; i < k; i++) {
         b_pow_c.scalar[i] <== c[i];
@@ -392,20 +392,23 @@ template compress_ec_point(n, k) {
     }
 }
 
-// We have a separate internal compression verification template for testing purposes. An adversarial prover
-// can set any compressed values, so it's useful to be able to test adversarial inputs.
+// We have a separate internal compression verification template for testing 
+// purposes. An adversarial prover can set any compressed values, so it's 
+// useful to be able to test adversarial inputs.
 template verify_ec_compression(n, k) {
     signal input uncompressed[2][k];
     signal input compressed[33];
 
-    // Get the bit string of the smallest register
-    // Make sure the least significant bit's evenness matches the evenness specified by the first byte in the compressed version
+    // Get the bit string of the smallest register \
+    // Make sure the least significant bit's evenness matches the evenness 
+    // specified by the first byte in the compressed version
     component num2bits = Num2Bits(n);
     num2bits.in <== uncompressed[1][0]; // Note, circom-ecdsa uses little endian, so we check the 0th register of the y value
     compressed[0] === num2bits.out[0] + 2;
 
-    // Make sure the compressed and uncompressed x coordinates represent the same number
-    // l_bytes is an algebraic expression for the bytes of each register
+    // Make sure the compressed and uncompressed x coordinates represent 
+    // the same number \
+    // `l_bytes` is an algebraic expression for the bytes of each register
     var l_bytes[k];
     for (var i = 1; i < 33; i++) {
         var j = i - 1; // ignores the first byte specifying the compressed y coordinate
@@ -417,9 +420,10 @@ template verify_ec_compression(n, k) {
     }
 }
 
-// Equivalent to get_gx and get_gy in circom-ecdsa, except we also have values for n = 64, k = 4.
-// This is necessary because hash_to_curve is only implemented for n = 64, k = 4 but circom-ecdsa
-// only g's coordinates for n = 86, k = 3
+// Equivalent to get_gx and get_gy in circom-ecdsa, except we also have values 
+// for n = 64, k = 4. \
+// This is necessary because hash_to_curve is only implemented for n = 64, 
+// k = 4 but circom-ecdsa only g's coordinates for n = 86, k = 3 \
 // TODO: merge this upstream into circom-ecdsa
 function get_genx(n, k) {
     assert((n == 86 && k == 3) || (n == 64 && k == 4));
