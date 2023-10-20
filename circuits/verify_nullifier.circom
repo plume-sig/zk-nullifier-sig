@@ -32,7 +32,7 @@ template plume_v1(n, k, message_length) {
     // precomputed value for the sha256 component. TODO: calculate internally in circom to simplify API
     signal input sha256_preimage_bit_length;
 
-    component check_ec_equations = check_ec_equations(n, k, msg_length);
+    component check_ec_equations = check_ec_equations(n, k, message_length);
 
     check_ec_equations.c <== c;
     check_ec_equations.s <== s;
@@ -115,7 +115,7 @@ template plume_v2(n, k, message_length) {
     signal input q1_x_mapped[4];
     signal input q1_y_mapped[4];
 
-    component check_ec_equations = check_ec_equations(n, k, msg_length);
+    component check_ec_equations = check_ec_equations(n, k, message_length);
 
     check_ec_equations.c <== c;
     check_ec_equations.s <== s;
