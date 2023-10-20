@@ -1,8 +1,8 @@
 import {
   hashMPk,
   nullifier,
-  hashMPkPowR,
-  gPowR,
+  hashedToCurveR,
+  rPoint,
   c_v1,
   s_v1,
   c_v2,
@@ -36,17 +36,17 @@ describe("signals", () => {
   });
   describe("Plume V1", () => {
     it("generates c and intermediate values correctly", () => {
-      expect(hashMPkPowR.x.toString(16)).toEqual(
+      expect(hashedToCurveR.x.toString(16)).toEqual(
         "6d017c6f63c59fa7a5b1e9a654e27d2869579f4d152131db270558fccd27b97c"
       );
-      expect(hashMPkPowR.y.toString(16)).toEqual(
+      expect(hashedToCurveR.y.toString(16)).toEqual(
         "586c43fb5c99818c564a8f80a88a65f83e3f44d3c6caf5a1a4e290b777ac56ed"
       );
 
-      expect(gPowR.x.toString(16)).toEqual(
+      expect(rPoint.x.toString(16)).toEqual(
         "9d8ca4350e7e2ad27abc6d2a281365818076662962a28429590e2dc736fe9804"
       );
-      expect(gPowR.y.toString(16)).toEqual(
+      expect(rPoint.y.toString(16)).toEqual(
         "ff08c30b8afd4e854623c835d9c3aac6bcebe45112472d9b9054816a7670c5a1"
       );
 
@@ -98,17 +98,17 @@ describe("signals", () => {
 
   describe("Plume V2", () => {
     it("generates c and intermediate values correctly", () => {
-      expect(hashMPkPowR.x.toString(16)).toEqual(
+      expect(hashedToCurveR.x.toString(16)).toEqual(
         "6d017c6f63c59fa7a5b1e9a654e27d2869579f4d152131db270558fccd27b97c"
       );
-      expect(hashMPkPowR.y.toString(16)).toEqual(
+      expect(hashedToCurveR.y.toString(16)).toEqual(
         "586c43fb5c99818c564a8f80a88a65f83e3f44d3c6caf5a1a4e290b777ac56ed"
       );
 
-      expect(gPowR.x.toString(16)).toEqual(
+      expect(rPoint.x.toString(16)).toEqual(
         "9d8ca4350e7e2ad27abc6d2a281365818076662962a28429590e2dc736fe9804"
       );
-      expect(gPowR.y.toString(16)).toEqual(
+      expect(rPoint.y.toString(16)).toEqual(
         "ff08c30b8afd4e854623c835d9c3aac6bcebe45112472d9b9054816a7670c5a1"
       );
 
