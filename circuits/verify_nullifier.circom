@@ -397,4 +397,3 @@ function get_geny(n, k) {
     }
     return ret;
 }
-component main = plume_v1(64, 4, 29);
