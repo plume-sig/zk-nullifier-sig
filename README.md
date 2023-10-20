@@ -116,3 +116,8 @@ https://hackmd.io/uZQbMHrVSbOHvoI_HrJJlw
 
 ### Circom Verification Spec
 https://hackmd.io/VsojkopuSMuEA4vkYKSB8g?edit
+
+### V2 Spec and Discussion
+[notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4)
+
+This includes some discussion on justifications for the V2 signature calculation, as well as concrete ways to use PLUME proofs + Proof of ECDSA to do nullifiers and voting respectively.
