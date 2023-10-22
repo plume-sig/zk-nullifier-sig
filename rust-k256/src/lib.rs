@@ -95,9 +95,9 @@ pub struct PlumeSignature<'a> {
     pub nullifier: &'a ProjectivePoint,
     pub c: &'a [u8],
     pub s: &'a Scalar,
-    pub v2: Option<PlumeSignatureV2Fields<'a>>,
+    pub v2: Option<PlumeSignatureV1Fields<'a>>,
 }
-pub struct PlumeSignatureV2Fields<'a> {
+pub struct PlumeSignatureV1Fields<'a> {
     pub sig_r_point: &'a ProjectivePoint,
     pub sig_hashed_to_curve_r: &'a ProjectivePoint,
 }
@@ -127,7 +127,7 @@ impl PlumeSignature<'_> {
         let hashed_to_curve = hash_to_curve(self.message, self.pk);
         let hashed_to_curve_r = &hashed_to_curve * self.s - self.nullifier * &c_scalar;
 
-        if let Some(PlumeSignatureV2Fields {
+        if let Some(PlumeSignatureV1Fields {
             sig_r_point,
             sig_hashed_to_curve_r,
         }) = self.v2
@@ -340,7 +340,7 @@ mod tests {
             nullifier: &nullifier,
             c: &c,
             s: &r_sk_c,
-            v2: Some(PlumeSignatureV2Fields {
+            v2: Some(PlumeSignatureV1Fields {
                 sig_r_point: &g_r.unwrap(),
                 sig_hashed_to_curve_r: &hash_m_pk_pow_r.unwrap(),
             }),
