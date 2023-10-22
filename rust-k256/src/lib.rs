@@ -12,7 +12,8 @@ use k256::{
     FieldBytes,
     ProjectivePoint,
     Scalar,
-    Secp256k1, U256
+    Secp256k1,
+    U256,
 }; // requires 'getrandom' feature
 
 const L: usize = 48;
