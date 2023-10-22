@@ -1,9 +1,6 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
 // #![feature(generic_const_expr)]
 // #![allow(incomplete_features)]
 
-use digest::Output;
 use elliptic_curve::bigint::ArrayEncoding;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::ops::Reduce;
@@ -12,7 +9,7 @@ use k256::U256;
 use k256::{
     // ecdsa::{signature::Signer, Signature, SigningKey},
     elliptic_curve::group::ff::PrimeField,
-    sha2::{Digest, Sha256},
+    sha2::{Digest, Sha256, digest::Output},
     FieldBytes,
     ProjectivePoint,
     Scalar,
@@ -34,10 +31,10 @@ fn print_type_of<T>(_: &T) {
     println!("{}", std::any::type_name::<T>());
 }
 
-fn c_sha256_vec_signal(values: &[ProjectivePoint]) -> Output<Sha256> {
+fn c_sha256_vec_signal(values: Vec<&ProjectivePoint>) -> Output<Sha256> {
     let preimage_vec = values
-        .iter()
-        .map(|value| encode_pt(*value).unwrap())
+        .into_iter()
+        .map(|value| encode_pt(value).unwrap())
         .collect::<Vec<_>>()
         .concat();
     let mut sha256_hasher = Sha256::new();
@@ -53,12 +50,12 @@ fn sha256hash6signals(
     g_r: &ProjectivePoint,
     hash_m_pk_pow_r: &ProjectivePoint,
 ) -> Scalar {
-    let g_bytes = encode_pt(*g).unwrap();
-    let pk_bytes = encode_pt(*pk).unwrap();
-    let h_bytes = encode_pt(*hash_m_pk).unwrap();
-    let nul_bytes = encode_pt(*nullifier).unwrap();
-    let g_r_bytes = encode_pt(*g_r).unwrap();
-    let z_bytes = encode_pt(*hash_m_pk_pow_r).unwrap();
+    let g_bytes = encode_pt(g).unwrap();
+    let pk_bytes = encode_pt(pk).unwrap();
+    let h_bytes = encode_pt(hash_m_pk).unwrap();
+    let nul_bytes = encode_pt(nullifier).unwrap();
+    let g_r_bytes = encode_pt(g_r).unwrap();
+    let z_bytes = encode_pt(hash_m_pk_pow_r).unwrap();
 
     let c_preimage_vec = [g_bytes, pk_bytes, h_bytes, nul_bytes, g_r_bytes, z_bytes].concat();
 
@@ -75,7 +72,7 @@ fn sha256hash6signals(
 // Hashes two values to the curve
 fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
     let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
-        &[[m, &encode_pt(*pk).unwrap()].concat().as_slice()],
+        &[[m, &encode_pt(pk).unwrap()].concat().as_slice()],
         //b"CURVE_XMD:SHA-256_SSWU_RO_",
         DST,
     )
@@ -88,82 +85,74 @@ enum PlumeVersion {
     V2,
 }
 
-// Verifier check in SNARK:
-// g^[r + sk * c] / (g^sk)^c = g^r
-// hash[m, gsk]^[r + sk * c] / (hash[m, pk]^sk)^c = hash[m, pk]^r
-// c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
-fn verify_signals(
-    message: &[u8],
-    pk: &ProjectivePoint,
-    nullifier: &ProjectivePoint,
-    c: &Output<Sha256>,
-    s: &Scalar,
-    r_point_optional: &Option<ProjectivePoint>,
-    hashed_to_curve_optional: &Option<ProjectivePoint>,
-    version: PlumeVersion,
-) -> bool {
-    let mut verified: bool = true; // looks like antipattern to @skaunov; also see #22
+/* currently seems to right place for this `struct` declaration; 
+should be moved (to the beginning of the file?) during refactoring for proper order of the items */
+/* while no consistent API is present here it's completely `pub`; 
+when API will be designed it should include this `struct` */
+pub struct PlumeSignature<'a>{
+    pub message: &'a [u8],
+    pub pk: &'a ProjectivePoint,
+    pub nullifier: &'a ProjectivePoint,
+    pub c: &'a [u8],
+    pub s: &'a Scalar,
+    pub v2: Option<PlumeSignatureV2Fields<'a>>
+    // version: PlumeVersion, #removeMe
+}
+struct PlumeSignatureV2Fields<'a>{
+    sig_r_point: &'a ProjectivePoint,
+    sig_hashed_to_curve_r: &'a ProjectivePoint,
+}
+impl PlumeSignature<'_>{
+    // Verifier check in SNARK:
+    // g^[r + sk * c] / (g^sk)^c = g^r
+    // hash[m, gsk]^[r + sk * c] / (hash[m, pk]^sk)^c = hash[m, pk]^r
+    // c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
+    pub fn verify_signals(&self) -> bool {
+        // TODO check `c` is `Output<Sha256>`; actually check should be in the API
+        
+        // use TryFrom;
+        // <Output<Sha256> as GenericArray<>>::try_from(self.c);
+        // if panic::catch_unwind(|| Output::<Sha256>::from_slice(self.c)).is_err() {return false}
+        // let _ : Output<Sha256> = self.c.try_into().unwrap();
 
-    // The base point or generator of the curve.
-    let g = &ProjectivePoint::GENERATOR;
+        let c = Output::<Sha256>::from_slice(self.c)/* .to_owned() */;
+        // TODO should we allow `c` input greater than BaseField::MODULUS? 
+        let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.to_owned()));
+        // @skaunov would be glad to discuss with @Divide-By-0 excessive of the following check. Though I should notice that it at least doesn't breaking anything.
+        if c_scalar.is_zero().into() {return false}
 
-    // hash[m, pk]
-    let hashed_to_curve_computed = &hash_to_curve(message, pk);
+        let r_point = ProjectivePoint::GENERATOR * self.s - self.pk * &c_scalar;
+        let hashed_to_curve = hash_to_curve(self.message, self.pk);
+        let hashed_to_curve_r = &hashed_to_curve * self.s - self.nullifier * &c_scalar;
+        
+        if let Some(PlumeSignatureV2Fields { sig_r_point, sig_hashed_to_curve_r }) = self.v2 {
+            // Check whether g^r equals g^s * pk^{-c}
+            if &r_point != sig_r_point {return false}
+            
+            // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
+            if &hashed_to_curve_r != sig_hashed_to_curve_r {return false}
 
-    // Check whether g^r equals g^s * pk^{-c}
-    let r_point_computed: ProjectivePoint;
-    // TODO should we use non-zero `Scalar`?
-    let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(*c));
-    match *r_point_optional {
-        Some(_g_r_value) => {
-            if (g * s - pk * c_scalar) != _g_r_value {
-                verified = false;
-            }
+            // Check if the given hash matches
+            if &c_sha256_vec_signal(vec![
+                &ProjectivePoint::GENERATOR,
+                self.pk,
+                &hashed_to_curve,
+                self.nullifier,
+                &r_point,
+                &hashed_to_curve_r,
+            ]) != c {return false}
         }
-        None => println!("g^r not provided, check skipped"),
+        else {
+            // Check if the given hash matches
+            if &c_sha256_vec_signal(vec![self.nullifier, &r_point, &hashed_to_curve_r]) != c {return false}
+        }
+
+        true
     }
-    r_point_computed = g * s - pk * c_scalar;
-
-    // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
-    let hashed_to_curve_r_computed: ProjectivePoint;
-    match *hashed_to_curve_optional {
-        Some(_hash_m_pk_pow_r_value) => {
-            if (hashed_to_curve_computed * s - nullifier * c_scalar) != _hash_m_pk_pow_r_value {
-                verified = false;
-            }
-        }
-        None => println!("hash_m_pk_pow_r not provided, check skipped"),
-    }
-    hashed_to_curve_r_computed = hashed_to_curve_computed * s - nullifier * c_scalar;
-
-    // Check if the given hash matches
-    match version {
-        PlumeVersion::V1 => {
-            if c_sha256_vec_signal(&[
-                *g,
-                *pk,
-                *hashed_to_curve_computed,
-                *nullifier,
-                r_point_computed,
-                hashed_to_curve_r_computed,
-            ]) != *c
-            {
-                verified = false;
-            }
-        }
-        PlumeVersion::V2 => {
-            if c_sha256_vec_signal(&[*nullifier, r_point_computed, hashed_to_curve_r_computed])
-                != *c
-            {
-                verified = false;
-            }
-        }
-    }
-    verified
 }
 
 /// Encodes the point by compressing it to 33 bytes
-fn encode_pt(point: ProjectivePoint) -> Result<Vec<u8>, Error> {
+fn encode_pt(point: &ProjectivePoint) -> Result<Vec<u8>, Error> {
     let encoded = point.to_encoded_point(true);
     Ok(encoded.to_bytes().to_vec())
 }
@@ -292,9 +281,9 @@ mod tests {
             // The Fiat-Shamir type step.
             let c = match version {
                 PlumeVersion::V1 => {
-                    c_sha256_vec_signal(&[g, pk, hash_m_pk, nullifier, g_r, hash_m_pk_pow_r])
+                    c_sha256_vec_signal(vec![&g, &pk, &hash_m_pk, &nullifier, &g_r, &hash_m_pk_pow_r])
                 }
-                PlumeVersion::V2 => c_sha256_vec_signal(&[nullifier, g_r, hash_m_pk_pow_r]),
+                PlumeVersion::V2 => c_sha256_vec_signal(vec![&nullifier, &g_r, &hash_m_pk_pow_r]),
             };
 
             let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.clone()));
@@ -326,16 +315,11 @@ mod tests {
         // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
         // The wallet should probably run this prior to snarkify-ing as a sanity check
         // m and nullifier should be public, so we can verify that they are correct
-        let verified = verify_signals(
-            m,
-            &pk,
-            &nullifier,
-            &c,
-            &r_sk_c,
-            &g_r,
-            &hash_m_pk_pow_r,
-            PlumeVersion::V1,
-        );
+        let verified = PlumeSignature{ 
+            message: m, pk: &pk, nullifier: &nullifier, c: &c, s: &r_sk_c, v2: Some(PlumeSignatureV2Fields{ 
+                sig_r_point: &g_r.unwrap(), sig_hashed_to_curve_r: &hash_m_pk_pow_r.unwrap()
+            })
+        }.verify_signals();
         println!("Verified: {}", verified);
 
         // Print nullifier
@@ -401,7 +385,7 @@ mod tests {
         );
 
         // Test encode_pt()
-        let g_as_bytes = encode_pt(g).unwrap();
+        let g_as_bytes = encode_pt(&g).unwrap();
         assert_eq!(
             hex::encode(g_as_bytes),
             "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
@@ -447,16 +431,9 @@ mod tests {
         // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
         // The wallet should probably run this prior to snarkify-ing as a sanity check
         // m and nullifier should be public, so we can verify that they are correct
-        let verified = verify_signals(
-            m,
-            &pk,
-            &nullifier,
-            &c,
-            &r_sk_c,
-            &g_r,
-            &hash_m_pk_pow_r,
-            PlumeVersion::V2,
-        );
+        let verified = PlumeSignature{ 
+            message: m, pk: &pk, nullifier: &nullifier, c: &c, s: &r_sk_c, v2: None
+        }.verify_signals();
         assert!(verified)
     }
 }
