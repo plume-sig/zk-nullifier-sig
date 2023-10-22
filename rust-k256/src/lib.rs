@@ -9,7 +9,7 @@ use k256::U256;
 use k256::{
     // ecdsa::{signature::Signer, Signature, SigningKey},
     elliptic_curve::group::ff::PrimeField,
-    sha2::{Digest, Sha256, digest::Output},
+    sha2::{digest::Output, Digest, Sha256},
     FieldBytes,
     ProjectivePoint,
     Scalar,
@@ -85,52 +85,62 @@ enum PlumeVersion {
     V2,
 }
 
-/* currently seems to right place for this `struct` declaration; 
+/* currently seems to right place for this `struct` declaration;
 should be moved (to the beginning of the file?) during refactoring for proper order of the items */
-/* while no consistent API is present here it's completely `pub`; 
+/* while no consistent API is present here it's completely `pub`;
 when API will be designed it should include this `struct` */
-pub struct PlumeSignature<'a>{
+pub struct PlumeSignature<'a> {
     pub message: &'a [u8],
     pub pk: &'a ProjectivePoint,
     pub nullifier: &'a ProjectivePoint,
     pub c: &'a [u8],
     pub s: &'a Scalar,
-    pub v2: Option<PlumeSignatureV2Fields<'a>>
-    // version: PlumeVersion, #removeMe
+    pub v2: Option<PlumeSignatureV2Fields<'a>>,
 }
-struct PlumeSignatureV2Fields<'a>{
-    sig_r_point: &'a ProjectivePoint,
-    sig_hashed_to_curve_r: &'a ProjectivePoint,
+pub struct PlumeSignatureV2Fields<'a> {
+    pub sig_r_point: &'a ProjectivePoint,
+    pub sig_hashed_to_curve_r: &'a ProjectivePoint,
 }
-impl PlumeSignature<'_>{
+impl PlumeSignature<'_> {
     // Verifier check in SNARK:
     // g^[r + sk * c] / (g^sk)^c = g^r
     // hash[m, gsk]^[r + sk * c] / (hash[m, pk]^sk)^c = hash[m, pk]^r
     // c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
     pub fn verify_signals(&self) -> bool {
         // TODO check `c` is `Output<Sha256>`; actually check should be in the API
-        
+
         // use TryFrom;
         // <Output<Sha256> as GenericArray<>>::try_from(self.c);
         // if panic::catch_unwind(|| Output::<Sha256>::from_slice(self.c)).is_err() {return false}
         // let _ : Output<Sha256> = self.c.try_into().unwrap();
 
-        let c = Output::<Sha256>::from_slice(self.c)/* .to_owned() */;
-        // TODO should we allow `c` input greater than BaseField::MODULUS? 
+        let c = Output::<Sha256>::from_slice(self.c);
+        // TODO should we allow `c` input greater than BaseField::MODULUS?
         let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.to_owned()));
-        // @skaunov would be glad to discuss with @Divide-By-0 excessive of the following check. Though I should notice that it at least doesn't breaking anything.
-        if c_scalar.is_zero().into() {return false}
+        /* @skaunov would be glad to discuss with @Divide-By-0 excessive of the following check.
+        Though I should notice that it at least doesn't breaking anything. */
+        if c_scalar.is_zero().into() {
+            return false;
+        }
 
         let r_point = ProjectivePoint::GENERATOR * self.s - self.pk * &c_scalar;
         let hashed_to_curve = hash_to_curve(self.message, self.pk);
         let hashed_to_curve_r = &hashed_to_curve * self.s - self.nullifier * &c_scalar;
-        
-        if let Some(PlumeSignatureV2Fields { sig_r_point, sig_hashed_to_curve_r }) = self.v2 {
+
+        if let Some(PlumeSignatureV2Fields {
+            sig_r_point,
+            sig_hashed_to_curve_r,
+        }) = self.v2
+        {
             // Check whether g^r equals g^s * pk^{-c}
-            if &r_point != sig_r_point {return false}
-            
+            if &r_point != sig_r_point {
+                return false;
+            }
+
             // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
-            if &hashed_to_curve_r != sig_hashed_to_curve_r {return false}
+            if &hashed_to_curve_r != sig_hashed_to_curve_r {
+                return false;
+            }
 
             // Check if the given hash matches
             if &c_sha256_vec_signal(vec![
@@ -140,11 +150,15 @@ impl PlumeSignature<'_>{
                 self.nullifier,
                 &r_point,
                 &hashed_to_curve_r,
-            ]) != c {return false}
-        }
-        else {
+            ]) != c
+            {
+                return false;
+            }
+        } else {
             // Check if the given hash matches
-            if &c_sha256_vec_signal(vec![self.nullifier, &r_point, &hashed_to_curve_r]) != c {return false}
+            if &c_sha256_vec_signal(vec![self.nullifier, &r_point, &hashed_to_curve_r]) != c {
+                return false;
+            }
         }
 
         true
@@ -280,9 +294,14 @@ mod tests {
 
             // The Fiat-Shamir type step.
             let c = match version {
-                PlumeVersion::V1 => {
-                    c_sha256_vec_signal(vec![&g, &pk, &hash_m_pk, &nullifier, &g_r, &hash_m_pk_pow_r])
-                }
+                PlumeVersion::V1 => c_sha256_vec_signal(vec![
+                    &g,
+                    &pk,
+                    &hash_m_pk,
+                    &nullifier,
+                    &g_r,
+                    &hash_m_pk_pow_r,
+                ]),
                 PlumeVersion::V2 => c_sha256_vec_signal(vec![&nullifier, &g_r, &hash_m_pk_pow_r]),
             };
 
@@ -315,11 +334,18 @@ mod tests {
         // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
         // The wallet should probably run this prior to snarkify-ing as a sanity check
         // m and nullifier should be public, so we can verify that they are correct
-        let verified = PlumeSignature{ 
-            message: m, pk: &pk, nullifier: &nullifier, c: &c, s: &r_sk_c, v2: Some(PlumeSignatureV2Fields{ 
-                sig_r_point: &g_r.unwrap(), sig_hashed_to_curve_r: &hash_m_pk_pow_r.unwrap()
-            })
-        }.verify_signals();
+        let verified = PlumeSignature {
+            message: m,
+            pk: &pk,
+            nullifier: &nullifier,
+            c: &c,
+            s: &r_sk_c,
+            v2: Some(PlumeSignatureV2Fields {
+                sig_r_point: &g_r.unwrap(),
+                sig_hashed_to_curve_r: &hash_m_pk_pow_r.unwrap(),
+            }),
+        }
+        .verify_signals();
         println!("Verified: {}", verified);
 
         // Print nullifier
@@ -431,9 +457,15 @@ mod tests {
         // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
         // The wallet should probably run this prior to snarkify-ing as a sanity check
         // m and nullifier should be public, so we can verify that they are correct
-        let verified = PlumeSignature{ 
-            message: m, pk: &pk, nullifier: &nullifier, c: &c, s: &r_sk_c, v2: None
-        }.verify_signals();
+        let verified = PlumeSignature {
+            message: m,
+            pk: &pk,
+            nullifier: &nullifier,
+            c: &c,
+            s: &r_sk_c,
+            v2: None,
+        }
+        .verify_signals();
         assert!(verified)
     }
 }
