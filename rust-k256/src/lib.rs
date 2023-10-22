@@ -5,7 +5,6 @@ use elliptic_curve::bigint::ArrayEncoding;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::ops::Reduce;
 use elliptic_curve::sec1::ToEncodedPoint;
-use k256::U256;
 use k256::{
     // ecdsa::{signature::Signer, Signature, SigningKey},
     elliptic_curve::group::ff::PrimeField,
@@ -13,14 +12,13 @@ use k256::{
     FieldBytes,
     ProjectivePoint,
     Scalar,
-    Secp256k1,
+    Secp256k1, U256
 }; // requires 'getrandom' feature
 
 const L: usize = 48;
 const COUNT: usize = 2;
 const OUT: usize = L * COUNT;
 const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // Hash to curve algorithm
-const DEFAULT_VERSION: PlumeVersion = PlumeVersion::V1;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -80,26 +78,21 @@ fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
     pt
 }
 
-enum PlumeVersion {
-    V1,
-    V2,
-}
-
 /* currently seems to right place for this `struct` declaration;
 should be moved (to the beginning of the file?) during refactoring for proper order of the items */
-/* while no consistent API is present here it's completely `pub`;
-when API will be designed it should include this `struct` */
+/* while no consistent #API is present here it's completely `pub`;
+when API will be designed it should include this `struct` (and it also probably will hold values instead of references) */
 pub struct PlumeSignature<'a> {
     pub message: &'a [u8],
     pub pk: &'a ProjectivePoint,
     pub nullifier: &'a ProjectivePoint,
     pub c: &'a [u8],
     pub s: &'a Scalar,
-    pub v2: Option<PlumeSignatureV1Fields<'a>>,
+    pub v1: Option<PlumeSignatureV1Fields<'a>>,
 }
 pub struct PlumeSignatureV1Fields<'a> {
-    pub sig_r_point: &'a ProjectivePoint,
-    pub sig_hashed_to_curve_r: &'a ProjectivePoint,
+    pub r_point: &'a ProjectivePoint,
+    pub hashed_to_curve_r: &'a ProjectivePoint,
 }
 impl PlumeSignature<'_> {
     // Verifier check in SNARK:
@@ -107,13 +100,7 @@ impl PlumeSignature<'_> {
     // hash[m, gsk]^[r + sk * c] / (hash[m, pk]^sk)^c = hash[m, pk]^r
     // c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
     pub fn verify_signals(&self) -> bool {
-        // TODO check `c` is `Output<Sha256>`; actually check should be in the API
-
-        // use TryFrom;
-        // <Output<Sha256> as GenericArray<>>::try_from(self.c);
-        // if panic::catch_unwind(|| Output::<Sha256>::from_slice(self.c)).is_err() {return false}
-        // let _ : Output<Sha256> = self.c.try_into().unwrap();
-
+        // don't forget to check `c` is `Output<Sha256>` in the #API
         let c = Output::<Sha256>::from_slice(self.c);
         // TODO should we allow `c` input greater than BaseField::MODULUS?
         let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.to_owned()));
@@ -128,9 +115,9 @@ impl PlumeSignature<'_> {
         let hashed_to_curve_r = &hashed_to_curve * self.s - self.nullifier * &c_scalar;
 
         if let Some(PlumeSignatureV1Fields {
-            sig_r_point,
-            sig_hashed_to_curve_r,
-        }) = self.v2
+            r_point: sig_r_point,
+            hashed_to_curve_r: sig_hashed_to_curve_r,
+        }) = self.v1
         {
             // Check whether g^r equals g^s * pk^{-c}
             if &r_point != sig_r_point {
@@ -188,10 +175,16 @@ fn byte_array_to_scalar(bytes: &[u8]) -> Scalar {
 mod tests {
     use super::*;
 
-    use helpers::{gen_test_scalar_sk, hash_to_secp, test_gen_signals};
+    use helpers::{gen_test_scalar_sk, hash_to_secp, test_gen_signals, PlumeVersion};
     mod helpers {
         use super::*;
         use hex_literal::hex;
+
+        #[derive(Debug)]
+        pub enum PlumeVersion {
+            V1,
+            V2,
+        }
 
         // Generates a deterministic secret key for deterministic testing. Should be replaced by random oracle in production deployments.
         pub fn gen_test_scalar_sk() -> Scalar {
@@ -304,6 +297,7 @@ mod tests {
                 ]),
                 PlumeVersion::V2 => c_sha256_vec_signal(vec![&nullifier, &g_r, &hash_m_pk_pow_r]),
             };
+            dbg!(&c, version);
 
             let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.clone()));
             // This value is part of the discrete log equivalence (DLEQ) proof.
@@ -340,9 +334,9 @@ mod tests {
             nullifier: &nullifier,
             c: &c,
             s: &r_sk_c,
-            v2: Some(PlumeSignatureV1Fields {
-                sig_r_point: &g_r.unwrap(),
-                sig_hashed_to_curve_r: &hash_m_pk_pow_r.unwrap(),
+            v1: Some(PlumeSignatureV1Fields {
+                r_point: &g_r.unwrap(),
+                hashed_to_curve_r: &hash_m_pk_pow_r.unwrap(),
             }),
         }
         .verify_signals();
@@ -463,7 +457,7 @@ mod tests {
             nullifier: &nullifier,
             c: &c,
             s: &r_sk_c,
-            v2: None,
+            v1: None,
         }
         .verify_signals();
         assert!(verified)
