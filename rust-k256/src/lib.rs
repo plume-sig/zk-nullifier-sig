@@ -96,6 +96,8 @@ pub struct PlumeSignatureV1Fields<'a> {
     pub hashed_to_curve_r: &'a ProjectivePoint,
 }
 impl PlumeSignature<'_> {
+    /// WARNING: panics when `self.c` isn't an `Output::<Sha256>`. 
+    /// So catch it if it's a possible case for you.
     // Verifier check in SNARK:
     // g^[r + sk * c] / (g^sk)^c = g^r
     // hash[m, gsk]^[r + sk * c] / (hash[m, pk]^sk)^c = hash[m, pk]^r
