@@ -8,7 +8,9 @@ If you would like to get a grant to create PLUME applications or improve the lib
 
 ## Contributions
 
-If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any of the bugs in our issues! Each of them is quite small. That includes [#28](https://github.com/plume-sig/zk-nullifier-sig/issues/28), [#24](https://github.com/plume-sig/zk-nullifier-sig/issues/24), [#15](https://github.com/plume-sig/zk-nullifier-sig/issues/15), [#14](https://github.com/plume-sig/zk-nullifier-sig/issues/14),and [#13](https://github.com/plume-sig/zk-nullifier-sig/issues/13).
+If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any of the bugs in our issues! Each of them is quite small. That includes 
+[#28](https://github.com/plume-sig/zk-nullifier-sig/issues/28), [#24](https://github.com/plume-sig/zk-nullifier-sig/issues/24), 
+[#14](https://github.com/plume-sig/zk-nullifier-sig/issues/14),and [#13](https://github.com/plume-sig/zk-nullifier-sig/issues/13).
 
 ## Implementations
 
