@@ -16,115 +16,108 @@ export enum PlumeVersion {
   V2,
 }
 
-export function computeHashMPk(
+export function computeHashToCurve(
   message: Uint8Array,
-  publicKey: Uint8Array
+  pk: Uint8Array
 ): HashedPoint {
   // Concatenate message and publicKey
-  const preimage = new Uint8Array(message.length + publicKey.length);
+  const preimage = new Uint8Array(message.length + pk.length);
   preimage.set(message);
-  preimage.set(publicKey, message.length);
+  preimage.set(pk, message.length);
   return hashToCurve(Array.from(preimage));
 }
 
 export function computeC_V2(
   nullifier: Point,
-  gPowR: Point,
-  hashMPkPowR: Point
+  rPoint: Point,
+  hashedToCurveR: Point
 ) {
   const nullifierBytes = nullifier.toRawBytes(true);
-  const gPowRBytes = gPowR.toRawBytes(true);
-  const hashMPkPowRBytes = hashMPkPowR.toRawBytes(true);
   const preimage = concatUint8Arrays([
     nullifierBytes,
-    gPowRBytes,
-    hashMPkPowRBytes,
+    rPoint.toRawBytes(true),
+    hashedToCurveR.toRawBytes(true),
   ]);
   return sha256.create().update(preimage).hex();
 }
 
 export function computeC_V1(
-  publicKeyBytes: Uint8Array,
-  hashMPk: HashedPoint,
+  pkBytes: Uint8Array,
+  hashedToCurve: HashedPoint,
   nullifier: Point,
-  gPowR: Point,
-  hashMPkPowR: Point
+  rPoint: Point,
+  hashedToCurveR: Point
 ) {
-  const gBytes = Point.BASE.toRawBytes(true);
-  const hashMPkBytes = new Point(
-    hexToBigInt(hashMPk.x.toString()),
-    hexToBigInt(hashMPk.y.toString())
-  ).toRawBytes(true);
   const nullifierBytes = nullifier.toRawBytes(true);
-  const gPowRBytes = gPowR.toRawBytes(true);
-  const hashMPkPowRBytes = hashMPkPowR.toRawBytes(true);
   const preimage = concatUint8Arrays([
-    gBytes,
-    publicKeyBytes,
-    hashMPkBytes,
+    Point.BASE.toRawBytes(true),
+    pkBytes,
+    new Point(
+      hexToBigInt(hashedToCurve.x.toString()),
+      hexToBigInt(hashedToCurve.y.toString())
+    ).toRawBytes(true),
     nullifierBytes,
-    gPowRBytes,
-    hashMPkPowRBytes,
+    rPoint.toRawBytes(true),
+    hashedToCurveR.toRawBytes(true),
   ]);
   return sha256.create().update(preimage).hex();
 }
 
-export function computeNullifer(hashMPk: HashedPoint, secretKey: Uint8Array) {
-  return multiplyPoint(hashMPk, secretKey);
+export function computeNullifer(hashedToCurve: HashedPoint, sk: Uint8Array) {
+  return multiplyPoint(hashedToCurve, sk);
 }
 
-export function computeGPowR(r: Uint8Array) {
-  return Point.fromPrivateKey(r);
+export function computeRPoint(rScalar: Uint8Array) {
+  return Point.fromPrivateKey(rScalar);
 }
 
-export function computeHashMPkPowR(hashMPk: HashedPoint, r: Uint8Array) {
-  return multiplyPoint(hashMPk, r);
+export function computeHashToCurveR(hashedToCurve: HashedPoint, rScalar: Uint8Array) {
+  return multiplyPoint(hashedToCurve, rScalar);
 }
 
-export function computeS(r: Uint8Array, secretKey: Uint8Array, c: string) {
-  const skC = (uint8ArrayToBigInt(secretKey) * hexToBigInt(c)) % CURVE.n;
-  return ((skC + uint8ArrayToBigInt(r)) % CURVE.n).toString(16);
+export function computeS(rScalar: Uint8Array, sk: Uint8Array, c: string) {
+  return (((uint8ArrayToBigInt(sk) * hexToBigInt(c)) % CURVE.n + uint8ArrayToBigInt(rScalar)) % CURVE.n).toString(16);
 }
 
 /**
  * Computes and returns the Plume and other signals for the prover.
  * @param {string | Uint8Array} message - Message to sign, in either string or UTF-8 array format.
- * @param {string | Uint8Array} secretKey - ECDSA secret key to sign with.
- * @param {string| Uint8Array} r - Optional seed for randomness.
+ * @param {string | Uint8Array} sk - ECDSA secret key to sign with.
+ * @param {string| Uint8Array} rScalar - Optional seed for randomness.
  * @returns Object containing Plume and other signals - public key, s, c, gPowR, and hashMPKPowR.
  */
 export function computeAllInputs(
   message: string | Uint8Array,
-  secretKey: string | Uint8Array,
-  r?: string | Uint8Array,
+  sk: string | Uint8Array,
+  rScalar?: string | Uint8Array,
   version: PlumeVersion = PlumeVersion.V2
 ) {
-  const secretKeyBytes =
-    typeof secretKey === "string" ? hexToUint8Array(secretKey) : secretKey;
+  const skBytes =
+    typeof sk === "string" ? hexToUint8Array(sk) : sk;
   const messageBytes =
     typeof message === "string" ? messageToUint8Array(message) : message;
-  const publicKeyBytes = getPublicKey(secretKeyBytes, true);
-  let rBytes;
-  if (r) {
-    rBytes = typeof r === "string" ? hexToUint8Array(r) : r;
+  const pkBytes = getPublicKey(skBytes, true);
+  let rScalarBytes;
+  if (rScalar) {
+    rScalarBytes = typeof rScalar === "string" ? hexToUint8Array(rScalar) : rScalar;
   } else {
-    rBytes = utils.randomPrivateKey();
+    rScalarBytes = utils.randomPrivateKey();
   }
-  const hashMPK = computeHashMPk(messageBytes, publicKeyBytes);
-  const nullifier = computeNullifer(hashMPK, secretKeyBytes);
-  const hashMPKPowR = computeHashMPkPowR(hashMPK, rBytes);
-  const gPowR = computeGPowR(rBytes);
+  const hashedToCurve = computeHashToCurve(messageBytes, pkBytes);
+  const nullifier = computeNullifer(hashedToCurve, skBytes);
+  const hashedToCurveR = computeHashToCurveR(hashedToCurve, rScalarBytes);
+  const rPoint = computeRPoint(rScalarBytes);
   const c =
     version == PlumeVersion.V1
-      ? computeC_V1(publicKeyBytes, hashMPK, nullifier, gPowR, hashMPKPowR)
-      : computeC_V2(nullifier, gPowR, hashMPKPowR);
-  const s = computeS(rBytes, secretKeyBytes, c);
+      ? computeC_V1(pkBytes, hashedToCurve, nullifier, rPoint, hashedToCurveR)
+      : computeC_V2(nullifier, rPoint, hashedToCurveR);
+  const s = computeS(rScalarBytes, skBytes, c);
   return {
     plume: nullifier,
     s,
-    publicKey: publicKeyBytes,
+    pk: pkBytes,
     c,
-    gPowR,
-    hashMPKPowR,
+    rPoint,
+    hashedToCurveR,
   };
 }

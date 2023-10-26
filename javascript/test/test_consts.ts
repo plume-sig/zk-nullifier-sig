@@ -2,9 +2,9 @@ import { CURVE, getPublicKey, Point } from "@noble/secp256k1";
 import {
   computeC_V1,
   computeC_V2,
-  computeGPowR,
-  computeHashMPk,
-  computeHashMPkPowR,
+  computeRPoint,
+  computeHashToCurve,
+  computeHashToCurveR,
   computeNullifer,
   computeS,
 } from "../src/signals";
@@ -22,18 +22,18 @@ export const testR = hexToUint8Array(
 );
 export const testMessageString = "An example app message string";
 export const testMessage = messageToUint8Array(testMessageString);
-export const hashMPk = computeHashMPk(testMessage, Buffer.from(testPublicKey));
+export const hashMPk = computeHashToCurve(testMessage, Buffer.from(testPublicKey));
 export const nullifier = computeNullifer(hashMPk, testSecretKey);
-export const hashMPkPowR = computeHashMPkPowR(hashMPk, testR);
-export const gPowR = computeGPowR(testR);
+export const hashedToCurveR = computeHashToCurveR(hashMPk, testR);
+export const rPoint = computeRPoint(testR);
 export const c_v1 = computeC_V1(
   testPublicKey,
   hashMPk,
   nullifier as unknown as Point,
-  gPowR,
-  hashMPkPowR
+  rPoint,
+  hashedToCurveR
 );
 export const s_v1 = computeS(testR, testSecretKey, c_v1);
 
-export const c_v2 = computeC_V2(nullifier, gPowR, hashMPkPowR);
+export const c_v2 = computeC_V2(nullifier, rPoint, hashedToCurveR);
 export const s_v2 = computeS(testR, testSecretKey, c_v2);
