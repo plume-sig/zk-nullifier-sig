@@ -117,6 +117,7 @@ impl PlumeSignature<'_> {
         let hashed_to_curve = hash_to_curve(self.message, self.pk);
         let hashed_to_curve_r = &hashed_to_curve * self.s - self.nullifier * &c_scalar;
 
+        // Check if the given hash matches
         let result = |components: Vec<&ProjectivePoint>| -> bool {
             if &c_sha256_vec_signal(components) == c {
                 true
@@ -124,7 +125,7 @@ impl PlumeSignature<'_> {
                 false
             }
         };
-        
+
         if let Some(PlumeSignatureV1Fields {
             r_point: sig_r_point,
             hashed_to_curve_r: sig_hashed_to_curve_r,
@@ -140,7 +141,6 @@ impl PlumeSignature<'_> {
                 return false;
             }
 
-            // Check if the given hash matches
             result(vec![
                 &ProjectivePoint::GENERATOR,
                 self.pk,
@@ -150,7 +150,6 @@ impl PlumeSignature<'_> {
                 &hashed_to_curve_r,
             ])
         } else {
-            // Check if the given hash matches
             result(vec![self.nullifier, &r_point, &hashed_to_curve_r])
         }
     }
