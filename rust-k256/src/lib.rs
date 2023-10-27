@@ -96,7 +96,7 @@ pub struct PlumeSignatureV1Fields<'a> {
     pub hashed_to_curve_r: &'a ProjectivePoint,
 }
 impl PlumeSignature<'_> {
-    /// WARNING: panics when `self.c` isn't an `Output::<Sha256>`. 
+    /// WARNING: panics when `self.c` isn't an `Output::<Sha256>`.
     /// So catch it if it's a possible case for you.
     // Verifier check in SNARK:
     // g^[r + sk * c] / (g^sk)^c = g^r
@@ -117,6 +117,14 @@ impl PlumeSignature<'_> {
         let hashed_to_curve = hash_to_curve(self.message, self.pk);
         let hashed_to_curve_r = &hashed_to_curve * self.s - self.nullifier * &c_scalar;
 
+        let result = |components: Vec<&ProjectivePoint>| -> bool {
+            if &c_sha256_vec_signal(components) == c {
+                true
+            } else {
+                false
+            }
+        };
+        
         if let Some(PlumeSignatureV1Fields {
             r_point: sig_r_point,
             hashed_to_curve_r: sig_hashed_to_curve_r,
@@ -133,25 +141,18 @@ impl PlumeSignature<'_> {
             }
 
             // Check if the given hash matches
-            if &c_sha256_vec_signal(vec![
+            result(vec![
                 &ProjectivePoint::GENERATOR,
                 self.pk,
                 &hashed_to_curve,
                 self.nullifier,
                 &r_point,
                 &hashed_to_curve_r,
-            ]) != c
-            {
-                return false;
-            }
+            ])
         } else {
             // Check if the given hash matches
-            if &c_sha256_vec_signal(vec![self.nullifier, &r_point, &hashed_to_curve_r]) != c {
-                return false;
-            }
+            result(vec![self.nullifier, &r_point, &hashed_to_curve_r])
         }
-
-        true
     }
 }
 
