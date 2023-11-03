@@ -7,8 +7,7 @@ edition = "2021"
 
 [dependencies]
 crate = "0.0.2"
-digest = "0.10.3"
-ring = "0.16.20"
+# ring = "0.16.20"
 rand_core = "0.6.3"
 hex-literal = "0.3.4"
 hash2field = "0.4.0"
