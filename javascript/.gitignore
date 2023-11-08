@@ -13,3 +13,6 @@
 # node.js
 /node_modules
 /dist
+
+# https://github.com/plume-sig/zk-nullifier-sig/pull/66/#issuecomment-1780924701
+package-lock.json
