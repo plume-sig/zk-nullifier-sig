@@ -1,14 +1,29 @@
-name: Rust test suite
+name: Rust checks
 on: [push, pull_request]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    name: cargo test
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ["./rust-arkworks", "./rust-k256"]
+        command: ["check", "clippy", "test"]
+
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@nightly
-      - run: cargo test --all-features
-        working-directory: ./rust-k256
-      - run: cargo test --all-features
-        working-directory: ./rust-arkworks
+        with:
+          components: "clippy, rustfmt"
+
+      - name: ${{ matrix.command }}
+        run: |
+          cargo build
+          cargo ${{ matrix.command }} --all-features
+        working-directory: ${{ matrix.directory }}

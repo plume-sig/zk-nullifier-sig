@@ -5,6 +5,6 @@ module.exports = {
     "^.+\\.ts?$": "ts-jest",
   },
   transformIgnorePatterns: [
-    "<rootDir>/node_modules/(?!(secp256k1_hash_to_curve_circom)/)",
+    "<rootdir>/node_modules/.pnpm/(?!(secp256k1_hash_to_curve_circom)@)",
   ],
 };

@@ -19,6 +19,7 @@ const TEST_VALS = [
     bigint: 4880420056602345253094210752449672n,
   },
 ];
+
 describe("encoding", () => {
   it("hexToUint8Array", () => {
     expect(hexToUint8Array(TEST_VALS[0].hex)).toEqual(TEST_VALS[0].uint8);

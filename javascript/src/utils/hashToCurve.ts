@@ -11,22 +11,27 @@ function ceil(a, b) {
 }
 
 function hashToField(ctx, hash, hlen, DST, M, ctr) {
-  var u = [];
-  var q = new ctx.BIG(0);
+  const u = [];
+  const q = new ctx.BIG(0);
   q.rcopy(ctx.ROM_FIELD.Modulus);
-  var k = q.nbits();
-  var r = new ctx.BIG(0);
+  const k = q.nbits();
+  const r = new ctx.BIG(0);
   r.rcopy(ctx.ROM_CURVE.CURVE_Order);
-  var m = r.nbits();
-  var L = ceil(k + ceil(m, 2), 8);
-  var OKM = ctx.HMAC.XMD_Expand(hash, hlen, L * ctr, DST, M);
-  var fd = [];
-  for (var i = 0; i < ctr; i++) {
-    for (var j = 0; j < L; j++) fd[j] = OKM[i * L + j];
-    var dx = ctx.DBIG.fromBytes(fd);
-    var w = new ctx.FP(dx.mod(q));
+  const m = r.nbits();
+  const L = ceil(k + ceil(m, 2), 8);
+  const OKM = ctx.HMAC.XMD_Expand(hash, hlen, L * ctr, DST, M);
+  const fd = [];
+
+  for (let i = 0; i < ctr; i++) {
+    for (let j = 0; j < L; j++) {
+      fd[j] = OKM[i * L + j];
+    }
+
+    const dx = ctx.DBIG.fromBytes(fd);
+    const w = new ctx.FP(dx.mod(q));
     u[i] = new ctx.FP(w);
   }
+
   return u;
 }
 
@@ -39,6 +44,7 @@ function hashToPairing(ctx, M, ro, hlen) {
   P.add(P1);
   P.cfp();
   P.affine();
+
   return P;
 }
 
