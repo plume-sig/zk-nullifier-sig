@@ -60,7 +60,7 @@ Be prepared to wait around 20-40 minutes for the tests to complete.
 We invite contributors to collaborate on this effort. There are great tasks for beginners (the issues), a halo2 intermediate level (circuits), cryptography intermediate level (the v1 improvement to make it v2 compatible below), and on the application layer (building apps that use PLUME).  
 
 - Rewrite in halo2 ([WIP](https://github.com/blakemscurr/zk-nullifier-sig/tree/halo2) by blakemscurr and vuvoth)
-  - [$500 Bounty] Implement hash to curve in halo2 and add it to the [existing WIP implementation](https://github.com/blakemscurr/zk-nullifier-sig/tree/halo2)
+  - [$500 Bounty] Edit [Timofey's hash to curve halo2 circuit](https://github.com/axiom-crypto/halo2-lib/pull/179) from BLS to secp256k1 in halo2 via editing CurveExt (and maybe adding some traits like Selectable), and add it to the [existing WIP implementation](https://github.com/blakemscurr/zk-nullifier-sig/tree/halo2).
 - Reduce number of arguments to c in V1 via Wei Dai's + [Poseidons](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4) suggestions (potentially just g^sk, h[m, pk], g^r is fine) that are currently used in the V2, and write a proof in the Algebraic Group Model for the change.
 - [$500 Bounty] Fix stealthdrop MVP, the first anonymous airdrop to any Ethereum keys via PLUMEs -- [repo](https://github.com/stealthdrop/stealthdrop/) and [slides](https://docs.google.com/presentation/d/10ZGJvYpIqpON5O4uDf2pdk-PnT8fEVyPOoRqC3VmFn0/edit).
 - [$500 Bounty] Implement ZK voting via PLUMEs, as described in [Poseidons proposal](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4).
