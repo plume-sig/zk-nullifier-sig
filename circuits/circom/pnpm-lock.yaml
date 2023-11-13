@@ -3308,7 +3308,7 @@ packages:
     dev: true
 
   '@gitpkg.now.sh/geometryresearch/secp256k1_hash_to_curve/circuits?main':
-    resolution: {registry: https://registry.npmjs.org/, tarball: https://gitpkg.now.sh/geometryresearch/secp256k1_hash_to_curve/circuits?main}
+    resolution: {tarball: https://gitpkg.now.sh/geometryresearch/secp256k1_hash_to_curve/circuits?main}
     name: secp256k1_hash_to_curve_circom
     version: 0.0.1
     dependencies:
