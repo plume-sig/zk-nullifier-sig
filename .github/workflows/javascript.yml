@@ -32,9 +32,3 @@ jobs:
           pnpm run build
           pnpm run ${{ matrix.command }}
         working-directory: "./javascript"
-
-      - name: Check circom
-        run: |
-          pnpm install --no-frozen-lockfile --prefer-offline
-          pnpm run ${{ matrix.command }}
-        working-directory: "./circuits/circom"

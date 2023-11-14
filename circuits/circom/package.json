@@ -14,8 +14,8 @@
     "prettier:fix": "prettier -w . --config ../../.prettierrc --ignore-path ../../.prettierignore",
     "types": "tsc -p tsconfig.json --noEmit",
     "postinstall": "bash flatten-nested-dependencies.sh",
-    "test": "NODE_OPTIONS=--max_old_space_size=8192 jest --runInBand",
-    "test:coverage": "exit 0"
+    "test": "NODE_OPTIONS=--max_old_space_size=8192 jest",
+    "test:coverage": "pnpm run test"
   },
   "license": "ISC",
   "dependencies": {
