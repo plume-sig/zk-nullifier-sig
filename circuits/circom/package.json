@@ -10,6 +10,7 @@
     }
   },
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "prettier": "prettier -c . --config ../../.prettierrc --ignore-path ../../.prettierignore",
     "prettier:fix": "prettier -w . --config ../../.prettierrc --ignore-path ../../.prettierignore",
     "types": "tsc -p tsconfig.json --noEmit",

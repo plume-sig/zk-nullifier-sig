@@ -6,6 +6,9 @@
       "@noble/secp256k1": "$@noble/secp256k1"
     }
   },
+  "engines": {
+    "node": ">=16 <19"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/js-sha512": "^0",
@@ -26,6 +29,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "start": "nodemon",
     "build": "tsc -p tsconfig.build.json",
     "prettier": "prettier -c . --config ../.prettierrc --ignore-path ../.prettierignore",
