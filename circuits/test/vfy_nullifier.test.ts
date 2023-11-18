@@ -35,10 +35,6 @@ describe("Nullifier Circuit", () => {
     hashedToCurveR,
   ]
 
-  const v1_sha256_preimage_bits = bufToSha256PaddedBitArr(Buffer.from(
-    concatUint8Arrays(sha_preimage_points.map((point) => point.toRawBytes(true)))
-  ));
-  const v1_sha256_preimage_bit_length = parseInt(v1_sha256_preimage_bits.slice(-64), 2)
 
   const v1_binary_c = BigInt("0x" + c_v1).toString(2).split('').map(Number);
 
@@ -63,7 +59,7 @@ describe("Nullifier Circuit", () => {
     const p = join(__dirname, '12_point_sha_256_test.circom')
     const circuit = await wasm_tester(p, {"json":true, "sym": true})
 
-    const w = await circuit.calculateWitness({coordinates, preimage_bit_length: v1_sha256_preimage_bit_length}, true)
+    const w = await circuit.calculateWitness({coordinates}, true)
     await circuit.checkConstraints(w);
     await circuit.assertOut(w, {out: v1_binary_c})
   })
@@ -113,7 +109,6 @@ describe("Nullifier Circuit", () => {
       pk: pointToCircuitValue(testPublicKeyPoint),
       nullifier: pointToCircuitValue(nullifier),
       ...htci,
-      sha256_preimage_bit_length: v1_sha256_preimage_bit_length,
     })
     await circuit.checkConstraints(w)
   })

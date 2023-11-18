@@ -6,6 +6,7 @@ include "./node_modules/circom-ecdsa/circuits/secp256k1_func.circom";
 include "./node_modules/secp256k1_hash_to_curve_circom/circom/hash_to_curve.circom";
 include "./node_modules/secp256k1_hash_to_curve_circom/circom/Sha256.circom";
 include "./node_modules/circomlib/circuits/bitify.circom";
+include "./node_modules/circomlib/circuits/comparators.circom";
 
 // Verifies that a nullifier belongs to a specific public key \
 // This blog explains the intuition behind the construction https://blog.aayushg.com/posts/nullifier
@@ -28,9 +29,6 @@ template plume_v1(n, k, message_length) {
     signal input q1_y_pos[4];
     signal input q1_x_mapped[4];
     signal input q1_y_mapped[4];
-
-    // precomputed value for the sha256 component. TODO: calculate internally in circom to simplify API
-    signal input sha256_preimage_bit_length;
 
     component check_ec_equations = check_ec_equations(n, k, message_length);
 
@@ -58,7 +56,6 @@ template plume_v1(n, k, message_length) {
     var g[2][100];
     g[0] = get_genx(n, k);
     g[1] = get_geny(n, k);
-    c_sha256.preimage_bit_length <== sha256_preimage_bit_length;
 
     for (var i = 0; i < 2; i++) {
         for (var j = 0; j < k; j++) {
@@ -259,7 +256,6 @@ template a_div_b_pow_c(n, k) {
 
 template sha256_12_coordinates(n, k) {
     signal input coordinates[12][k];
-    signal input preimage_bit_length;
     signal output out[256];
 
     // compress coordinates
@@ -270,16 +266,27 @@ template sha256_12_coordinates(n, k) {
         compressors[i].uncompressed[1] <== coordinates[2*i + 1];
     }
 
+    // preimage bit length accumulator
+    var preimage_bit_len  = 0;
+
     // decompose coordinates inputs into binary
     component binary[6*33];
     for (var i = 0; i < 6; i++) { // for each compressor
         for (var j = 0; j < 33; j++) { // for each byte
             binary[33*i + j] = Num2Bits(8);
             binary[33*i + j].in <== compressors[i].compressed[j];
+            preimage_bit_len += 1;
         }
     }
 
     var message_bits = 6*33*8; // 6 compressed coordinates of 33 bytes
+
+    // check whether the preimage bit length is equal to the message bits 
+    component is_eq = IsEqual();
+    is_equal.in[0] <== message_bits;
+    is_equal.in[1] <== preimage_bit_len;
+    is_equal.out === 1;
+
     var total_bits = (message_bits \ 512) * 512;
     if (message_bits % 512 != 0) {
         total_bits += 512;
@@ -296,7 +303,7 @@ template sha256_12_coordinates(n, k) {
         sha256.msg[i] <== 0;
     }
 
-    // Message is padded with 1, a series of 0s, then the bit length of the message https://en.wikipedia.org/wiki/SHA-2#Pseudocode:~:text=append%20a%20single%20%271%27%20bit
+    // Message is padded with 1, a series of 0s, then the bit length of the message https://en.wikipedia.org/wiki/SHA-2#Pseudocode
     // TODO: move padding calculating into upstream repo to simplify API
     for (var i = 0; i < total_bits - 64; i++) {
         if (i == 1584) {
@@ -307,7 +314,7 @@ template sha256_12_coordinates(n, k) {
     }
 
     component bit_length_binary = Num2Bits(64);
-    bit_length_binary.in <== preimage_bit_length;
+    bit_length_binary.in <== preimage_bit_len;
     for (var i = 0; i < 64; i++) {
         sha256.padded_bits[total_bits - i - 1] <== bit_length_binary.out[i];
     }
