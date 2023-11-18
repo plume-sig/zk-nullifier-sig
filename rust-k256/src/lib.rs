@@ -105,7 +105,7 @@ impl PlumeSignature<'_> {
         // don't forget to check `c` is `Output<Sha256>` in the #API
         let c = Output::<Sha256>::from_slice(self.c);
         // TODO should we allow `c` input greater than BaseField::MODULUS?
-        let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.clone())); 
+        let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.to_owned())); 
         /* @skaunov would be glad to discuss with @Divide-By-0 excessive of the following check.
         Though I should notice that it at least doesn't breaking anything. */
         if c_scalar.is_zero().into() {
