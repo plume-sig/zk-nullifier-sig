@@ -1,0 +1,41 @@
+name: Javascript checks
+on:
+  workflow_dispatch:
+
+  push:
+    branches: [main]
+
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18]
+        command: ["prettier", "types", "test:coverage"]
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Check javascript
+        run: |
+          pnpm install --no-frozen-lockfile --prefer-offline
+          pnpm run build
+          pnpm run ${{ matrix.command }}
+        working-directory: "./javascript"

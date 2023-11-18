@@ -1,4 +1,1 @@
-export {
-    computeAllInputs,
-    PlumeVersion,
-} from "./signals";
+export { computeAllInputs, PlumeVersion } from "./signals";

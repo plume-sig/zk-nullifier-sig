@@ -1,7 +1,14 @@
 {
   "name": "plume-sig",
   "version": "2.0.3",
-  "packageManager": "yarn@3.2.4",
+  "pnpm": {
+    "overrides": {
+      "@noble/secp256k1": "$@noble/secp256k1"
+    }
+  },
+  "engines": {
+    "node": ">=16 <19"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/js-sha512": "^0",
@@ -9,6 +16,7 @@
     "@types/nodemon": "^1.19.2",
     "jest": "^29.7.0",
     "nodemon": "^2.0.20",
+    "prettier": "^3.0.3",
     "ts-jest": "^29.0.3",
     "ts-node": "^10.9.1",
     "typescript": "^4.9.3"
@@ -21,9 +29,14 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "start": "nodemon",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
+    "prettier": "prettier -c . --config ../.prettierrc --ignore-path ../.prettierignore",
+    "prettier:fix": "prettier -w . --config ../.prettierrc --ignore-path ../.prettierignore",
+    "types": "tsc -p tsconfig.json --noEmit",
     "test": "jest",
-    "publish": "yarn build && npm publish"
+    "test:coverage": "pnpm run test --coverage",
+    "publish": "pnpm run build && pnpm publish"
   }
 }
