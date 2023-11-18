@@ -1,19 +1,16 @@
 // #![feature(generic_const_expr)]
 // #![allow(incomplete_features)]
 
-use elliptic_curve::bigint::ArrayEncoding;
-use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
-use elliptic_curve::ops::Reduce;
-use elliptic_curve::sec1::ToEncodedPoint;
 use k256::{
     // ecdsa::{signature::Signer, Signature, SigningKey},
     elliptic_curve::group::ff::PrimeField,
+    elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest},
+    elliptic_curve::sec1::ToEncodedPoint,
     sha2::{digest::Output, Digest, Sha256},
     FieldBytes,
     ProjectivePoint,
     Scalar,
     Secp256k1,
-    U256,
 }; // requires 'getrandom' feature
 
 const L: usize = 48;
@@ -73,7 +70,7 @@ fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
     let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
         &[[m, &encode_pt(pk).unwrap()].concat().as_slice()],
         //b"CURVE_XMD:SHA-256_SSWU_RO_",
-        DST,
+        &[DST],
     )
     .unwrap();
     pt
@@ -106,7 +103,7 @@ impl PlumeSignature<'_> {
         // don't forget to check `c` is `Output<Sha256>` in the #API
         let c = Output::<Sha256>::from_slice(self.c);
         // TODO should we allow `c` input greater than BaseField::MODULUS?
-        let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.to_owned()));
+        let c_scalar = &Scalar::from_repr(c.to_owned()).unwrap();
         /* @skaunov would be glad to discuss with @Divide-By-0 excessive of the following check.
         Though I should notice that it at least doesn't breaking anything. */
         if c_scalar.is_zero().into() {
@@ -210,7 +207,7 @@ mod tests {
             let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
                 &[s],
                 //b"CURVE_XMD:SHA-256_SSWU_RO_"
-                DST,
+                &[DST],
             )
             .unwrap();
             pt
@@ -302,7 +299,7 @@ mod tests {
             };
             dbg!(&c, version);
 
-            let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.clone()));
+            let c_scalar = &Scalar::from_repr(c.clone()).unwrap();
             // This value is part of the discrete log equivalence (DLEQ) proof.
             let r_sk_c = r + sk * c_scalar;
 
