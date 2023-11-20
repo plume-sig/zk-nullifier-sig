@@ -183,7 +183,7 @@ template check_ec_equations(n, k, message_length) {
 
     component r_point_comp = a_div_b_pow_c(n, k);
     r_point_comp.a <== s_point.pubkey;
-    r_point_comp.b <== pk;
+    r_point_comp.b <== pk_compressed;
     r_point_comp.c <== c;
 
     // Calculate hash[m, pk]^r
