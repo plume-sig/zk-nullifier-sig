@@ -283,8 +283,8 @@ template sha256_12_coordinates(n, k) {
                 binary[33*i + j] = Num2Bits(8);
                 binary[33*i + j].in <== pk_compressed[j];
             } else {
-            binary[33*i + j] = Num2Bits(8);
-            binary[33*i + j].in <== compressors[i].compressed[j];
+                binary[33*i + j] = Num2Bits(8);
+                binary[33*i + j].in <== compressors[i].compressed[j];
             }
         }
     }
