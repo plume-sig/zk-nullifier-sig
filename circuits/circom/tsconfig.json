@@ -13,9 +13,8 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "noFallthroughCasesInSwitch": true,
-    "typeRoots": ["./node_modules/@types"],
     "outDir": "./dist"
   },
   "compileOnSave": true,
-  "include": ["src", "test"]
+  "include": ["**/*"]
 }

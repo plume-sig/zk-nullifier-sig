@@ -13,12 +13,18 @@ ark-serialize = "0.3.0"
 ark-serialize-derive = "0.3.0"
 thiserror = "1.0.30"
 secp256k1 = { git = "https://github.com/geometryresearch/ark-secp256k1.git" }
-rand_core = {version = "0.6", default-features=false, features = ["getrandom"] }
+rand_core = { version = "0.6", default-features = false, features = [
+    "getrandom",
+] }
 rand = "0.8.4"
-tiny-keccak = { version = "2.0.2", features = [ "shake" ] }
+tiny-keccak = { version = "2.0.2", features = ["shake"] }
 sha2 = "0.10.2"
-elliptic-curve = { version = "0.12.2", features = ["arithmetic"]}
-k256 = {version = "0.11.3", features = ["arithmetic", "hash2curve", "expose-field", "sha2"] }
+elliptic-curve = { version = "0.12.2", features = ["arithmetic"] }
+k256 = { version = "0.11.3", features = [
+    "arithmetic",
+    "hash2curve",
+    "expose-field",
+    "sha2",
+] }
 generic-array = { version = "0.14", default-features = false }
 hex = "0.4.3"
-

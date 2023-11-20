@@ -62,8 +62,9 @@ pub mod sig {
             affine_to_bytes::<P>(hashed_to_curve),
             affine_to_bytes::<P>(nullifier),
             affine_to_bytes::<P>(r_point),
-            affine_to_bytes::<P>(hashed_to_curve_r)
-        ].concat();
+            affine_to_bytes::<P>(hashed_to_curve_r),
+        ]
+        .concat();
 
         Sha256::digest(c_preimage_vec.as_slice())
     }
@@ -186,7 +187,14 @@ pub mod sig {
 
             // Compute c = sha512([g, pk, h, nul, g^r, z])
             let c = match version {
-                PlumeVersion::V1 => compute_c_v1::<P>(&g_point, keypair.0, &hashed_to_curve, &nullifier, &r_point, &hashed_to_curve_r),
+                PlumeVersion::V1 => compute_c_v1::<P>(
+                    &g_point,
+                    keypair.0,
+                    &hashed_to_curve,
+                    &nullifier,
+                    &r_point,
+                    &hashed_to_curve_r,
+                ),
                 PlumeVersion::V2 => compute_c_v2(&nullifier, &r_point, &hashed_to_curve_r),
             };
             let c_scalar = P::ScalarField::from_be_bytes_mod_order(c.as_ref());
@@ -233,8 +241,17 @@ pub mod sig {
             // Compute c' = sha512([g, pk, h, nul, g^r, z]) for v1
             //         c' = sha512([nul, g^r, z]) for v2
             let c = match version {
-                PlumeVersion::V1 => compute_c_v1::<P>(&pp.g_point, pk, &hashed_to_curve, &sig.nullifier, &sig.r_point, &sig.hashed_to_curve_r),
-                PlumeVersion::V2 => compute_c_v2(&sig.nullifier, &sig.r_point, &sig.hashed_to_curve_r),
+                PlumeVersion::V1 => compute_c_v1::<P>(
+                    &pp.g_point,
+                    pk,
+                    &hashed_to_curve,
+                    &sig.nullifier,
+                    &sig.r_point,
+                    &sig.hashed_to_curve_r,
+                ),
+                PlumeVersion::V2 => {
+                    compute_c_v2(&sig.nullifier, &sig.r_point, &sig.hashed_to_curve_r)
+                }
             };
             let c_scalar = P::ScalarField::from_be_bytes_mod_order(c.as_ref());
 

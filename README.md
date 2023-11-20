@@ -36,7 +36,7 @@ First, clone this repository and navigate to the `javascript/` directory.
 Install dependencies:
 
 ```bash
-npm i
+pnpm i
 ```
 
 If you encounter an error `No prebuilt binaries found`, try switching to node ` v18.17.0` (using [`n`](https://github.com/tj/n), for example) to work around our dependency's [build issue](https://github.com/WiseLibs/better-sqlite3/issues/1027).
@@ -44,13 +44,13 @@ If you encounter an error `No prebuilt binaries found`, try switching to node ` 
 Then, navigate to the `circuits/` directory and install the dependencies there:
 
 ```bash
-npm i
+pnpm i
 ```
 
 Run the tests:
 ```bash
-npm run flatten-deps && \
-npm run test
+pnpm run flatten-deps && \
+pnpm run test
 ```
 
 Be prepared to wait around 20-40 minutes for the tests to complete.

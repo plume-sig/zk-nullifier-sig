@@ -13,7 +13,8 @@ export interface HashedPoint {
 export function multiplyPoint(h: HashedPoint, secretKey: Uint8Array) {
   const hashPoint = new Point(
     BigInt("0x" + h.x.toString()),
-    BigInt("0x" + h.y.toString())
+    BigInt("0x" + h.y.toString()),
   );
+
   return hashPoint.multiply(BigInt("0x" + uint8ArrayToHex(secretKey)));
 }
