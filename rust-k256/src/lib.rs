@@ -3,10 +3,10 @@
 
 use k256::{
     // ecdsa::{signature::Signer, Signature, SigningKey},
-    elliptic_curve::{hash2curve::{ExpandMsgXmd, GroupDigest}},
+    elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest},
+    elliptic_curve::ops::ReduceNonZero,
     elliptic_curve::sec1::ToEncodedPoint,
     elliptic_curve::{bigint::ArrayEncoding, group::ff::PrimeField},
-    elliptic_curve::ops::ReduceNonZero,
     sha2::{digest::Output, Digest, Sha256},
     FieldBytes,
     ProjectivePoint,
@@ -105,24 +105,20 @@ impl PlumeSignature<'_> {
         // don't forget to check `c` is `Output<Sha256>` in the #API
         let c = Output::<Sha256>::from_slice(self.c);
         // TODO should we allow `c` input greater than BaseField::MODULUS?
-        let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.to_owned())); 
+        let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.to_owned()));
         /* @skaunov would be glad to discuss with @Divide-By-0 excessive of the following check.
         Though I should notice that it at least doesn't breaking anything. */
         if c_scalar.is_zero().into() {
             return false;
         }
 
-        let r_point = ProjectivePoint::GENERATOR * self.s - self.pk * &c_scalar;
+        let r_point = ProjectivePoint::GENERATOR * self.s - self.pk * c_scalar;
         let hashed_to_curve = hash_to_curve(self.message, self.pk);
-        let hashed_to_curve_r = &hashed_to_curve * self.s - self.nullifier * &c_scalar;
+        let hashed_to_curve_r = hashed_to_curve * self.s - self.nullifier * c_scalar;
 
         // Check if the given hash matches
         let result = |components: Vec<&ProjectivePoint>| -> bool {
-            if &c_sha256_vec_signal(components) == c {
-                true
-            } else {
-                false
-            }
+            &c_sha256_vec_signal(components) == c 
         };
 
         if let Some(PlumeSignatureV1Fields {
