@@ -66,7 +66,7 @@ describe("SHA256 Circuit", () => {
     const circuit = await wasm_tester(p, { json: true, sym: true });
 
     const w = await circuit.calculateWitness(
-      { coordinates, preimage_bit_length: v1_sha256_preimage_bit_length },
+      { coordinates },
       true,
     );
     await circuit.checkConstraints(w);
