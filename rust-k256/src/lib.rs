@@ -1,6 +1,8 @@
 // #![feature(generic_const_expr)]
 // #![allow(incomplete_features)]
 
+use std::panic;
+
 use elliptic_curve::bigint::ArrayEncoding;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::ops::Reduce;
@@ -21,11 +23,6 @@ const COUNT: usize = 2;
 const OUT: usize = L * COUNT;
 const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // Hash to curve algorithm
 
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    IsPointAtInfinityError,
-}
-
 fn print_type_of<T>(_: &T) {
     println!("{}", std::any::type_name::<T>());
 }
@@ -33,7 +30,7 @@ fn print_type_of<T>(_: &T) {
 fn c_sha256_vec_signal(values: Vec<&ProjectivePoint>) -> Output<Sha256> {
     let preimage_vec = values
         .into_iter()
-        .map(|value| encode_pt(value).unwrap())
+        .map(|value| encode_pt(value))
         .collect::<Vec<_>>()
         .concat();
     let mut sha256_hasher = Sha256::new();
@@ -49,12 +46,12 @@ fn sha256hash6signals(
     g_r: &ProjectivePoint,
     hash_m_pk_pow_r: &ProjectivePoint,
 ) -> Scalar {
-    let g_bytes = encode_pt(g).unwrap();
-    let pk_bytes = encode_pt(pk).unwrap();
-    let h_bytes = encode_pt(hash_m_pk).unwrap();
-    let nul_bytes = encode_pt(nullifier).unwrap();
-    let g_r_bytes = encode_pt(g_r).unwrap();
-    let z_bytes = encode_pt(hash_m_pk_pow_r).unwrap();
+    let g_bytes = encode_pt(g);
+    let pk_bytes = encode_pt(pk);
+    let h_bytes = encode_pt(hash_m_pk);
+    let nul_bytes = encode_pt(nullifier);
+    let g_r_bytes = encode_pt(g_r);
+    let z_bytes = encode_pt(hash_m_pk_pow_r);
 
     let c_preimage_vec = [g_bytes, pk_bytes, h_bytes, nul_bytes, g_r_bytes, z_bytes].concat();
 
@@ -69,14 +66,12 @@ fn sha256hash6signals(
 }
 
 // Hashes two values to the curve
-fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> ProjectivePoint {
-    let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
-        &[[m, &encode_pt(pk).unwrap()].concat().as_slice()],
+fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> Result<ProjectivePoint, elliptic_curve::Error> {
+    Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
+        &[[m, &encode_pt(pk)].concat().as_slice()],
         //b"CURVE_XMD:SHA-256_SSWU_RO_",
         DST,
     )
-    .unwrap();
-    pt
 }
 
 /* currently seems to right place for this `struct` declaration;
@@ -96,8 +91,6 @@ pub struct PlumeSignatureV1Fields<'a> {
     pub hashed_to_curve_r: &'a ProjectivePoint,
 }
 impl PlumeSignature<'_> {
-    /// WARNING: panics when `self.c` isn't an `Output::<Sha256>`.
-    /// So catch it if it's a possible case for you.
     // Verifier check in SNARK:
     // g^[r + sk * c] / (g^sk)^c = g^r
     // hash[m, gsk]^[r + sk * c] / (hash[m, pk]^sk)^c = hash[m, pk]^r
@@ -105,26 +98,27 @@ impl PlumeSignature<'_> {
     pub fn verify_signals(&self) -> bool {
         // don't forget to check `c` is `Output<Sha256>` in the #API
         let c = Output::<Sha256>::from_slice(self.c);
+        
         // TODO should we allow `c` input greater than BaseField::MODULUS?
-        let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.to_owned()));
-        /* @skaunov would be glad to discuss with @Divide-By-0 excessive of the following check.
+        let c_scalar = panic::catch_unwind(|| {
+            Scalar::from_uint_reduced(U256::from_be_byte_array(c.to_owned()))
+        });
+        if c_scalar.is_err() {return false;}
+        let c_scalar = c_scalar.unwrap();
+        
+        /* @skaunov would be glad to discuss with @Divide-By-0 excessiveness of the following check.
         Though I should notice that it at least doesn't breaking anything. */
         if c_scalar.is_zero().into() {
             return false;
         }
 
         let r_point = ProjectivePoint::GENERATOR * self.s - self.pk * &c_scalar;
+        
         let hashed_to_curve = hash_to_curve(self.message, self.pk);
+        if hashed_to_curve.is_err() {return false;}
+        let hashed_to_curve = hashed_to_curve.unwrap();
+        
         let hashed_to_curve_r = &hashed_to_curve * self.s - self.nullifier * &c_scalar;
-
-        // Check if the given hash matches
-        let result = |components: Vec<&ProjectivePoint>| -> bool {
-            if &c_sha256_vec_signal(components) == c {
-                true
-            } else {
-                false
-            }
-        };
 
         if let Some(PlumeSignatureV1Fields {
             r_point: sig_r_point,
@@ -141,7 +135,8 @@ impl PlumeSignature<'_> {
                 return false;
             }
 
-            result(vec![
+            // Check if the given hash matches
+            c == &c_sha256_vec_signal(vec![
                 &ProjectivePoint::GENERATOR,
                 self.pk,
                 &hashed_to_curve,
@@ -150,15 +145,15 @@ impl PlumeSignature<'_> {
                 &hashed_to_curve_r,
             ])
         } else {
-            result(vec![self.nullifier, &r_point, &hashed_to_curve_r])
+            // Check if the given hash matches
+            c == &c_sha256_vec_signal(vec![self.nullifier, &r_point, &hashed_to_curve_r])
         }
     }
 }
 
 /// Encodes the point by compressing it to 33 bytes
-fn encode_pt(point: &ProjectivePoint) -> Result<Vec<u8>, Error> {
-    let encoded = point.to_encoded_point(true);
-    Ok(encoded.to_bytes().to_vec())
+fn encode_pt(point: &ProjectivePoint) -> Vec<u8> {
+    point.to_encoded_point(true).to_bytes().to_vec()
 }
 
 /// Convert a 32-byte array to a scalar
@@ -251,7 +246,7 @@ mod tests {
             let g_r = &g * &r;
 
             // hash[m, pk]
-            let hash_m_pk = hash_to_curve(m, &pk);
+            let hash_m_pk = hash_to_curve(m, &pk).unwrap();
 
             println!(
                 "h.x: {:?}",
@@ -408,7 +403,7 @@ mod tests {
         );
 
         // Test encode_pt()
-        let g_as_bytes = encode_pt(&g).unwrap();
+        let g_as_bytes = encode_pt(&g);
         assert_eq!(
             hex::encode(g_as_bytes),
             "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
