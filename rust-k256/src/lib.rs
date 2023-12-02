@@ -1,7 +1,6 @@
 // #![feature(generic_const_expr)]
 // #![allow(incomplete_features)]
 
-use std::panic;
 use elliptic_curve::bigint::ArrayEncoding;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::ops::Reduce;
@@ -9,12 +8,9 @@ use elliptic_curve::sec1::ToEncodedPoint;
 use k256::{
     elliptic_curve::group::ff::PrimeField,
     sha2::{digest::Output, Digest, Sha256},
-    FieldBytes,
-    ProjectivePoint,
-    Scalar,
-    Secp256k1,
-    U256,
+    FieldBytes, ProjectivePoint, Scalar, Secp256k1, U256,
 }; // requires 'getrandom' feature
+use std::panic;
 
 const L: usize = 48;
 const COUNT: usize = 2;
