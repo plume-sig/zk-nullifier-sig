@@ -2,13 +2,11 @@
 // #![allow(incomplete_features)]
 
 use std::panic;
-
 use elliptic_curve::bigint::ArrayEncoding;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::ops::Reduce;
 use elliptic_curve::sec1::ToEncodedPoint;
 use k256::{
-    // ecdsa::{signature::Signer, Signature, SigningKey},
     elliptic_curve::group::ff::PrimeField,
     sha2::{digest::Output, Digest, Sha256},
     FieldBytes,
@@ -30,7 +28,7 @@ fn print_type_of<T>(_: &T) {
 fn c_sha256_vec_signal(values: Vec<&ProjectivePoint>) -> Output<Sha256> {
     let preimage_vec = values
         .into_iter()
-        .map(|value| encode_pt(value))
+        .map(encode_pt)
         .collect::<Vec<_>>()
         .concat();
     let mut sha256_hasher = Sha256::new();
