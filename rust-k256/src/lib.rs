@@ -98,14 +98,16 @@ impl PlumeSignature<'_> {
     pub fn verify_signals(&self) -> bool {
         // don't forget to check `c` is `Output<Sha256>` in the #API
         let c = Output::<Sha256>::from_slice(self.c);
-        
+
         // TODO should we allow `c` input greater than BaseField::MODULUS?
         let c_scalar = panic::catch_unwind(|| {
             Scalar::from_uint_reduced(U256::from_be_byte_array(c.to_owned()))
         });
-        if c_scalar.is_err() {return false;}
+        if c_scalar.is_err() {
+            return false;
+        }
         let c_scalar = c_scalar.unwrap();
-        
+
         /* @skaunov would be glad to discuss with @Divide-By-0 excessiveness of the following check.
         Though I should notice that it at least doesn't breaking anything. */
         if c_scalar.is_zero().into() {
@@ -113,12 +115,14 @@ impl PlumeSignature<'_> {
         }
 
         let r_point = ProjectivePoint::GENERATOR * self.s - self.pk * &c_scalar;
-        
+
         let hashed_to_curve = hash_to_curve(self.message, self.pk);
-        if hashed_to_curve.is_err() {return false;}
+        if hashed_to_curve.is_err() {
+            return false;
+        }
         let hashed_to_curve = hashed_to_curve.unwrap();
-        
-        let hashed_to_curve_r = &hashed_to_curve * self.s - self.nullifier * &c_scalar;
+
+        let hashed_to_curve_r = hashed_to_curve * self.s - self.nullifier * &c_scalar;
 
         if let Some(PlumeSignatureV1Fields {
             r_point: sig_r_point,
