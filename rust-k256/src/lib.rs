@@ -59,7 +59,7 @@ fn sha256hash6signals(
 }
 
 // Hashes two values to the curve
-fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> Result<ProjectivePoint, elliptic_curve::Error> {
+fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> Result<ProjectivePoint, k256::elliptic_curve::Error> {
     Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
         &[[m, &encode_pt(pk)].concat().as_slice()],
         //b"CURVE_XMD:SHA-256_SSWU_RO_",
@@ -90,14 +90,15 @@ impl PlumeSignature<'_> {
     // c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
     pub fn verify_signals(&self) -> bool {
         // don't forget to check `c` is `Output<Sha256>` in the #API
-        let c = panic::catch_unwind(|| {Output::<Sha256>::from_slice(self.c);});
+        let c = panic::catch_unwind(|| {Output::<Sha256>::from_slice(self.c)});
         if c.is_err() {return false;}
+        let c = c.unwrap();
 
         // TODO should we allow `c` input greater than BaseField::MODULUS?
         // TODO `reduce_nonzero` doesn't seems to be correct here. `NonZeroScalar` should be appropriate.
-        let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.unwrap().to_owned()));
+        let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.to_owned()));
 
-        let r_point = ProjectivePoint::GENERATOR * self.s - self.pk * &c_scalar;
+        let r_point = ProjectivePoint::GENERATOR * self.s - self.pk * c_scalar;
 
         let hashed_to_curve = hash_to_curve(self.message, self.pk);
         if hashed_to_curve.is_err() {
@@ -105,7 +106,7 @@ impl PlumeSignature<'_> {
         }
         let hashed_to_curve = hashed_to_curve.unwrap();
 
-        let hashed_to_curve_r = hashed_to_curve * self.s - self.nullifier * &c_scalar;
+        let hashed_to_curve_r = hashed_to_curve * self.s - self.nullifier * c_scalar;
 
         if let Some(PlumeSignatureV1Fields {
             r_point: sig_r_point,
