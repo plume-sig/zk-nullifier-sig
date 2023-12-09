@@ -1,12 +1,11 @@
 // #![feature(generic_const_expr)]
 // #![allow(incomplete_features)]
 
-use elliptic_curve::bigint::ArrayEncoding;
-use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
-use elliptic_curve::ops::Reduce;
-use elliptic_curve::sec1::ToEncodedPoint;
 use k256::{
-    elliptic_curve::group::ff::PrimeField,
+    elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest},
+    elliptic_curve::ops::ReduceNonZero,
+    elliptic_curve::sec1::ToEncodedPoint,
+    elliptic_curve::{bigint::ArrayEncoding, group::ff::PrimeField},
     sha2::{digest::Output, Digest, Sha256},
     FieldBytes, ProjectivePoint, Scalar, Secp256k1, U256,
 }; // requires 'getrandom' feature
@@ -64,7 +63,7 @@ fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> Result<ProjectivePoint, elli
     Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
         &[[m, &encode_pt(pk)].concat().as_slice()],
         //b"CURVE_XMD:SHA-256_SSWU_RO_",
-        DST,
+        &[DST],
     )
 }
 
@@ -91,22 +90,12 @@ impl PlumeSignature<'_> {
     // c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
     pub fn verify_signals(&self) -> bool {
         // don't forget to check `c` is `Output<Sha256>` in the #API
-        let c = Output::<Sha256>::from_slice(self.c);
+        let c = panic::catch_unwind(|| {Output::<Sha256>::from_slice(self.c);});
+        if c.is_err() {return false;}
 
         // TODO should we allow `c` input greater than BaseField::MODULUS?
-        let c_scalar = panic::catch_unwind(|| {
-            Scalar::from_uint_reduced(U256::from_be_byte_array(c.to_owned()))
-        });
-        if c_scalar.is_err() {
-            return false;
-        }
-        let c_scalar = c_scalar.unwrap();
-
-        /* @skaunov would be glad to discuss with @Divide-By-0 excessiveness of the following check.
-        Though I should notice that it at least doesn't breaking anything. */
-        if c_scalar.is_zero().into() {
-            return false;
-        }
+        // TODO `reduce_nonzero` doesn't seems to be correct here. `NonZeroScalar` should be appropriate.
+        let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.unwrap().to_owned()));
 
         let r_point = ProjectivePoint::GENERATOR * self.s - self.pk * &c_scalar;
 
@@ -203,7 +192,7 @@ mod tests {
             let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
                 &[s],
                 //b"CURVE_XMD:SHA-256_SSWU_RO_"
-                DST,
+                &[DST],
             )
             .unwrap();
             pt
@@ -295,7 +284,7 @@ mod tests {
             };
             dbg!(&c, version);
 
-            let c_scalar = &Scalar::from_uint_reduced(U256::from_be_byte_array(c.clone()));
+            let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.to_owned()));
             // This value is part of the discrete log equivalence (DLEQ) proof.
             let r_sk_c = r + sk * c_scalar;
 
