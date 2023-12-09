@@ -6,6 +6,7 @@ include "./node_modules/circom-ecdsa/circuits/secp256k1_func.circom";
 include "./node_modules/secp256k1_hash_to_curve_circom/circom/hash_to_curve.circom";
 include "./node_modules/secp256k1_hash_to_curve_circom/circom/Sha256.circom";
 include "./node_modules/circomlib/circuits/bitify.circom";
+include "./node_modules/circomlib/circuits/comparators.circom";
 
 // Verifies that a nullifier belongs to a specific public key \
 // This blog explains the intuition behind the construction https://blog.aayushg.com/posts/nullifier
@@ -28,9 +29,6 @@ template plume_v1(n, k, message_length) {
     signal input q1_y_pos[4];
     signal input q1_x_mapped[4];
     signal input q1_y_mapped[4];
-
-    // precomputed value for the sha256 component. TODO: calculate internally in circom to simplify API
-    signal input sha256_preimage_bit_length;
 
     component check_ec_equations = check_ec_equations(n, k, message_length);
 
@@ -58,7 +56,6 @@ template plume_v1(n, k, message_length) {
     var g[2][100];
     g[0] = get_genx(n, k);
     g[1] = get_geny(n, k);
-    c_sha256.preimage_bit_length <== sha256_preimage_bit_length;
 
     for (var i = 0; i < 2; i++) {
         for (var j = 0; j < k; j++) {
@@ -259,7 +256,6 @@ template a_div_b_pow_c(n, k) {
 
 template sha256_12_coordinates(n, k) {
     signal input coordinates[12][k];
-    signal input preimage_bit_length;
     signal output out[256];
 
     // compress coordinates
@@ -305,12 +301,17 @@ template sha256_12_coordinates(n, k) {
             sha256.padded_bits[i] <== sha256.msg[i];
         }
     }
-
+  
     component bit_length_binary = Num2Bits(64);
-    bit_length_binary.in <== preimage_bit_length;
+    bit_length_binary.in <== message_bits;
     for (var i = 0; i < 64; i++) {
         sha256.padded_bits[total_bits - i - 1] <== bit_length_binary.out[i];
     }
+
+    // feels like a needed check as `Num2Bits.in` doesn't participate in a quadratic constraint
+    component preimage_bit_length_check = ForceEqualIfEnabled();
+    preimage_bit_length_check.enabled <== 1;
+    preimage_bit_length_check.in <== [message_bits, bit_length_binary.in];
 
     out <== sha256.out;
 }

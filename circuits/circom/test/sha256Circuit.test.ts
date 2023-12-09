@@ -65,10 +65,7 @@ describe("SHA256 Circuit", () => {
     const p = path.join(__dirname, "./circuits/12_point_sha_256_test.circom");
     const circuit = await wasm_tester(p, { json: true, sym: true });
 
-    const w = await circuit.calculateWitness(
-      { coordinates, preimage_bit_length: v1_sha256_preimage_bit_length },
-      true,
-    );
+    const w = await circuit.calculateWitness({ coordinates }, true);
     await circuit.checkConstraints(w);
     await circuit.assertOut(w, { out: v1_binary_c });
   });

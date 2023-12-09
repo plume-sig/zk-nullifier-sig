@@ -74,7 +74,6 @@ describe("V1 Circuit", () => {
       pk: pointToCircuitValue(Point.fromPrivateKey(testSecretKey)),
       nullifier: pointToCircuitValue(nullifier),
       ...htci,
-      sha256_preimage_bit_length: v1_sha256_preimage_bit_length,
     });
     await circuit.checkConstraints(w);
   });
