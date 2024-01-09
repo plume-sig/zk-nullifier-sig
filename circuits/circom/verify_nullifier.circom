@@ -34,9 +34,6 @@ template plume_v1(n, k, message_length) {
     component pk_compressor = compress_ec_point(n, k);
     pk_compressor.uncompressed <== pk;
 
-    // precomputed value for the sha256 component. TODO: calculate internally in circom to simplify API
-    signal input sha256_preimage_bit_length;
-
     component check_ec_equations = check_ec_equations(n, k, message_length);
 
     check_ec_equations.c <== c;
@@ -64,7 +61,6 @@ template plume_v1(n, k, message_length) {
     var g[2][100];
     g[0] = get_genx(n, k);
     g[1] = get_geny(n, k);
-    c_sha256.preimage_bit_length <== sha256_preimage_bit_length;
     c_sha256.pk_compressed <== pk_compressor.compressed;
 
     for (var i = 0; i < 2; i++) {
@@ -267,7 +263,6 @@ template a_div_b_pow_c(n, k) {
 template sha256_12_coordinates(n, k) {
     signal input pk_compressed[33];
     signal input coordinates[10][k];
-    signal input preimage_bit_length;
     signal output out[256];
 
     // compress coordinates

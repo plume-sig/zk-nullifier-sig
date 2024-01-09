@@ -40,18 +40,6 @@ describe("SHA256 Circuit", () => {
     hashedToCurveR,
   ];
 
-  const v1_sha256_preimage_bits = bufToSha256PaddedBitArr(
-    Buffer.from(
-      concatUint8Arrays(
-        sha_preimage_points.map((point) => point.toRawBytes(true)),
-      ),
-    ),
-  );
-  const v1_sha256_preimage_bit_length = parseInt(
-    v1_sha256_preimage_bits.slice(-64),
-    2,
-  );
-
   const v1_binary_c = BigInt("0x" + c_v1)
     .toString(2)
     .split("")
@@ -72,7 +60,6 @@ describe("SHA256 Circuit", () => {
       {
         pk_compressed: public_key_compressed,
         coordinates,
-        preimage_bit_length: v1_sha256_preimage_bit_length,
       },
       true,
     );
