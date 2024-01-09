@@ -3,24 +3,17 @@ import path from "path";
 import { Point } from "@noble/secp256k1";
 import { wasm as wasm_tester } from "circom_tester";
 import { generate_inputs_from_array } from "secp256k1_hash_to_curve_circom/ts/generate_inputs";
-import { bufToSha256PaddedBitArr } from "secp256k1_hash_to_curve_circom/ts/utils";
 import { utils } from "ffjavascript";
 
 import {
   c_v1,
-  rPoint,
-  hashMPk,
-  hashedToCurveR,
   nullifier,
   s_v1,
   testMessage,
   testPublicKey,
   testSecretKey,
 } from "../../../javascript/test/consts";
-import {
-  hexToBigInt,
-  concatUint8Arrays,
-} from "../../../javascript/src/utils/encoding";
+import { hexToBigInt } from "../../../javascript/src/utils/encoding";
 
 import { pointToCircuitValue, scalarToCircuitValue } from "../utils";
 
