@@ -159,9 +159,168 @@ fn byte_array_to_scalar(bytes: &[u8]) -> Scalar {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    /* Module consists of two tests; one for each type of signature. One of them also do printings of the values, which can be useful to you when
+    comparing different implementations (the values are also asserted by that one). 
+    Their setup is shared, `mod helpers` contains not refactored code, which is still instrumental to the tests.*/
 
+    use super::*;
     use helpers::{gen_test_scalar_sk, hash_to_secp, test_gen_signals, PlumeVersion};
+
+    const G: ProjectivePoint = ProjectivePoint::GENERATOR;
+    const M: &[u8; 29] = b"An example app message string";
+
+    struct TestValues {
+        pk: ProjectivePoint,
+        nullifier: ProjectivePoint,
+        c: Output<Sha256>,
+        r_sk_c: Scalar,
+        g_r: Option<ProjectivePoint>,
+        hash_m_pk_pow_r: Option<ProjectivePoint>,
+    }
+    impl TestValues {fn get() -> Self {
+        // Fixed key nullifier, secret key, and random value for testing
+        // Normally a secure enclave would generate these values, and output to a wallet implementation
+        let (
+            pk, nullifier, c, r_sk_c, g_r, 
+            hash_m_pk_pow_r
+        ) = test_gen_signals(M, PlumeVersion::V1);
+
+        // The signer's secret key. It is only accessed within the secure enclave.
+        let sk = gen_test_scalar_sk();
+
+        // The user's public key: g^sk.
+        let pk = &G * &sk;
+
+        Self {
+            pk,
+            nullifier,
+            c,
+            r_sk_c,
+            g_r,
+            hash_m_pk_pow_r,
+        }
+    }}
+    
+    // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
+    // The wallet should probably run this prior to snarkify-ing as a sanity check
+    // `M` and nullifier should be public, so we can verify that they are correct
+    
+    #[test]
+    fn plume_v1_test() {
+        let test_values = TestValues::get();
+        let verified = PlumeSignature {
+            message: M,
+            pk: &test_values.pk,
+            nullifier: &test_values.nullifier,
+            c: &test_values.c,
+            s: &test_values.r_sk_c,
+            v1: Some(PlumeSignatureV1Fields {
+                r_point: &test_values.g_r.unwrap(),
+                hashed_to_curve_r: &test_values.hash_m_pk_pow_r.unwrap(),
+            }),
+        }
+        .verify_signals();
+        println!("Verified: {}", verified);
+
+        // Test encode_pt()
+        let g_as_bytes = encode_pt(&G);
+        assert_eq!(
+            hex::encode(g_as_bytes),
+            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        );
+        // Test byte_array_to_scalar()
+        let scalar = byte_array_to_scalar(&test_values.c); // TODO this `fn` looks suspicious as in reproducing const time ops
+        assert_eq!(
+            hex::encode(scalar.to_bytes()),
+            "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
+        );
+        // Test the hash-to-curve algorithm
+        let h = hash_to_secp(b"abc");
+        assert_eq!(
+            hex::encode(h.to_affine().to_encoded_point(false).x().unwrap()),
+            "3377e01eab42db296b512293120c6cee72b6ecf9f9205760bd9ff11fb3cb2c4b"
+        );
+        assert_eq!(
+            hex::encode(h.to_affine().to_encoded_point(false).y().unwrap()),
+            "7f95890f33efebd1044d382a01b1bee0900fb6116f94688d487c6c7b9c8371f6"
+        );
+
+        // Print nullifier
+        println!(
+            "nullifier.x: {:?}",
+            hex::encode(test_values.nullifier.to_affine().to_encoded_point(false).x().unwrap())
+        );
+        println!(
+            "nullifier.y: {:?}",
+            hex::encode(test_values.nullifier.to_affine().to_encoded_point(false).y().unwrap())
+        );
+        // Print c
+        println!("c: {:?}", hex::encode(&test_values.c));
+        // Print r_sk_c
+        println!("r_sk_c: {:?}", hex::encode(test_values.r_sk_c.to_bytes()));
+        // Print g_r
+        println!(
+            "g_r.x: {:?}",
+            hex::encode(
+                test_values.g_r.unwrap()
+                    .to_affine()
+                    .to_encoded_point(false)
+                    .x()
+                    .unwrap()
+            )
+        );
+        println!(
+            "g_r.y: {:?}",
+            hex::encode(
+                test_values.g_r.unwrap()
+                    .to_affine()
+                    .to_encoded_point(false)
+                    .y()
+                    .unwrap()
+            )
+        );
+        // Print hash_m_pk_pow_r
+        println!(
+            "hash_m_pk_pow_r.x: {:?}",
+            hex::encode(
+                test_values.hash_m_pk_pow_r
+                    .unwrap()
+                    .to_affine()
+                    .to_encoded_point(false)
+                    .x()
+                    .unwrap()
+            )
+        );
+        println!(
+            "hash_m_pk_pow_r.y: {:?}",
+            hex::encode(
+                test_values.hash_m_pk_pow_r
+                    .unwrap()
+                    .to_affine()
+                    .to_encoded_point(false)
+                    .y()
+                    .unwrap()
+            )
+        );
+
+        assert!(verified);
+    }
+
+    #[test]
+    fn plume_v2_test() {
+        let test_values = TestValues::get();
+        let verified = PlumeSignature {
+            message: M,
+            pk: &test_values.pk,
+            nullifier: &test_values.nullifier,
+            c: &test_values.c,
+            s: &test_values.r_sk_c,
+            v1: None,
+        }
+        .verify_signals();
+        assert!(verified)
+    }
+
     mod helpers {
         use super::*;
         use hex_literal::hex;
@@ -292,160 +451,5 @@ mod tests {
             // Return the signature.
             (pk, nullifier, c, r_sk_c, Some(g_r), Some(hash_m_pk_pow_r))
         }
-    }
-
-    #[test]
-    fn plume_v1_test() {
-        let g = ProjectivePoint::GENERATOR;
-
-        let m = b"An example app message string";
-
-        // Fixed key nullifier, secret key, and random value for testing
-        // Normally a secure enclave would generate these values, and output to a wallet implementation
-        let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) =
-            test_gen_signals(m, PlumeVersion::V1);
-
-        // The signer's secret key. It is only accessed within the secure enclave.
-        let sk = gen_test_scalar_sk();
-
-        // The user's public key: g^sk.
-        let pk = &g * &sk;
-
-        // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
-        // The wallet should probably run this prior to snarkify-ing as a sanity check
-        // m and nullifier should be public, so we can verify that they are correct
-        let verified = PlumeSignature {
-            message: m,
-            pk: &pk,
-            nullifier: &nullifier,
-            c: &c,
-            s: &r_sk_c,
-            v1: Some(PlumeSignatureV1Fields {
-                r_point: &g_r.unwrap(),
-                hashed_to_curve_r: &hash_m_pk_pow_r.unwrap(),
-            }),
-        }
-        .verify_signals();
-        println!("Verified: {}", verified);
-
-        // Print nullifier
-        println!(
-            "nullifier.x: {:?}",
-            hex::encode(nullifier.to_affine().to_encoded_point(false).x().unwrap())
-        );
-        println!(
-            "nullifier.y: {:?}",
-            hex::encode(nullifier.to_affine().to_encoded_point(false).y().unwrap())
-        );
-
-        // Print c
-        println!("c: {:?}", hex::encode(&c));
-
-        // Print r_sk_c
-        println!("r_sk_c: {:?}", hex::encode(r_sk_c.to_bytes()));
-
-        // Print g_r
-        println!(
-            "g_r.x: {:?}",
-            hex::encode(
-                g_r.unwrap()
-                    .to_affine()
-                    .to_encoded_point(false)
-                    .x()
-                    .unwrap()
-            )
-        );
-        println!(
-            "g_r.y: {:?}",
-            hex::encode(
-                g_r.unwrap()
-                    .to_affine()
-                    .to_encoded_point(false)
-                    .y()
-                    .unwrap()
-            )
-        );
-
-        // Print hash_m_pk_pow_r
-        println!(
-            "hash_m_pk_pow_r.x: {:?}",
-            hex::encode(
-                hash_m_pk_pow_r
-                    .unwrap()
-                    .to_affine()
-                    .to_encoded_point(false)
-                    .x()
-                    .unwrap()
-            )
-        );
-        println!(
-            "hash_m_pk_pow_r.y: {:?}",
-            hex::encode(
-                hash_m_pk_pow_r
-                    .unwrap()
-                    .to_affine()
-                    .to_encoded_point(false)
-                    .y()
-                    .unwrap()
-            )
-        );
-
-        // Test encode_pt()
-        let g_as_bytes = encode_pt(&g);
-        assert_eq!(
-            hex::encode(g_as_bytes),
-            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
-        );
-
-        // Test byte_array_to_scalar()
-        let scalar = byte_array_to_scalar(&c); // TODO this `fn` looks suspicious as in reproducing const time ops
-        assert_eq!(
-            hex::encode(scalar.to_bytes()),
-            "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
-        );
-
-        // Test the hash-to-curve algorithm
-        let h = hash_to_secp(b"abc");
-        assert_eq!(
-            hex::encode(h.to_affine().to_encoded_point(false).x().unwrap()),
-            "3377e01eab42db296b512293120c6cee72b6ecf9f9205760bd9ff11fb3cb2c4b"
-        );
-        assert_eq!(
-            hex::encode(h.to_affine().to_encoded_point(false).y().unwrap()),
-            "7f95890f33efebd1044d382a01b1bee0900fb6116f94688d487c6c7b9c8371f6"
-        );
-        assert!(verified);
-    }
-
-    #[test]
-    fn plume_v2_test() {
-        let g = ProjectivePoint::GENERATOR;
-
-        let m = b"An example app message string";
-
-        // Fixed key nullifier, secret key, and random value for testing
-        // Normally a secure enclave would generate these values, and output to a wallet implementation
-        let (pk, nullifier, c, r_sk_c, g_r, hash_m_pk_pow_r) =
-            test_gen_signals(m, PlumeVersion::V2);
-
-        // The signer's secret key. It is only accessed within the secu`re enclave.
-        let sk = gen_test_scalar_sk();
-
-        // The user's public key: g^sk.
-        let pk = &g * &sk;
-
-        // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
-        // The wallet should probably run this prior to snarkify-ing as a sanity check
-        // m and nullifier should be public, so we can verify that they are correct
-        let verified = PlumeSignature {
-            message: m,
-            pk: &pk,
-            nullifier: &nullifier,
-            c: &c,
-            s: &r_sk_c,
-            v1: None,
-        }
-        .verify_signals();
-        assert!(verified)
     }
 }
