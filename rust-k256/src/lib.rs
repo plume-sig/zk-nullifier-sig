@@ -169,58 +169,19 @@ mod tests {
     const G: ProjectivePoint = ProjectivePoint::GENERATOR;
     const M: &[u8; 29] = b"An example app message string";
 
-    struct TestValues {
-        pk: ProjectivePoint,
-        nullifier: ProjectivePoint,
-        c: Output<Sha256>,
-        r_sk_c: Scalar,
-        g_r: Option<ProjectivePoint>,
-        hash_m_pk_pow_r: Option<ProjectivePoint>,
-    }
-    impl TestValues {fn get() -> Self {
+    fn test_signature<'a>(version: PlumeVersion) -> PlumeSignature<'a> {
         // Fixed key nullifier, secret key, and random value for testing
         // Normally a secure enclave would generate these values, and output to a wallet implementation
         let (
             pk, nullifier, c, r_sk_c, g_r, 
             hash_m_pk_pow_r
-        ) = test_gen_signals(M, PlumeVersion::V1);
+        ) = test_gen_signals(M, version);
 
         // The signer's secret key. It is only accessed within the secure enclave.
         let sk = gen_test_scalar_sk();
 
         // The user's public key: g^sk.
         let pk = &G * &sk;
-
-        Self {
-            pk,
-            nullifier,
-            c,
-            r_sk_c,
-            g_r,
-            hash_m_pk_pow_r,
-        }
-    }}
-    
-    // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
-    // The wallet should probably run this prior to snarkify-ing as a sanity check
-    // `M` and nullifier should be public, so we can verify that they are correct
-    
-    #[test]
-    fn plume_v1_test() {
-        let test_values = TestValues::get();
-        let verified = PlumeSignature {
-            message: M,
-            pk: &test_values.pk,
-            nullifier: &test_values.nullifier,
-            c: &test_values.c,
-            s: &test_values.r_sk_c,
-            v1: Some(PlumeSignatureV1Fields {
-                r_point: &test_values.g_r.unwrap(),
-                hashed_to_curve_r: &test_values.hash_m_pk_pow_r.unwrap(),
-            }),
-        }
-        .verify_signals();
-        println!("Verified: {}", verified);
 
         // Test encode_pt()
         let g_as_bytes = encode_pt(&G);
@@ -229,7 +190,7 @@ mod tests {
             "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
         );
         // Test byte_array_to_scalar()
-        let scalar = byte_array_to_scalar(&test_values.c); // TODO this `fn` looks suspicious as in reproducing const time ops
+        let scalar = byte_array_to_scalar(&c); // TODO this `fn` looks suspicious as in reproducing const time ops
         assert_eq!(
             hex::encode(scalar.to_bytes()),
             "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
@@ -248,21 +209,21 @@ mod tests {
         // Print nullifier
         println!(
             "nullifier.x: {:?}",
-            hex::encode(test_values.nullifier.to_affine().to_encoded_point(false).x().unwrap())
+            hex::encode(nullifier.to_affine().to_encoded_point(false).x().unwrap())
         );
         println!(
             "nullifier.y: {:?}",
-            hex::encode(test_values.nullifier.to_affine().to_encoded_point(false).y().unwrap())
+            hex::encode(nullifier.to_affine().to_encoded_point(false).y().unwrap())
         );
         // Print c
-        println!("c: {:?}", hex::encode(&test_values.c));
+        println!("c: {:?}", hex::encode(&c));
         // Print r_sk_c
-        println!("r_sk_c: {:?}", hex::encode(test_values.r_sk_c.to_bytes()));
+        println!("r_sk_c: {:?}", hex::encode(r_sk_c.to_bytes()));
         // Print g_r
         println!(
             "g_r.x: {:?}",
             hex::encode(
-                test_values.g_r.unwrap()
+                g_r.unwrap()
                     .to_affine()
                     .to_encoded_point(false)
                     .x()
@@ -272,7 +233,7 @@ mod tests {
         println!(
             "g_r.y: {:?}",
             hex::encode(
-                test_values.g_r.unwrap()
+                g_r.unwrap()
                     .to_affine()
                     .to_encoded_point(false)
                     .y()
@@ -283,7 +244,7 @@ mod tests {
         println!(
             "hash_m_pk_pow_r.x: {:?}",
             hex::encode(
-                test_values.hash_m_pk_pow_r
+                hash_m_pk_pow_r
                     .unwrap()
                     .to_affine()
                     .to_encoded_point(false)
@@ -294,7 +255,7 @@ mod tests {
         println!(
             "hash_m_pk_pow_r.y: {:?}",
             hex::encode(
-                test_values.hash_m_pk_pow_r
+                hash_m_pk_pow_r
                     .unwrap()
                     .to_affine()
                     .to_encoded_point(false)
@@ -303,22 +264,36 @@ mod tests {
             )
         );
 
+        PlumeSignature::<'a> {
+            message: M,
+            pk: &pk,
+            nullifier: &nullifier,
+            c: &c,
+            s: &r_sk_c,
+            v1: match version {
+                PlumeVersion::V1 => Some(PlumeSignatureV1Fields {
+                    r_point: &g_r.unwrap(),
+                    hashed_to_curve_r: &hash_m_pk_pow_r.unwrap(),
+                }),
+                PlumeVersion::V2 => None,
+            },
+        }
+    }
+    
+    // Verify the signals, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
+    // The wallet should probably run this prior to snarkify-ing as a sanity check
+    // `M` and nullifier should be public, so we can verify that they are correct
+    
+    #[test]
+    fn plume_v1_test() {
+        let verified = test_signature(PlumeVersion::V1).verify_signals();
+        println!("Verified: {}", verified);
         assert!(verified);
     }
 
     #[test]
     fn plume_v2_test() {
-        let test_values = TestValues::get();
-        let verified = PlumeSignature {
-            message: M,
-            pk: &test_values.pk,
-            nullifier: &test_values.nullifier,
-            c: &test_values.c,
-            s: &test_values.r_sk_c,
-            v1: None,
-        }
-        .verify_signals();
-        assert!(verified)
+        assert!(test_signature(PlumeVersion::V2).verify_signals());
     }
 
     mod helpers {
