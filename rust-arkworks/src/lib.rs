@@ -6,6 +6,7 @@ mod tests;
 pub mod sig {
     use crate::error::EcError;
     use crate::hash_to_curve;
+    use ark_ec::hashing::HashToCurve;
     use ark_ec::short_weierstrass_jacobian::GroupAffine;
     use ark_ec::{models::SWModelParameters, AffineCurve, ProjectiveCurve};
     use ark_ff::{PrimeField, ToBytes};
@@ -46,7 +47,10 @@ pub mod sig {
         //let pk_affine_bytes_vec = affine_to_bytes::<P>(pk);
         //let m_pk = [message, pk_affine_bytes_vec.as_slice()].concat();
         //hash_to_curve::try_and_increment::<C>(m_pk.as_slice())
-        Ok(hash_to_curve::hash_to_curve::<Fq, P>(message, pk))
+        Ok(hash_to_curve::hash_to_curve::<Fq, P>(message, pk));
+        ark_ec::hashing::map_to_curve_hasher::MapToCurveBasedHasher::<>::hash(
+            &self, message
+        )
     }
 
     fn compute_c_v1<P: SWModelParameters>(
