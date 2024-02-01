@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 rand_core = "0.6.3"
-hex-literal = "0.3.4"
 hash2field = "0.4.0"
 num-bigint = "0.4.3"
 num-integer = "0.1.45"
@@ -15,3 +14,4 @@ k256 = {version = "0.13.2", features = ["arithmetic", "hash2curve", "expose-fiel
 
 [dev-dependencies]
 hex = "0.4.3"
+hex-literal = "0.3.4"
