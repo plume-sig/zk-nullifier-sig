@@ -1,14 +1,14 @@
+//! The suite consists of two tests; one for each type of signature. One of them also do printings of the values, 
+//! which can be useful to you when comparing different implementations. 
+//! Their setup is shared, `mod helpers` contains barely not refactored code, which is still instrumental to the tests.
+
 use zk_nullifier::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
-use helpers::{gen_test_scalar_sk, hash_to_secp, test_gen_signals, PlumeVersion};
+use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
 use k256::elliptic_curve::sec1::ToEncodedPoint;
-use std::ops::Deref;
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
-// macro_rules! c_hexstring {
-//     () => {"c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"};
-// }
-const C: &[u8] = &hex_literal::hex!(
+const C_V1: &[u8] = &hex_literal::hex!(
     "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
 );
 
@@ -31,9 +31,9 @@ fn plume_v1_test() {
     
     let sig = PlumeSignature{ 
         message: M, 
-        pk: &(&G * &gen_test_scalar_sk()), 
+        pk: &(G * gen_test_scalar_sk()), 
         nullifier: &test_data.1, 
-        c: C, 
+        c: C_V1, 
         s: &test_data.3, 
         v1: Some(PlumeSignatureV1Fields {r_point, hashed_to_curve_r})
     };
@@ -50,7 +50,7 @@ fn plume_v1_test() {
         hex::encode(sig.nullifier.to_affine().to_encoded_point(false).y().unwrap())
     );
     // Print c
-    println!("c: {:?}", hex::encode(C));
+    println!("c: {:?}", hex::encode(C_V1));
     // Print r_sk_c
     println!("r_sk_c: {:?}", hex::encode(sig.s.to_bytes()));
     // Print g_r
@@ -106,9 +106,9 @@ fn plume_v2_test() {
     );
     dbg!(PlumeSignature{ 
         message: M, 
-        pk: &(&G * &gen_test_scalar_sk()), 
+        pk: &(G * gen_test_scalar_sk()), 
         nullifier: &test_data.1, 
-        c: C, 
+        c: &test_data.2, 
         s: &test_data.3, 
         v1: None
     });//.verify_signals());
