@@ -73,6 +73,7 @@ fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> Result<ProjectivePoint, k256
 should be moved (to the beginning of the file?) during refactoring for proper order of the items */
 /* while no consistent #API is present here it's completely `pub`;
 when API will be designed it should include this `struct` (and it also probably will hold values instead of references) */
+#[derive(Debug)]
 pub struct PlumeSignature<'a> {
     pub message: &'a [u8],
     pub pk: &'a ProjectivePoint,
@@ -81,6 +82,7 @@ pub struct PlumeSignature<'a> {
     pub s: &'a Scalar,
     pub v1: Option<PlumeSignatureV1Fields<'a>>,
 }
+#[derive(Debug)]
 pub struct PlumeSignatureV1Fields<'a> {
     pub r_point: &'a ProjectivePoint,
     pub hashed_to_curve_r: &'a ProjectivePoint,
