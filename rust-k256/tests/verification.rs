@@ -1,16 +1,15 @@
-//! The suite consists of two tests; one for each type of signature. One of them also do printings of the values, 
-//! which can be useful to you when comparing different implementations. 
+//! The suite consists of two tests; one for each type of signature. One of them also do printings of the values,
+//! which can be useful to you when comparing different implementations.
 //! Their setup is shared, `mod helpers` contains barely not refactored code, which is still instrumental to the tests.
 
-use zk_nullifier::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
 use k256::elliptic_curve::sec1::ToEncodedPoint;
+use zk_nullifier::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
-const C_V1: &[u8] = &hex_literal::hex!(
-    "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
-);
+const C_V1: &[u8] =
+    &hex_literal::hex!("c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254");
 
 // `test_gen_signals` provides fixed key nullifier, secret key, and the random value for testing
 // Normally a secure enclave would generate these values, and output to a wallet implementation
@@ -28,26 +27,41 @@ fn plume_v1_test() {
     let test_data = test_gen_signals(M, PlumeVersion::V1);
     let r_point = &test_data.4.unwrap();
     let hashed_to_curve_r = &test_data.5.unwrap();
-    
-    let sig = PlumeSignature{ 
-        message: M, 
-        pk: &(G * gen_test_scalar_sk()), 
-        nullifier: &test_data.1, 
-        c: C_V1, 
-        s: &test_data.3, 
-        v1: Some(PlumeSignatureV1Fields {r_point, hashed_to_curve_r})
+
+    let sig = PlumeSignature {
+        message: M,
+        pk: &(G * gen_test_scalar_sk()),
+        nullifier: &test_data.1,
+        c: C_V1,
+        s: &test_data.3,
+        v1: Some(PlumeSignatureV1Fields {
+            r_point,
+            hashed_to_curve_r,
+        }),
     };
     let verified = sig.verify_signals();
     println!("Verified: {}", verified);
-    
+
     // Print nullifier
     println!(
         "nullifier.x: {:?}",
-        hex::encode(sig.nullifier.to_affine().to_encoded_point(false).x().unwrap())
+        hex::encode(
+            sig.nullifier
+                .to_affine()
+                .to_encoded_point(false)
+                .x()
+                .unwrap()
+        )
     );
     println!(
         "nullifier.y: {:?}",
-        hex::encode(sig.nullifier.to_affine().to_encoded_point(false).y().unwrap())
+        hex::encode(
+            sig.nullifier
+                .to_affine()
+                .to_encoded_point(false)
+                .y()
+                .unwrap()
+        )
     );
     // Print c
     println!("c: {:?}", hex::encode(C_V1));
@@ -56,23 +70,11 @@ fn plume_v1_test() {
     // Print g_r
     println!(
         "g_r.x: {:?}",
-        hex::encode(
-            r_point
-                .to_affine()
-                .to_encoded_point(false)
-                .x()
-                .unwrap()
-        )
+        hex::encode(r_point.to_affine().to_encoded_point(false).x().unwrap())
     );
     println!(
         "g_r.y: {:?}",
-        hex::encode(
-            r_point
-                .to_affine()
-                .to_encoded_point(false)
-                .y()
-                .unwrap()
-        )
+        hex::encode(r_point.to_affine().to_encoded_point(false).y().unwrap())
     );
     // Print hash_m_pk_pow_r
     println!(
@@ -101,30 +103,33 @@ fn plume_v1_test() {
 
 #[test]
 fn plume_v2_test() {
-    let test_data = test_gen_signals(
-        M, PlumeVersion::V2
-    );
-    dbg!(PlumeSignature{ 
-        message: M, 
-        pk: &(G * gen_test_scalar_sk()), 
-        nullifier: &test_data.1, 
-        c: &test_data.2, 
-        s: &test_data.3, 
+    let test_data = test_gen_signals(M, PlumeVersion::V2);
+    assert!(PlumeSignature {
+        message: M,
+        pk: &(G * gen_test_scalar_sk()),
+        nullifier: &test_data.1,
+        c: &test_data.2,
+        s: &test_data.3,
         v1: None
-    });//.verify_signals());
+    }
+    .verify_signals());
 }
 
 mod helpers {
-    /* Feels like this one could/should be replaced with static/constant values. Preserved for historical reasons. 
+    /* Feels like this one could/should be replaced with static/constant values. Preserved for historical reasons.
     For the same reasons calls for internal `fn` are commented and replaced by "one-liners" adapted from current implementation. */
     use super::*;
     use hex_literal::hex;
     use k256::{
-        Scalar, elliptic_curve::{
-            PrimeField, hash2curve::{GroupDigest, ExpandMsgXmd}, ops::ReduceNonZero, bigint::ArrayEncoding
-        }, Secp256k1, sha2::{{Sha256, digest::Output, Digest}}, U256, 
+        elliptic_curve::{
+            bigint::ArrayEncoding,
+            hash2curve::{ExpandMsgXmd, GroupDigest},
+            ops::ReduceNonZero,
+            PrimeField,
+        },
+        sha2::{digest::Output, Digest, Sha256},
+        Scalar, Secp256k1, U256,
     };
-    // use hash2field::ExpandMsgXmd;
 
     #[derive(Debug)]
     pub enum PlumeVersion {
@@ -245,25 +250,22 @@ mod helpers {
         // The Fiat-Shamir type step.
         let c = match version {
             PlumeVersion::V1 => Sha256::digest(
-                vec![
-                    &g,
-                    &pk,
-                    &hash_m_pk,
-                    &nullifier,
-                    &g_r,
-                    &hash_m_pk_pow_r,
-                ].into_iter()
+                vec![&g, &pk, &hash_m_pk, &nullifier, &g_r, &hash_m_pk_pow_r]
+                    .into_iter()
                     .map(|x| x.to_encoded_point(true).to_bytes().to_vec())
                     .collect::<Vec<_>>()
-                    .concat().as_slice()
+                    .concat()
+                    .as_slice(),
             ),
             PlumeVersion::V2 => {
                 dbg!("entering `Sha256::digest` for `V2`");
                 let result = Sha256::digest(
-                    vec![&nullifier, &g_r, &hash_m_pk_pow_r].into_iter()
+                    vec![&nullifier, &g_r, &hash_m_pk_pow_r]
+                        .into_iter()
                         .map(|x| x.to_encoded_point(true).to_bytes().to_vec())
                         .collect::<Vec<_>>()
-                        .concat().as_slice()
+                        .concat()
+                        .as_slice(),
                 );
                 dbg!("finished `Sha256::digest` for `V2`");
                 result
@@ -279,7 +281,7 @@ mod helpers {
         (pk, nullifier, c, r_sk_c, Some(g_r), Some(hash_m_pk_pow_r))
     }
 
-    /* Yes, testing the tests isn't a conventional things. 
+    /* Yes, testing the tests isn't a conventional things.
     This should be straightened if `helpers` will be refactored. */
     #[cfg(test)]
     mod tests {

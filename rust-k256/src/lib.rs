@@ -61,7 +61,10 @@ fn sha256hash6signals(
 }
 
 // Hashes two values to the curve
-fn hash_to_curve(m: &[u8], pk: &ProjectivePoint) -> Result<ProjectivePoint, k256::elliptic_curve::Error> {
+fn hash_to_curve(
+    m: &[u8],
+    pk: &ProjectivePoint,
+) -> Result<ProjectivePoint, k256::elliptic_curve::Error> {
     Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
         &[[m, &encode_pt(pk)].concat().as_slice()],
         //b"CURVE_XMD:SHA-256_SSWU_RO_",
@@ -94,8 +97,10 @@ impl PlumeSignature<'_> {
     // c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
     pub fn verify_signals(&self) -> bool {
         // don't forget to check `c` is `Output<Sha256>` in the #API
-        let c = panic::catch_unwind(|| {Output::<Sha256>::from_slice(self.c)});
-        if c.is_err() {return false;}
+        let c = panic::catch_unwind(|| Output::<Sha256>::from_slice(self.c));
+        if c.is_err() {
+            return false;
+        }
         let c = c.unwrap();
 
         // TODO should we allow `c` input greater than BaseField::MODULUS?
