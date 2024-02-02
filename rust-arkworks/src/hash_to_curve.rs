@@ -5,7 +5,7 @@ use ark_ff::FromBytes;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::sec1::ToEncodedPoint;
 // TODO why not ark libs for these? oO
-use k256::{ProjectivePoint, Secp256k1, AffinePoint, sha2::Sha256};
+use k256::{sha2::Sha256, AffinePoint, ProjectivePoint, Secp256k1};
 use secp256k1::Sec1EncodePoint;
 use tiny_keccak::{Hasher, Shake, Xof};
 
@@ -13,9 +13,7 @@ pub fn hash_to_curve<Fp: ark_ff::PrimeField, P: ark_ec::SWModelParameters>(
     msg: &[u8],
     pk: &GroupAffine<P>,
 ) -> Result<GroupAffine<P>, HashToCurveError> {
-    let b = hex::decode(
-        &pk.to_encoded_point(true)
-    ).expect(super::EXPECT_MSG_DECODE);
+    let b = hex::decode(&pk.to_encoded_point(true)).expect(super::EXPECT_MSG_DECODE);
     let x = [msg, b.as_slice()];
     let x = x.concat().clone();
     let x = x.as_slice();
@@ -23,7 +21,8 @@ pub fn hash_to_curve<Fp: ark_ff::PrimeField, P: ark_ec::SWModelParameters>(
     let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
         &[x],
         b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_",
-    ).map_err(|_| HashToCurveError::Legacy)?;
+    )
+    .map_err(|_| HashToCurveError::Legacy)?;
 
     let pt_affine = pt.to_affine();
 

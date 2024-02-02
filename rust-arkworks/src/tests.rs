@@ -102,9 +102,7 @@ pub fn test_sign_and_verify() {
     )
     .unwrap();
 
-    let is_valid = sig.verify_non_zk(
-        &pp, &keypair.0, message, PlumeVersion::V1
-    );
+    let is_valid = sig.verify_non_zk(&pp, &keypair.0, message, PlumeVersion::V1);
     assert!(is_valid.unwrap());
 
     let sig = PlumeSignature::sign(
@@ -116,9 +114,7 @@ pub fn test_sign_and_verify() {
     )
     .unwrap();
 
-    let is_valid = sig.verify_non_zk(
-        &pp, &keypair.0, message, PlumeVersion::V2
-    );
+    let is_valid = sig.verify_non_zk(&pp, &keypair.0, message, PlumeVersion::V2);
     assert!(is_valid.unwrap());
 }
 
@@ -234,7 +230,8 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
 
     let keypair = (pk, sk);
     let sig =
-        PlumeSignature::sign_with_r(&pp, (&keypair.0, &keypair.1), message, r, PlumeVersion::V1).unwrap();
+        PlumeSignature::sign_with_r(&pp, (&keypair.0, &keypair.1), message, r, PlumeVersion::V1)
+            .unwrap();
 
     assert_eq!(
         coord_to_hex(sig.c.into()),
@@ -246,7 +243,8 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
     );
 
     let sig =
-        PlumeSignature::sign_with_r(&pp, (&keypair.0, &keypair.1), message, r, PlumeVersion::V2).unwrap();
+        PlumeSignature::sign_with_r(&pp, (&keypair.0, &keypair.1), message, r, PlumeVersion::V2)
+            .unwrap();
 
     assert_eq!(
         coord_to_hex(sig.c.into()),

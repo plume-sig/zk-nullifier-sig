@@ -3,9 +3,7 @@ use crate::hash_to_curve::hash_to_curve;
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ec::{models::SWModelParameters, AffineCurve, ProjectiveCurve};
 use ark_ff::PrimeField;
-use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write,
-};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::{rand::Rng, UniformRand};
 use secp256k1::sec1::Sec1EncodePoint;
 use sha2::digest::Output;
@@ -22,7 +20,9 @@ pub enum PlumeVersion {
 }
 
 pub fn affine_to_bytes<P: SWModelParameters>(point: &GroupAffine<P>) -> Vec<u8> {
-    hex::decode(point.to_encoded_point(true)).expect(EXPECT_MSG_DECODE).to_vec()
+    hex::decode(point.to_encoded_point(true))
+        .expect(EXPECT_MSG_DECODE)
+        .to_vec()
 }
 
 fn compute_h<'a, C: ProjectiveCurve, Fq: PrimeField, P: SWModelParameters>(
@@ -104,10 +104,7 @@ type SecretKeyMaterial<P: SWModelParameters> = P::ScalarField;
 
 impl<P: SWModelParameters> PlumeSignature<P> {
     /// Generate the public key and a private key.
-    fn keygen(
-        pp: &Parameters<P>,
-        rng: &mut impl Rng,
-    ) -> (PublicKey<P>, SecretKeyMaterial<P>) {
+    fn keygen(pp: &Parameters<P>, rng: &mut impl Rng) -> (PublicKey<P>, SecretKeyMaterial<P>) {
         let secret_key = SecretKeyMaterial::<P>::rand(rng);
         let public_key = pp.g_point.mul(secret_key).into();
         (public_key, secret_key)
@@ -125,9 +122,8 @@ impl<P: SWModelParameters> PlumeSignature<P> {
         let r_point = g_point.mul(r_scalar).into_affine();
 
         // Compute h = htc([m, pk])
-        let hashed_to_curve = compute_h::<secp256k1::Projective, secp256k1::fields::Fq, P>(
-            &keypair.0, &message
-        )?;
+        let hashed_to_curve =
+            compute_h::<secp256k1::Projective, secp256k1::fields::Fq, P>(&keypair.0, &message)?;
 
         // Compute z = h^r
         let hashed_to_curve_r = hashed_to_curve.mul(r_scalar).into_affine();
@@ -179,16 +175,15 @@ impl<P: SWModelParameters> PlumeSignature<P> {
     }
 
     fn verify_non_zk(
-            self,
-            pp: &Parameters<P>,
-            pk: &PublicKey<P>,
-            message: Message,
-            version: PlumeVersion
+        self,
+        pp: &Parameters<P>,
+        pk: &PublicKey<P>,
+        message: Message,
+        version: PlumeVersion,
     ) -> Result<bool, HashToCurveError> {
-            // Compute h = htc([m, pk])
-        let hashed_to_curve = compute_h::<secp256k1::Projective, secp256k1::fields::Fq, P>(
-            pk, message
-        )?;
+        // Compute h = htc([m, pk])
+        let hashed_to_curve =
+            compute_h::<secp256k1::Projective, secp256k1::fields::Fq, P>(pk, message)?;
 
         // TODO [replace SHA-512](https://github.com/plume-sig/zk-nullifier-sig/issues/39#issuecomment-1732497672)
         // Compute c' = sha512([g, pk, h, nul, g^r, z]) for v1
