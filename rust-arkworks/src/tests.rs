@@ -1,7 +1,5 @@
 use crate::hash_to_curve::{hash_to_curve, k256_affine_to_arkworks_secp256k1_affine};
-use crate::sig::DeterministicNullifierSignatureScheme;
-use crate::sig::PlumeVersion;
-use crate::sig::VerifiableUnpredictableFunction;
+use crate::{PlumeSignature, PlumeVersion};
 use ark_ec::models::short_weierstrass_jacobian::GroupAffine;
 use ark_ec::{AffineCurve, ProjectiveCurve};
 use ark_ff::biginteger;
@@ -13,7 +11,7 @@ use secp256k1::curves::Affine;
 use secp256k1::curves::Secp256k1Parameters;
 use secp256k1::fields::Fq;
 
-type Parameters = crate::sig::Parameters<Secp256k1Parameters>;
+type Parameters = crate::Parameters<Secp256k1Parameters>;
 
 fn test_template() -> (ThreadRng, Affine) {
     let rng = thread_rng();
@@ -21,9 +19,6 @@ fn test_template() -> (ThreadRng, Affine) {
 
     (rng, g)
 }
-
-type Scheme<'a> =
-    DeterministicNullifierSignatureScheme<'a, secp256k1::Projective, Fq, Secp256k1Parameters>;
 
 #[test]
 pub fn test_k256_affine_to_arkworks_secp256k1_affine() {
@@ -41,7 +36,7 @@ pub fn test_k256_affine_to_arkworks_secp256k1_affine() {
             k256_affine_to_arkworks_secp256k1_affine::<Secp256k1Parameters>(k256_pt.to_affine());
 
         // The points should match
-        assert_eq!(ark_pt.into_affine(), converted_pt);
+        assert_eq!(ark_pt.into_affine(), converted_pt.unwrap());
     }
 }
 
@@ -84,7 +79,7 @@ pub fn test_keygen() {
     let (mut rng, g) = test_template();
     let pp = Parameters { g_point: g };
 
-    let (pk, sk) = Scheme::keygen(&pp, &mut rng).unwrap();
+    let (pk, sk) = PlumeSignature::keygen(&mut rng);
 
     let expected_pk = g.mul(sk);
     assert_eq!(pk, expected_pk);
@@ -96,9 +91,9 @@ pub fn test_sign_and_verify() {
     let pp = Parameters { g_point: g };
 
     let message = b"Message";
-    let keypair = Scheme::keygen(&pp, &mut rng).unwrap();
+    let keypair = PlumeSignature::keygen(&mut rng);
 
-    let sig = Scheme::sign(
+    let sig = PlumeSignature::sign(
         &pp,
         &mut rng,
         (&keypair.0, &keypair.1),
@@ -107,10 +102,12 @@ pub fn test_sign_and_verify() {
     )
     .unwrap();
 
-    let is_valid = Scheme::verify_non_zk(&pp, &keypair.0, &sig, message, PlumeVersion::V1);
+    let is_valid = sig.verify_non_zk(
+        &keypair.0, message, PlumeVersion::V1
+    );
     assert!(is_valid.unwrap());
 
-    let sig = Scheme::sign(
+    let sig = PlumeSignature::sign(
         &pp,
         &mut rng,
         (&keypair.0, &keypair.1),
@@ -119,7 +116,9 @@ pub fn test_sign_and_verify() {
     )
     .unwrap();
 
-    let is_valid = Scheme::verify_non_zk(&pp, &keypair.0, &sig, message, PlumeVersion::V2);
+    let is_valid = sig.verify_non_zk(
+        &keypair.0, message, PlumeVersion::V2
+    );
     assert!(is_valid.unwrap());
 }
 
@@ -132,8 +131,7 @@ pub fn compute_h() -> GroupAffine<Secp256k1Parameters> {
     let pk_projective = g.mul(sk);
     let pk = GroupAffine::<Secp256k1Parameters>::from(pk_projective);
 
-    let h = hash_to_curve::<secp256k1::fields::Fq, Secp256k1Parameters>(message, &pk);
-    h
+    hash_to_curve::<secp256k1::fields::Fq, Secp256k1Parameters>(message, &pk).unwrap()
 }
 
 #[test]
@@ -236,7 +234,7 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
 
     let keypair = (pk, sk);
     let sig =
-        Scheme::sign_with_r(&pp, (&keypair.0, &keypair.1), message, r, PlumeVersion::V1).unwrap();
+        PlumeSignature::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V1).unwrap();
 
     assert_eq!(
         coord_to_hex(sig.c.into()),
@@ -248,7 +246,7 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
     );
 
     let sig =
-        Scheme::sign_with_r(&pp, (&keypair.0, &keypair.1), message, r, PlumeVersion::V2).unwrap();
+        PlumeSignature::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V2).unwrap();
 
     assert_eq!(
         coord_to_hex(sig.c.into()),
