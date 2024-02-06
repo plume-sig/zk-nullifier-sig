@@ -1,21 +1,19 @@
-use crate::error::CryptoError;
+use crate::error::HashToCurveError;
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ec::{AffineCurve, ProjectiveCurve};
 use ark_ff::FromBytes;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::sec1::ToEncodedPoint;
-use k256::sha2::Sha256;
-use k256::AffinePoint;
-use k256::{ProjectivePoint, Secp256k1};
+// TODO why not ark libs for these? oO
+use k256::{sha2::Sha256, AffinePoint, ProjectivePoint, Secp256k1};
 use secp256k1::Sec1EncodePoint;
 use tiny_keccak::{Hasher, Shake, Xof};
 
 pub fn hash_to_curve<Fp: ark_ff::PrimeField, P: ark_ec::SWModelParameters>(
     msg: &[u8],
     pk: &GroupAffine<P>,
-) -> GroupAffine<P> {
-    let pk_encoded = pk.to_encoded_point(true);
-    let b = hex::decode(pk_encoded).unwrap();
+) -> Result<GroupAffine<P>, HashToCurveError> {
+    let b = hex::decode(&pk.to_encoded_point(true)).expect(super::EXPECT_MSG_DECODE);
     let x = [msg, b.as_slice()];
     let x = x.concat().clone();
     let x = x.as_slice();
@@ -24,7 +22,7 @@ pub fn hash_to_curve<Fp: ark_ff::PrimeField, P: ark_ec::SWModelParameters>(
         &[x],
         b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_",
     )
-    .unwrap();
+    .map_err(|_| HashToCurveError::Legacy)?;
 
     let pt_affine = pt.to_affine();
 
@@ -33,13 +31,13 @@ pub fn hash_to_curve<Fp: ark_ff::PrimeField, P: ark_ec::SWModelParameters>(
 
 pub fn k256_affine_to_arkworks_secp256k1_affine<P: ark_ec::SWModelParameters>(
     k_pt: AffinePoint,
-) -> GroupAffine<P> {
+) -> Result<GroupAffine<P>, HashToCurveError> {
     let encoded_pt = k_pt.to_encoded_point(false);
 
     let num_field_bytes = 40;
 
     // extract k_pt.x
-    let k_pt_x_bytes = encoded_pt.x().unwrap();
+    let k_pt_x_bytes = encoded_pt.x().ok_or(HashToCurveError::Legacy)?;
 
     // pad x bytes
     let mut k_pt_x_bytes_vec = vec![0u8; num_field_bytes];
@@ -50,10 +48,10 @@ pub fn k256_affine_to_arkworks_secp256k1_affine<P: ark_ec::SWModelParameters>(
         );
     }
     let reader = std::io::BufReader::new(k_pt_x_bytes_vec.as_slice());
-    let g_x = P::BaseField::read(reader).unwrap();
+    let g_x = P::BaseField::read(reader).map_err(|_| HashToCurveError::Legacy)?;
 
     // extract k_pt.y
-    let k_pt_y_bytes = encoded_pt.y().unwrap();
+    let k_pt_y_bytes = encoded_pt.y().ok_or(HashToCurveError::Legacy)?;
 
     // pad y bytes
     let mut k_pt_y_bytes_vec = vec![0u8; num_field_bytes];
@@ -65,13 +63,13 @@ pub fn k256_affine_to_arkworks_secp256k1_affine<P: ark_ec::SWModelParameters>(
     }
 
     let reader = std::io::BufReader::new(k_pt_y_bytes_vec.as_slice());
-    let g_y = P::BaseField::read(reader).unwrap();
+    let g_y = P::BaseField::read(reader).map_err(|_| HashToCurveError::Legacy)?;
 
-    GroupAffine::<P>::new(g_x, g_y, false)
+    Ok(GroupAffine::<P>::new(g_x, g_y, false))
 }
 
 /// Kobi's hash_to_curve function, here for reference only
-pub fn _try_and_increment<C: ProjectiveCurve>(msg: &[u8]) -> Result<C::Affine, CryptoError> {
+pub fn _try_and_increment<C: ProjectiveCurve>(msg: &[u8]) -> Result<C::Affine, HashToCurveError> {
     for nonce in 0u8..=255 {
         let mut h = Shake::v128();
         h.update(&[nonce]);
@@ -85,5 +83,5 @@ pub fn _try_and_increment<C: ProjectiveCurve>(msg: &[u8]) -> Result<C::Affine, C
         }
     }
 
-    Err(CryptoError::CannotHashToCurve)
+    Err(HashToCurveError::ReferenceTryAndIncrement)
 }
