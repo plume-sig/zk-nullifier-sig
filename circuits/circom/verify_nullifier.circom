@@ -244,7 +244,7 @@ template a_div_b_pow_c(n, k) {
 
     b_pow_c_inv_y.underflow === 0;
 
-    // Calculates a^s * (b^c)-1
+    // Calculates a * (b^c)-1
     component final_result = Secp256k1AddUnequal(n, k);
 
     final_result.a <== a;
