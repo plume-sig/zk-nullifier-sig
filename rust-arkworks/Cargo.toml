@@ -1,6 +1,6 @@
 [package]
-name = "sig"
-version = "0.1.0"
+name = "plume-arkworks"
+version = "0.0.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,7 +11,6 @@ ark-ff = "0.3.0"
 ark-std = "0.3.0"
 ark-serialize = "0.3.0"
 ark-serialize-derive = "0.3.0"
-thiserror = "1.0.30"
 secp256k1 = { git = "https://github.com/geometryresearch/ark-secp256k1.git" }
 rand_core = { version = "0.6", default-features = false, features = [
     "getrandom",

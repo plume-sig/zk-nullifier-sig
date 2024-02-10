@@ -1,7 +1,12 @@
 [package]
-name = "zk-nullifier"
+name = "plume_crypto"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Implementation of PLUME: nullifier friendly signature scheme on ECDSA; using the k256 library"
+repository = "https://github.com/plume-sig/zk-nullifier-sig/"
+categories = ["cryptography", "cryptography::cryptocurrencies"]
+keywords = ["nullifier", "zero-knowledge", "ECDSA", "PLUME"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
