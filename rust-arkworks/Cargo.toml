@@ -1,7 +1,12 @@
 [package]
-name = "plume-arkworks"
+name = "plume_arkworks"
 version = "0.0.1"
 edition = "2021"
+license = "MIT"
+description = "Implementation of PLUME: nullifier friendly signature scheme on ECDSA; using the `arkworks-rs` libraries"
+repository = "https://github.com/plume-sig/zk-nullifier-sig/"
+categories = ["cryptography", "cryptography::cryptocurrencies"]
+keywords = ["nullifier", "zero-knowledge", "ECDSA", "PLUME"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
