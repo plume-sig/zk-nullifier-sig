@@ -4,7 +4,7 @@
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
 use k256::elliptic_curve::sec1::ToEncodedPoint;
-use plume_crypto::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
+use plume_rustcrypto::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
@@ -158,7 +158,7 @@ mod helpers {
         let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
             &[s],
             //b"CURVE_XMD:SHA-256_SSWU_RO_"
-            &[plume_crypto::DST],
+            &[plume_rustcrypto::DST],
         )
         .unwrap();
         pt
@@ -208,7 +208,7 @@ mod helpers {
                     &pk.to_encoded_point(true).to_bytes().to_vec()
                 ].concat().as_slice()],
                 //b"CURVE_XMD:SHA-256_SSWU_RO_",
-                &[plume_crypto::DST],
+                &[plume_rustcrypto::DST],
             )
             .unwrap();
 
