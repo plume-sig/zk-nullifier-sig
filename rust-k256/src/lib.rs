@@ -1,7 +1,7 @@
 // #![feature(generic_const_expr)]
 // #![allow(incomplete_features)]
 
-//! A library for generating (coming soon) and verifying PLUME signatures.
+//! A library for generating (coming [soon](https://github.com/plume-sig/zk-nullifier-sig/issues/84)) and verifying PLUME signatures.
 //!
 //! See <https://blog.aayushg.com/nullifier> for more information.
 //!
@@ -12,9 +12,9 @@ use k256::{
     elliptic_curve::{bigint::ArrayEncoding, group::ff::PrimeField},
     FieldBytes, U256,
 }; // requires 'getrandom' feature
-   // TODO
+// TODO
 pub use k256::ProjectivePoint;
-/// Exports the [`Scalar`] type, [`Sha256`] hash function, and [`Output`] type
+/// Re-exports the [`Scalar`] type, [`Sha256`] hash function, and [`Output`] type
 /// from the [`k256`] crate's [`sha2`] module. This allows them to be used
 /// from the current module.
 pub use k256::{
