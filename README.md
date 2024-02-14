@@ -22,9 +22,10 @@ If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any 
 
 - Mina: Uses it for nullifiers [here](https://github.com/o1-labs/o1js/blob/main/src/lib/nullifier.ts) and [here](https://github.com/o1-labs/o1js/blob/main/src/mina-signer/src/nullifier.ts). We are working with them to be fully ERC compliant!
 - Taho: We have an [open PR](https://github.com/tahowallet/extension/pull/3638) that we are waiting on them to merge!
+- Rabby: We have an [open PR](https://github.com/RabbyHub/Rabby/pull/2047) that we are waiting on them to merge!
 - Metamask: We have an open PR set ([rpc](https://github.com/MetaMask/eth-json-rpc-middleware/pull/198
 ), [api](https://github.com/MetaMask/api-specs/pull/120), [core](https://github.com/MetaMask/metamask-extension/pull/17482)) that we are waiting on them to merge!
-- Aztec: WIP, grant out to implement in Noir.
+- Aztec: WIP, pending implementation in Noir.
 
 ### Audits
 We have been audited by 0xbok for these three implementations V1 and V2 implementations, as well as for V1 circuits in circom. We expect the halo2 circuits to be runnable on mobile (once we have audited that code and put up a recursive proving infrastructure setup).
