@@ -4,7 +4,7 @@
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
 use k256::elliptic_curve::sec1::ToEncodedPoint;
-use zk_nullifier::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
+use plume_rustcrypto::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
@@ -39,7 +39,7 @@ fn plume_v1_test() {
             hashed_to_curve_r,
         }),
     };
-    let verified = sig.verify_signals();
+    let verified = sig.verify();
     println!("Verified: {}", verified);
 
     // Print nullifier
@@ -112,7 +112,7 @@ fn plume_v2_test() {
         s: &test_data.3,
         v1: None
     }
-    .verify_signals());
+    .verify());
 }
 
 mod helpers {
@@ -158,7 +158,7 @@ mod helpers {
         let pt: ProjectivePoint = Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
             &[s],
             //b"CURVE_XMD:SHA-256_SSWU_RO_"
-            &[zk_nullifier::DST],
+            &[plume_rustcrypto::DST],
         )
         .unwrap();
         pt
@@ -199,16 +199,16 @@ mod helpers {
         let g_r = &g * &r;
 
         // hash[m, pk]
-        let hash_m_pk = 
+        let hash_m_pk =
             // zk_nullifier::hash_to_curve(m, &pk)
             Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
                 &[[
-                    m, 
+                    m,
                     // &encode_pt(pk)
                     &pk.to_encoded_point(true).to_bytes().to_vec()
                 ].concat().as_slice()],
                 //b"CURVE_XMD:SHA-256_SSWU_RO_",
-                &[zk_nullifier::DST],
+                &[plume_rustcrypto::DST],
             )
             .unwrap();
 

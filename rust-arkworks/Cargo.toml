@@ -1,18 +1,22 @@
 [package]
-name = "sig"
-version = "0.1.0"
+name = "plume_arkworks"
+version = "0.0.1"
 edition = "2021"
+license = "MIT"
+description = "Implementation of PLUME: nullifier friendly signature scheme on ECDSA; using the `arkworks-rs` libraries"
+repository = "https://github.com/plume-sig/zk-nullifier-sig/"
+categories = ["cryptography", "cryptography::cryptocurrencies"]
+keywords = ["nullifier", "zero-knowledge", "ECDSA", "PLUME"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 ark-ec = "~0.3.0"
-ark-ff = "0.3.0"
-ark-std = "0.3.0"
-ark-serialize = "0.3.0"
-ark-serialize-derive = "0.3.0"
-thiserror = "1.0.30"
-secp256k1 = { git = "https://github.com/geometryresearch/ark-secp256k1.git" }
+ark-ff = "~0.3.0"
+ark-std = "~0.3.0"
+ark-serialize = "~0.3.0"
+ark-serialize-derive = "~0.3.0"
+secp256k1 = { git = "https://github.com/geometryresearch/ark-secp256k1.git", version = "0.1.0" }
 rand_core = { version = "0.6", default-features = false, features = [
     "getrandom",
 ] }
