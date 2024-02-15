@@ -2,7 +2,7 @@
 ///
 /// See <https://blog.aayushg.com/nullifier> for more information.
 /// 
-/// Find RustCrypto crate as `plume_crypto`.
+/// Find RustCrypto crate as `plume_rustcrypto`.
 
 pub use crate::error::HashToCurveError;
 use crate::hash_to_curve::hash_to_curve;

@@ -5,7 +5,19 @@
 //!
 //! See <https://blog.aayushg.com/nullifier> for more information.
 //!
-//! Find `arkworks-rs` crate as `plume_arkworks`.
+// Find `arkworks-rs` crate as `plume_arkworks`.
+//
+// # Examples
+// For V2 just set `v1` to `None`
+// ```rust
+// # fn main() {
+//     let sig_good = PlumeSignature<'a>{
+//         message: &b"An example app message string",
+//         pk: ProjectivePoint::GENERATOR * Scalar::from_repr(hex!("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464").into()).unwrap(),
+//         ...
+//     };
+// # }
+// ```
 
 use k256::{
     elliptic_curve::ops::ReduceNonZero,
