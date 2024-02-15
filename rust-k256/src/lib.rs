@@ -21,7 +21,9 @@
 
 use k256::{
     elliptic_curve::ops::ReduceNonZero,
-    elliptic_curve::{bigint::ArrayEncoding, group::ff::PrimeField},
+    elliptic_curve::{
+        bigint::ArrayEncoding, group::ff::PrimeField, hash2curve::GroupDigest
+    },
     FieldBytes, U256,
 }; // requires 'getrandom' feature
 // TODO
@@ -31,8 +33,9 @@ pub use k256::ProjectivePoint;
 /// from the current module.
 pub use k256::{
     sha2::{digest::Output, Digest, Sha256},
-    Scalar,
+    Scalar, SecretKey
 };
+use std::ops::Mul;
 use std::panic;
 
 mod utils;
@@ -45,29 +48,74 @@ pub const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // 
 /// Struct holding signature data for a PLUME signature.
 ///
 /// `v1` field differintiate whether V1 or V2 protocol will be used.
-pub struct PlumeSignature<'a> {
+pub struct PlumeSignature {
     /// The message that was signed.
-    pub message: &'a [u8],
+    pub message: Vec<u8>,
     /// The public key used to verify the signature.
-    pub pk: &'a ProjectivePoint,
+    pub pk: ProjectivePoint,
     /// The nullifier.
-    pub nullifier: &'a ProjectivePoint,
+    pub nullifier: ProjectivePoint,
     /// Part of the signature data.
-    pub c: &'a [u8],
+    pub c: Output<Sha256>,
     /// Part of the signature data, a scalar value.
-    pub s: &'a Scalar,
+    pub s: Scalar,
     /// Optional signature data for variant 1 signatures.
-    pub v1: Option<PlumeSignatureV1Fields<'a>>,
+    pub v1: Option<PlumeSignatureV1Fields>,
 }
 /// Nested struct holding additional signature data used in variant 1 of the protocol.
 #[derive(Debug)]
-pub struct PlumeSignatureV1Fields<'a> {
+pub struct PlumeSignatureV1Fields {
     /// Part of the signature data, a curve point.  
-    pub r_point: &'a ProjectivePoint,
+    pub r_point: ProjectivePoint,
     /// Part of the signature data, a curve point.
-    pub hashed_to_curve_r: &'a ProjectivePoint,
+    pub hashed_to_curve_r: ProjectivePoint,
 }
-impl PlumeSignature<'_> {
+impl PlumeSignature {
+    pub fn sign(
+        rng: &mut impl Rng,
+        key: SecretKey,
+        message: &[u8],
+        v1: bool,
+        // r_scalar: Option<SecretKey>
+    ) -> Result<PlumeSignature, k256::elliptic_curve::Error> {
+        // Compute h = htc([m, pk])
+        let hashed_to_curve = k256::Secp256k1::hash_from_bytes(&[message], &[DST])?;
+
+        // Compute z = h^r
+        let hashed_to_curve_r = hashed_to_curve.mul(r_scalar).into_affine();
+
+        // Compute nul = h^sk
+        let nullifier = hashed_to_curve.mul(*keypair.1).into_affine();
+
+        // Compute c = sha512([g, pk, h, nul, g^r, z])
+        let c = match version {
+            PlumeVersion::V1 => compute_c_v1::<P>(
+                &g_point,
+                keypair.0,
+                &hashed_to_curve,
+                &nullifier,
+                &r_point,
+                &hashed_to_curve_r,
+            ),
+            PlumeVersion::V2 => compute_c_v2(&nullifier, &r_point, &hashed_to_curve_r),
+        };
+        let c_scalar = P::ScalarField::from_be_bytes_mod_order(c.as_ref());
+        // Compute s = r + sk ⋅ c
+        let sk_c = keypair.1.into_repr().into() * c_scalar.into_repr().into();
+        let s = r_scalar.into_repr().into() + sk_c;
+
+        let s_scalar = P::ScalarField::from(s);
+
+        let signature = PlumeSignature {
+            hashed_to_curve_r,
+            s: s_scalar,
+            r_point,
+            c: c_scalar,
+            nullifier,
+        };
+        Ok(signature)
+    }
+    
     /// Verifies a PLUME signature.
     /// Returns `true` if the signature is valid.
     pub fn verify(&self) -> bool {
@@ -126,6 +174,9 @@ impl PlumeSignature<'_> {
             c == &c_sha256_vec_signal(vec![self.nullifier, &r_point, &hashed_to_curve_r])
         }
     }
+}
+impl signature::RandomizedSigner for PlumeSignature {
+    
 }
 
 fn c_sha256_vec_signal(values: Vec<&ProjectivePoint>) -> Output<Sha256> {
