@@ -1,6 +1,6 @@
 use halo2_base::{
     utils::{BigPrimeField, CurveAffineExt},
-    Context,
+    AssignedValue, Context,
 };
 use halo2_ecc::{
     bigint::ProperCrtUint,
@@ -16,7 +16,7 @@ struct PlumeInput<F: BigPrimeField> {
     // Private
     c: ProperCrtUint<F>,
     pk: EcPoint<F, ProperCrtUint<F>>,
-    m: ProperCrtUint<F>,
+    m: Vec<AssignedValue<F>>,
     // Test Inputs
     _gs: EcPoint<F, ProperCrtUint<F>>,
     _pkc: EcPoint<F, ProperCrtUint<F>>,
@@ -128,10 +128,13 @@ fn assert_eq_limbs<F: BigPrimeField>(a: ProperCrtUint<F>, b: ProperCrtUint<F>) {
 #[cfg(test)]
 mod test {
     use halo2_base::{
-        halo2_proofs::halo2curves::{
-            bn256::Fr,
-            secp256k1::{Fp, Fq, Secp256k1Affine},
-            CurveAffine,
+        halo2_proofs::{
+            arithmetic::Field,
+            halo2curves::{
+                bn256::Fr,
+                secp256k1::{Fp, Fq, Secp256k1Affine},
+                CurveAffine,
+            },
         },
         utils::testing::base_test,
     };
@@ -140,7 +143,7 @@ mod test {
         fields::FieldChip,
         secp256k1::{FpChip, FqChip},
     };
-    use rand::random;
+    use rand::{random, rngs::OsRng};
 
     use crate::plume::PlumeInput;
 
@@ -159,7 +162,7 @@ mod test {
             Secp256k1Affine::generator()
                 * <Secp256k1Affine as CurveAffine>::ScalarExt::from(random::<u64>()),
         );
-        let m = <Secp256k1Affine as CurveAffine>::ScalarExt::from(random::<u64>());
+        let m = (0..10).map(|_| Fr::random(OsRng)).collect::<Vec<_>>();
 
         // Outputs
         let gs = Secp256k1Affine::from(Secp256k1Affine::generator() * s);
@@ -182,7 +185,7 @@ mod test {
                 let s = fq_chip.load_private(ctx, s);
                 let c = fq_chip.load_private(ctx, c);
                 let pk = ecc_chip.load_private_unchecked(ctx, (pk.x, pk.y));
-                let m = fq_chip.load_private(ctx, m);
+                let m = m.iter().map(|m| ctx.load_witness(*m)).collect::<Vec<_>>();
 
                 // Test Inputs
                 let _gs = ecc_chip.load_private_unchecked(ctx, (gs.x, gs.y));
@@ -194,7 +197,7 @@ mod test {
                 let _nullifierc_inv =
                     ecc_chip.load_private_unchecked(ctx, (nullifierc_inv.x, nullifierc_inv.y));
 
-                let plume_input = PlumeInput {
+                let plume_input = PlumeInput::<Fr> {
                     nullifier,
                     s,
                     c,
