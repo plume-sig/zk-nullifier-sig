@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 halo2-base = { git = "https://github.com/shreyas-londhe/halo2-lib.git", branch = "feat/secp256k1-hash2curve" }
 halo2-ecc = { git = "https://github.com/shreyas-londhe/halo2-lib.git", branch = "feat/secp256k1-hash2curve" }
+num-bigint = "0.4.4"
+num-traits = "0.2.18"
 rand = "0.8.5"
 
 
