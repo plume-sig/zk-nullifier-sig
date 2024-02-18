@@ -4,7 +4,7 @@
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
 use k256::elliptic_curve::sec1::ToEncodedPoint;
-use plume_rustcrypto::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
+use plume_rustcrypto::{Output, PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint, Sha256};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
@@ -25,16 +25,16 @@ const C_V1: &[u8] =
 #[test]
 fn plume_v1_test() {
     let test_data = test_gen_signals(M, PlumeVersion::V1);
-    let r_point = &test_data.4.unwrap();
-    let hashed_to_curve_r = &test_data.5.unwrap();
+    let r_point = test_data.4.unwrap();
+    let hashed_to_curve_r = test_data.5.unwrap();
 
     let sig = PlumeSignature {
-        message: M,
-        pk: &(G * gen_test_scalar_sk()),
-        nullifier: &test_data.1,
-        c: C_V1,
-        s: &test_data.3,
-        v1: Some(PlumeSignatureV1Fields {
+        message: M.to_owned().into(),
+        pk: G * gen_test_scalar_sk(),
+        nullifier: test_data.1,
+        c: Output::<Sha256>::from_slice(C_V1).to_owned(),
+        s: test_data.3,
+        v1specific: Some(PlumeSignatureV1Fields {
             r_point,
             hashed_to_curve_r,
         }),
@@ -105,12 +105,12 @@ fn plume_v1_test() {
 fn plume_v2_test() {
     let test_data = test_gen_signals(M, PlumeVersion::V2);
     assert!(PlumeSignature {
-        message: M,
-        pk: &(G * gen_test_scalar_sk()),
-        nullifier: &test_data.1,
-        c: &test_data.2,
-        s: &test_data.3,
-        v1: None
+        message: M.to_owned().into(),
+        pk: G * gen_test_scalar_sk(),
+        nullifier: test_data.1,
+        c: test_data.2,
+        s: test_data.3,
+        v1specific: None
     }
     .verify());
 }

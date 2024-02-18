@@ -2,7 +2,7 @@ use crate::hash_to_curve::{hash_to_curve, k256_affine_to_arkworks_secp256k1_affi
 use crate::{PlumeSignature, PlumeVersion};
 use ark_ec::models::short_weierstrass_jacobian::GroupAffine;
 use ark_ec::{AffineCurve, ProjectiveCurve};
-use ark_ff::biginteger;
+use ark_ff::{biginteger, BigInteger, PrimeField, SquareRootField};
 use ark_ff::bytes::{FromBytes, ToBytes};
 use ark_std::rand;
 use k256::{ProjectivePoint, Scalar};
@@ -41,8 +41,8 @@ pub fn test_k256_affine_to_arkworks_secp256k1_affine() {
 }
 
 fn hex_to_fr(hex: &str) -> secp256k1::fields::Fr {
-    let num_field_bytes = 320;
-    let mut sk_bytes_vec = vec![0u8; num_field_bytes];
+    let num_field_bits = 320;
+    let mut sk_bytes_vec = vec![0u8; num_field_bits];
     let mut sk_bytes = hex::decode(hex).unwrap();
 
     sk_bytes.reverse();
@@ -156,6 +156,12 @@ pub fn test_against_zk_nullifier_sig_g_r() {
     let (_, g) = test_template();
     let g_r_projective = g.mul(r);
     let g_r = GroupAffine::<Secp256k1Parameters>::from(g_r_projective);
+    // dbg!({
+    //     let mut r = Vec::new();
+    //     g_r.x.write(&mut r).unwrap();
+    //     r
+    // });
+    // dbg!(r);
     assert_eq!(
         coord_to_hex(g_r.x.into()),
         "00000000000000009d8ca4350e7e2ad27abc6d2a281365818076662962a28429590e2dc736fe9804"
@@ -241,11 +247,15 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
         coord_to_hex(sig.s.into()),
         "0000000000000000e69f027d84cb6fe5f761e333d12e975fb190d163e8ea132d7de0bd6079ba28ca"
     );
+    println!("{}", pk.x.to_string());
+    dbg!(pk.y.into_repr().is_odd());
 
     let sig =
         PlumeSignature::sign_with_r(&pp, (&keypair.0, &keypair.1), message, r, PlumeVersion::V2)
             .unwrap();
 
+    dbg!(sig.r_point.to_string());
+    
     assert_eq!(
         coord_to_hex(sig.c.into()),
         "00000000000000003dbfb717705010d4f44a70720c95e74b475bd3a783ab0b9e8a6b3b363434eb96"
