@@ -20,7 +20,11 @@
 // ```
 
 use k256::{
-    elliptic_curve::{bigint::ArrayEncoding, hash2curve::{ExpandMsgXmd, GroupDigest}, ops::ReduceNonZero, point::NonIdentity, sec1::ToEncodedPoint}, NonZeroScalar, Secp256k1, U256
+    elliptic_curve::{
+        bigint::ArrayEncoding, hash2curve::{
+            ExpandMsgXmd, GroupDigest
+        }, ops::ReduceNonZero, point::NonIdentity, sec1::ToEncodedPoint, subtle::CtOption
+    }, NonZeroScalar, Secp256k1, U256
 }; // requires 'getrandom' feature
 // TODO
 pub use k256::ProjectivePoint;
@@ -31,7 +35,8 @@ pub use k256::{
     sha2::{digest::Output, Digest, Sha256},
     Scalar, SecretKey
 };
-use signature::Error;
+use rand_core::CryptoRngCore;
+use signature::{Error, RandomizedSigner};
 use std::panic;
 
 mod utils;
@@ -50,18 +55,9 @@ impl PlumeSignature {
         // hash[m, gsk]^[r + sk * c] / (hash[m, pk]^sk)^c = hash[m, pk]^r
         // c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
 
-        // don't forget to check `c` is `Output<Sha256>` in the #API
-        let c = panic::catch_unwind(|| Output::<Sha256>::from_slice(&self.c));
-        if c.is_err() {
-            return false;
-        }
-        let c = c.unwrap();
+        let c_scalar = *self.c;
 
-        // TODO should we allow `c` input greater than BaseField::MODULUS?
-        // TODO `reduce_nonzero` doesn't seems to be correct here. `NonZeroScalar` should be appropriate.
-        let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.to_owned()));
-
-        let r_point = ProjectivePoint::GENERATOR * self.s - self.pk * c_scalar;
+        let r_point = ProjectivePoint::GENERATOR * *self.s - self.pk * c_scalar;
 
         let hashed_to_curve = hash_to_curve(&self.message, &self.pk);
         if hashed_to_curve.is_err() {
@@ -69,7 +65,7 @@ impl PlumeSignature {
         }
         let hashed_to_curve = hashed_to_curve.unwrap();
 
-        let hashed_to_curve_r = hashed_to_curve * self.s - self.nullifier * c_scalar;
+        let hashed_to_curve_r = hashed_to_curve * *self.s - self.nullifier * c_scalar;
 
         if let Some(PlumeSignatureV1Fields {
             r_point: sig_r_point,
@@ -86,20 +82,32 @@ impl PlumeSignature {
                 return false;
             }
 
-            // Check if the given hash matches
-            c == &c_sha256_vec_signal(vec![
+            let c_computed = NonZeroScalar::from_repr(c_sha256_vec_signal(vec![
                 &ProjectivePoint::GENERATOR,
                 &self.pk,
                 &hashed_to_curve,
                 &self.nullifier,
                 &r_point,
                 &hashed_to_curve_r,
-            ])
+            ])); 
+            if c_computed.is_none().into() {false}
+            else {
+                // Check if the given hash matches
+                c_scalar == *c_computed.unwrap()
+            }
         } else {
-            // Check if the given hash matches
-            c == &c_sha256_vec_signal(vec![&self.nullifier, &r_point, &hashed_to_curve_r])
+            let c_computed = NonZeroScalar::from_repr(c_sha256_vec_signal(vec![&self.nullifier, &r_point, &hashed_to_curve_r]));
+            if c_computed.is_none().into() {false}
+            else {
+                // Check if the given hash matches
+                c_scalar == *c_computed.unwrap()
+            }
         }
     }
+
+    /// Same as using [`RandomizedSigner`] with [`PlumeSigner`], but with dedicated method for a variant; use it when you don't want to `use` PlumeSigner and the trait in your code.
+    pub fn sign_v1(secret_key: &SecretKey, msg: &[u8], rng: &mut impl CryptoRngCore) -> Self {PlumeSigner::new(secret_key, true).sign_with_rng(rng, msg)}
+    pub fn sign_v2(secret_key: &SecretKey, msg: &[u8], rng: &mut impl CryptoRngCore) -> Self {PlumeSigner::new(secret_key, false).sign_with_rng(rng, msg)}
 }
 
 pub struct PlumeSigner<'signing> {
@@ -110,7 +118,7 @@ pub struct PlumeSigner<'signing> {
 impl<'signing> PlumeSigner<'signing> {pub fn new(secret_key: &SecretKey, v1: bool) -> PlumeSigner {PlumeSigner { secret_key, v1 }}}
 impl<'signing> signature::RandomizedSigner<PlumeSignature> for PlumeSigner<'signing> {
     fn try_sign_with_rng(
-        &self, rng: &mut impl rand_core::CryptoRngCore, msg: &[u8]
+        &self, rng: &mut impl CryptoRngCore, msg: &[u8]
     ) -> Result<PlumeSignature, Error> {
         // Pick a random r from Fp
         let r_scalar = SecretKey::random(rng);
@@ -127,7 +135,7 @@ impl<'signing> signature::RandomizedSigner<PlumeSignature> for PlumeSigner<'sign
         
         // Compute h = htc([m, pk])
         let hashed_to_curve = NonIdentity::new(Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
-            &[&pk_bytes, msg], &[DST]
+            &[msg, &pk_bytes], &[DST]
         ).map_err(|_| Error::new())?).expect(
             "something is drammatically wrong if the input hashed to the identity"
         );
@@ -138,6 +146,7 @@ impl<'signing> signature::RandomizedSigner<PlumeSignature> for PlumeSigner<'sign
 
         // Compute z = h^r
         let hashed_to_curve_r = hashed_to_curve * r_scalar;
+        println!("`hashed_to_curve_r $x$:`{:x}", hashed_to_curve_r.to_point().to_affine().x()); // TODO remove me!
         
         // Compute nul = h^sk
         let nullifier = hashed_to_curve * self.secret_key.to_nonzero_scalar();
@@ -160,17 +169,25 @@ impl<'signing> signature::RandomizedSigner<PlumeSignature> for PlumeSigner<'sign
         updhash!(hashed_to_curve_r);
         
         let c = hasher.finalize();
-        let c_scalar = NonZeroScalar::reduce_nonzero(U256::from_be_byte_array(c));
+        // let c_scalar = NonZeroScalar::reduce_nonzero(
+        //     U256::from_be_byte_array(c)
+        // );
+        let c_scalar = 
+            // <NonZeroScalar as ReduceNonZero<U256>>::reduce_nonzero_bytes(&c);
+            NonZeroScalar::from_repr(c).unwrap(); // TODO replace `unwrap`
+        println!("c:{:x}", c_scalar); // TODO remove me!
         // Compute $s = r + sk ⋅ c$. #lastoponsecret
-        let s_scalar = NonZeroScalar::new(*r_scalar + *(self.secret_key.to_nonzero_scalar() * c_scalar))
+        let s_scalar = NonZeroScalar::new(*r_scalar + *(c_scalar * self.secret_key.to_nonzero_scalar()))
             .expect("something is terribly wrong if the nonce is equal to negated product of the secret and the hash");
+        println!("sk_c:{:x}", self.secret_key.to_nonzero_scalar() * c_scalar); // TODO remove me!
+        println!("sk:{:x}", self.secret_key.to_nonzero_scalar()); // TODO remove me!
         
         Ok(PlumeSignature{
             message: msg.to_owned(),
             pk: pk.into(),
             nullifier: nullifier.to_point(),
-            c: c,
-            s: *s_scalar,
+            c: c_scalar,
+            s: s_scalar,
             v1specific: 
                 if self.v1 {Some(PlumeSignatureV1Fields{
                     r_point: r_point.into(),
@@ -183,7 +200,6 @@ impl<'signing> signature::RandomizedSigner<PlumeSignature> for PlumeSigner<'sign
 /// Struct holding signature data for a PLUME signature.
 /// 
 /// `v1` field differintiate whether V1 or V2 protocol will be used.
-#[derive(Debug)]
 pub struct PlumeSignature {
     /// The message that was signed.
     pub message: Vec<u8>,
@@ -192,9 +208,9 @@ pub struct PlumeSignature {
     /// The nullifier.
     pub nullifier: ProjectivePoint,
     /// Part of the signature data.
-    pub c: Output<Sha256>,
+    pub c: NonZeroScalar,
     /// Part of the signature data, a scalar value.
-    pub s: Scalar,
+    pub s: NonZeroScalar,
     /// Optional signature data for variant 1 signatures.
     pub v1specific: Option<PlumeSignatureV1Fields>,
 }

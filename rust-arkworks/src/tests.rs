@@ -242,7 +242,9 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
     assert_eq!(
         coord_to_hex(sig.c.into()),
         "0000000000000000c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
+        // c:            c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83255
     );
+    dbg!(sig.s.to_string());
     assert_eq!(
         coord_to_hex(sig.s.into()),
         "0000000000000000e69f027d84cb6fe5f761e333d12e975fb190d163e8ea132d7de0bd6079ba28ca"

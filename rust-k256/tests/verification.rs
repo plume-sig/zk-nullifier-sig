@@ -3,13 +3,13 @@
 //! Their setup is shared, `mod helpers` contains barely not refactored code, which is still instrumental to the tests.
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
-use k256::elliptic_curve::sec1::ToEncodedPoint;
+use k256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar};
 use plume_rustcrypto::{Output, PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint, Sha256};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
-const C_V1: &[u8] =
-    &hex_literal::hex!("c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254");
+const C_V1: [u8; 32] =
+    hex_literal::hex!("c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254");
 
 // `test_gen_signals` provides fixed key nullifier, secret key, and the random value for testing
 // Normally a secure enclave would generate these values, and output to a wallet implementation
@@ -32,8 +32,8 @@ fn plume_v1_test() {
         message: M.to_owned().into(),
         pk: G * gen_test_scalar_sk(),
         nullifier: test_data.1,
-        c: Output::<Sha256>::from_slice(C_V1).to_owned(),
-        s: test_data.3,
+        c: NonZeroScalar::from_repr(C_V1.into()).unwrap(),
+        s: NonZeroScalar::new(test_data.3).unwrap(),
         v1specific: Some(PlumeSignatureV1Fields {
             r_point,
             hashed_to_curve_r,
@@ -108,8 +108,8 @@ fn plume_v2_test() {
         message: M.to_owned().into(),
         pk: G * gen_test_scalar_sk(),
         nullifier: test_data.1,
-        c: test_data.2,
-        s: test_data.3,
+        c: NonZeroScalar::from_repr(test_data.2).unwrap(),
+        s: NonZeroScalar::new(test_data.3).unwrap(),
         v1specific: None
     }
     .verify());
