@@ -1,10 +1,17 @@
 use halo2_base::{
+  gates::{ GateChip, GateInstructions, RangeChip, RangeInstructions },
   halo2_proofs::halo2curves::secp256k1::Secp256k1Affine,
   utils::BigPrimeField,
   AssignedValue,
   Context,
+  QuantumCell,
 };
-use halo2_ecc::{ bigint::ProperCrtUint, ecc::EcPoint, secp256k1::Secp256k1Chip };
+use halo2_ecc::{
+  bigint::{ big_is_even, ProperCrtUint },
+  ecc::EcPoint,
+  fields::FieldChip,
+  secp256k1::{ hash_to_curve::hash_to_curve, sha256::Sha256Chip, Secp256k1Chip },
+};
 
 #[derive(Clone, Debug)]
 struct PlumeInput<F: BigPrimeField> {
@@ -17,9 +24,95 @@ struct PlumeInput<F: BigPrimeField> {
   m: Vec<AssignedValue<F>>, // bytes
 }
 
+fn bytes_le_to_limb<F: BigPrimeField>(
+  ctx: &mut Context<F>,
+  gate: &GateChip<F>,
+  bytes: &[AssignedValue<F>]
+) -> AssignedValue<F> {
+  let mut limb = ctx.load_zero();
+
+  for (i, byte) in bytes.iter().enumerate() {
+    let shift = QuantumCell::Constant(F::from(1u64 << ((i as u64) * 8u64)));
+    let shifted_byte = gate.mul(ctx, *byte, shift);
+
+    limb = gate.add(ctx, QuantumCell::Existing(shifted_byte), QuantumCell::Existing(*byte));
+    println!("Limb: {:?}", limb.value());
+  }
+
+  limb
+}
+
+fn limbs_to_bytes_be<F: BigPrimeField>(
+  ctx: &mut Context<F>,
+  gate: &GateChip<F>,
+  limbs: &[AssignedValue<F>],
+  max_limb_bits: usize
+) -> Vec<AssignedValue<F>> {
+  let mut bytes = Vec::<AssignedValue<F>>::with_capacity((limbs.len() * max_limb_bits) / 8);
+
+  for limb in limbs.iter().rev() {
+    let mut limb_bytes = limb
+      .value()
+      .to_bytes_le()
+      .iter()
+      .map(|byte| ctx.load_witness(F::from(*byte as u64)))
+      .collect::<Vec<_>>();
+    println!("Limb bytes: {:?}", limb_bytes);
+    let _limb = bytes_le_to_limb(ctx, gate, &limb_bytes);
+
+    assert_eq!(limb.value(), _limb.value());
+    ctx.constrain_equal(&_limb, limb);
+
+    limb_bytes.reverse();
+    bytes.append(&mut limb_bytes);
+  }
+
+  bytes
+}
+
+fn compress_point<F: BigPrimeField>(
+  ctx: &mut Context<F>,
+  range: &RangeChip<F>,
+  pt: &EcPoint<F, ProperCrtUint<F>>
+) -> Vec<AssignedValue<F>> {
+  let x = pt.x();
+  let y = pt.y();
+
+  let mut compressed_pt = Vec::<AssignedValue<F>>::with_capacity(33);
+
+  let is_y_even = big_is_even::positive(
+    range,
+    ctx,
+    y.as_ref().truncation.clone(),
+    y.as_ref().truncation.max_limb_bits
+  );
+
+  let tag = range
+    .gate()
+    .select(
+      ctx,
+      QuantumCell::Constant(F::from(2u64)),
+      QuantumCell::Constant(F::from(3u64)),
+      is_y_even
+    );
+
+  compressed_pt.push(tag);
+  compressed_pt.append(
+    &mut limbs_to_bytes_be(
+      ctx,
+      range.gate(),
+      x.as_ref().limbs(),
+      x.as_ref().truncation.max_limb_bits
+    )
+  );
+
+  compressed_pt
+}
+
 fn verify_plume<F: BigPrimeField>(
   ctx: &mut Context<F>,
   secp256k1_chip: &Secp256k1Chip<'_, F>,
+  sha256_chip: &Sha256Chip<F>,
   fixed_window_bits: usize,
   var_window_bits: usize,
   input: PlumeInput<F>
@@ -28,11 +121,18 @@ fn verify_plume<F: BigPrimeField>(
 
   let base_chip = secp256k1_chip.field_chip();
 
+  let range = base_chip.range();
+
   // 1. compute hash[m, pk]test_plume_verify
-  //   let pk_x_bytes = pk.x().
-  // TODO
+  let compressed_pk = compress_point(ctx, range, &pk);
+  let message = vec![m.as_slice(), compressed_pk.as_slice()].concat();
+  let hashed_message = hash_to_curve(ctx, secp256k1_chip, sha256_chip, message.as_slice());
 
   // 2. compute g^s
+  let g = secp256k1_chip.load_private::<Secp256k1Affine>(ctx, (
+    Secp256k1Affine::generator().x,
+    Secp256k1Affine::generator().y,
+  ));
   let gs = secp256k1_chip.fixed_base_scalar_mult(
     ctx,
     &Secp256k1Affine::generator(),
@@ -55,7 +155,13 @@ fn verify_plume<F: BigPrimeField>(
   let gs_pkc = secp256k1_chip.add_unequal(ctx, &gs, &pkc_inv, false);
 
   // 5. compute hash[m, pk]^s
-  // TODO
+  let hashed_message_s = secp256k1_chip.scalar_mult::<Secp256k1Affine>(
+    ctx,
+    hashed_message.clone(),
+    s.limbs().to_vec(),
+    base_chip.limb_bits,
+    var_window_bits
+  );
 
   // 6. compute nullifier^c
   let nullifierc = secp256k1_chip.scalar_mult::<Secp256k1Affine>(
@@ -68,31 +174,42 @@ fn verify_plume<F: BigPrimeField>(
 
   // 7. compute hash[m, pk]^s / (nullifier)^c
   let nullifierc_inv = secp256k1_chip.negate(ctx, nullifierc);
-  // TODO
+  let hashed_message_s_nullifierc = secp256k1_chip.add_unequal(
+    ctx,
+    &hashed_message_s,
+    &nullifierc_inv,
+    false
+  );
 
   // 8. compute hash2(g, pk, hash[m, pk], nullifier, g^s / pk^c, hash[m, pk]^s / nullifier^c)
-  // TODO
+  let input = vec![
+    compress_point(ctx, range, &g).as_slice(),
+    compressed_pk.as_slice(),
+    compress_point(ctx, range, &hashed_message).as_slice(),
+    compress_point(ctx, range, &nullifier).as_slice(),
+    compress_point(ctx, range, &gs_pkc).as_slice(),
+    compress_point(ctx, range, &hashed_message_s_nullifierc).as_slice()
+  ]
+    .concat()
+    .iter()
+    .map(|val| QuantumCell::Existing(*val))
+    .collect::<Vec<_>>();
+
+  let final_hash = sha256_chip.digest(ctx, input).unwrap();
 
   // 9. constraint hash2(g, pk, hash[m, pk], nullifier, g^s / pk^c, hash[m, pk]^s / nullifier^c) == c
-  // TODO
-}
-
-// TODO: Test helpers, will be removed
-fn assert_eq_points<F: BigPrimeField>(
-  a: EcPoint<F, ProperCrtUint<F>>,
-  b: EcPoint<F, ProperCrtUint<F>>
-) {
-  assert_eq!(a.x.value(), b.x.value());
-  assert_eq!(a.y.value(), b.y.value());
-}
-
-// TODO: Test helpers, will be removed
-fn assert_eq_limbs<F: BigPrimeField>(a: ProperCrtUint<F>, b: ProperCrtUint<F>) {
-  a.limbs()
+  let c_bytes = limbs_to_bytes_be(
+    ctx,
+    range.gate(),
+    c.limbs(),
+    c.as_ref().truncation.max_limb_bits
+  );
+  c_bytes
     .iter()
-    .zip(b.limbs().iter())
-    .for_each(|(a, b)| {
-      assert_eq!(a.value(), b.value());
+    .zip(final_hash.iter())
+    .for_each(|(c_byte, hash_byte)| {
+      assert_eq!(c_byte.value(), hash_byte.value());
+      ctx.constrain_equal(c_byte, hash_byte);
     });
 }
 
@@ -108,10 +225,9 @@ mod test {
     },
     utils::{ testing::base_test, ScalarField },
   };
-  use halo2_ecc::{ ecc::EccChip, fields::FieldChip, secp256k1::{ FpChip, FqChip } };
+  use halo2_ecc::{ ecc::EccChip, fields::FieldChip, secp256k1::{ sha256::Sha256Chip, FpChip } };
   use num_bigint::BigUint;
   use num_traits::Num;
-  use rand::{ random, rngs::OsRng };
 
   use crate::plume::PlumeInput;
 
@@ -209,6 +325,8 @@ mod test {
         let fp_chip = FpChip::<Fr>::new(range, 88, 3);
         let ecc_chip = EccChip::<Fr, FpChip<Fr>>::new(&fp_chip);
 
+        let sha256_chip = Sha256Chip::new(range);
+
         let nullifier = ecc_chip.load_private_unchecked(ctx, (nullifier.x, nullifier.y));
         let s = fp_chip.load_private(ctx, s);
         let c = fp_chip.load_private(ctx, c);
@@ -226,7 +344,7 @@ mod test {
           m,
         };
 
-        verify_plume::<Fr>(ctx, &ecc_chip, 4, 4, plume_input)
+        verify_plume::<Fr>(ctx, &ecc_chip, &sha256_chip, 4, 4, plume_input)
       });
   }
 }
