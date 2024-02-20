@@ -40,7 +40,7 @@ fn bytes_le_to_limb<F: BigPrimeField>(
     limb
 }
 
-fn limbs_to_bytes_be<F: BigPrimeField>(
+fn limbs_to_bytes32_be<F: BigPrimeField>(
     ctx: &mut Context<F>,
     gate: &GateChip<F>,
     limbs: &[AssignedValue<F>],
@@ -50,28 +50,21 @@ fn limbs_to_bytes_be<F: BigPrimeField>(
     let mut bytes = Vec::<AssignedValue<F>>::with_capacity(total_bytes);
 
     for limb in limbs.iter().rev() {
-        let mut limb_bytes = limb.value().to_bytes_le();
-        limb_bytes.reverse();
-        let mut limb_bytes_trimmed = limb_bytes
-            .iter()
-            .skip_while(|&x| *x == 0)
-            .cloned()
-            .collect::<Vec<_>>();
-        limb_bytes_trimmed.reverse();
-        let mut limb_bytes_assigned = limb_bytes_trimmed
+        let limb_bytes = limb.value().to_bytes_le();
+        let mut limb_bytes = limb_bytes[0..11]
             .iter()
             .map(|byte| ctx.load_witness(F::from(*byte as u64)))
             .collect::<Vec<_>>();
-        let _limb = bytes_le_to_limb(ctx, gate, &limb_bytes_assigned);
+        let _limb = bytes_le_to_limb(ctx, gate, &limb_bytes);
 
         assert_eq!(limb.value(), _limb.value());
         ctx.constrain_equal(&_limb, limb);
 
-        limb_bytes_assigned.reverse();
-        bytes.append(&mut limb_bytes_assigned);
+        limb_bytes.reverse();
+        bytes.append(&mut limb_bytes);
     }
 
-    bytes
+    bytes[1..].to_vec()
 }
 
 fn compress_point<F: BigPrimeField>(
@@ -99,7 +92,7 @@ fn compress_point<F: BigPrimeField>(
     );
 
     compressed_pt.push(tag);
-    compressed_pt.append(&mut limbs_to_bytes_be(
+    compressed_pt.append(&mut limbs_to_bytes32_be(
         ctx,
         range.gate(),
         x.as_ref().limbs(),
@@ -126,11 +119,10 @@ pub fn verify_plume<F: BigPrimeField>(
     } = input;
 
     let base_chip = secp256k1_chip.field_chip();
-
     let range = base_chip.range();
 
-    let one = base_chip.load_constant_uint(ctx, BigUint::from(1u64));
-    let c_scalar = base_chip.add_no_carry(ctx, &c, &one); // TODO: Why is this one added to c?
+    let one_int = base_chip.load_constant_uint(ctx, BigUint::from(1u64));
+    let c_scalar = base_chip.add_no_carry(ctx, c.clone(), one_int); // TODO: Why should a 1 be added to c?
     let c_scalar = base_chip.carry_mod(ctx, c_scalar);
 
     // 1. compute hash[m, pk]
@@ -207,7 +199,7 @@ pub fn verify_plume<F: BigPrimeField>(
     let final_hash = sha256_chip.digest(ctx, input).unwrap();
 
     // 9. constraint hash2(g, pk, hash[m, pk], nullifier, g^s / pk^c, hash[m, pk]^s / nullifier^c) == c
-    let c_bytes = limbs_to_bytes_be(
+    let c_bytes = limbs_to_bytes32_be(
         ctx,
         range.gate(),
         c.limbs(),
