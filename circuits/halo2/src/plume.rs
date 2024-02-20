@@ -10,9 +10,10 @@ use halo2_ecc::{
     fields::FieldChip,
     secp256k1::{hash_to_curve::hash_to_curve, sha256::Sha256Chip, Secp256k1Chip},
 };
+use num_bigint::BigUint;
 
 #[derive(Clone, Debug)]
-struct PlumeInput<F: BigPrimeField> {
+pub struct PlumeInput<F: BigPrimeField> {
     // Public
     nullifier: EcPoint<F, ProperCrtUint<F>>,
     s: ProperCrtUint<F>,
@@ -27,7 +28,6 @@ fn bytes_le_to_limb<F: BigPrimeField>(
     gate: &GateChip<F>,
     bytes: &[AssignedValue<F>],
 ) -> AssignedValue<F> {
-    // TODO: Add assert to ensure that bytes len is less than to max number of bytes a limb holds
     let mut limb = ctx.load_zero();
 
     for (i, byte) in bytes.iter().enumerate() {
@@ -129,6 +129,10 @@ pub fn verify_plume<F: BigPrimeField>(
 
     let range = base_chip.range();
 
+    let one = base_chip.load_constant_uint(ctx, BigUint::from(1u64));
+    let c_scalar = base_chip.add_no_carry(ctx, &c, &one); // TODO: Why is this one added to c?
+    let c_scalar = base_chip.carry_mod(ctx, c_scalar);
+
     // 1. compute hash[m, pk]
     let compressed_pk = compress_point(ctx, range, &pk);
     let message = vec![m.as_slice(), compressed_pk.as_slice()].concat();
@@ -154,7 +158,7 @@ pub fn verify_plume<F: BigPrimeField>(
     let pkc = secp256k1_chip.scalar_mult::<Secp256k1Affine>(
         ctx,
         pk,
-        c.limbs().to_vec(),
+        c_scalar.limbs().to_vec(),
         base_chip.limb_bits,
         var_window_bits,
     );
@@ -176,7 +180,7 @@ pub fn verify_plume<F: BigPrimeField>(
     let nullifierc = secp256k1_chip.scalar_mult::<Secp256k1Affine>(
         ctx,
         nullifier.clone(),
-        c.limbs().to_vec(),
+        c_scalar.limbs().to_vec(),
         base_chip.limb_bits,
         var_window_bits,
     );
@@ -246,8 +250,17 @@ mod test {
         // pk.y: "eff471fba0409897b6a48e8801ad12f95d0009b753cf8f51c128bf6b0bd27fbd"
         // nullifier.x: "57bc3ed28172ef8adde4b9e0c2cce745fcc5a66473a45c1e626f1d0c67e55830"
         // nullifier.y: "6a2f41488d58f33ae46edd2188e111609f9f3ae67ea38fa891d6087fe59ecb73"
-        // c: "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83255"
+        // c: "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
         // s: "383a44baf62afb3e16b18c222b230e7b5226bc9044efb19e8863044183f69bed"
+
+        #[derive(Clone, Debug)]
+        struct TestPlumeInput {
+            nullifier: (Fp, Fp),
+            s: Fp,
+            c: Fp,
+            pk: (Fp, Fp),
+            m: Vec<Fr>,
+        }
 
         // Inputs
         let m = b"An example app message string"
@@ -301,7 +314,7 @@ mod test {
 
         let c = Fp::from_bytes_le(
             BigUint::from_str_radix(
-                "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83255",
+                "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254",
                 16,
             )
             .unwrap()
@@ -319,31 +332,92 @@ mod test {
             .as_slice(),
         );
 
-        base_test()
-            .k(14)
-            .lookup_bits(13)
-            .expect_satisfied(true)
-            .run(|ctx, range| {
-                let fp_chip = FpChip::<Fr>::new(range, 88, 3);
-                let ecc_chip = EccChip::<Fr, FpChip<Fr>>::new(&fp_chip);
+        let test_data = TestPlumeInput {
+            nullifier: (nullifier.x, nullifier.y),
+            s,
+            c,
+            pk: (pk.x, pk.y),
+            m: m.clone(),
+        };
 
-                let sha256_chip = Sha256Chip::new(range);
+        let bench = false;
 
-                let nullifier = ecc_chip.load_private_unchecked(ctx, (nullifier.x, nullifier.y));
-                let s = fp_chip.load_private(ctx, s);
-                let c = fp_chip.load_private(ctx, c);
-                let pk = ecc_chip.load_private_unchecked(ctx, (pk.x, pk.y));
-                let m = m.iter().map(|m| ctx.load_witness(*m)).collect::<Vec<_>>();
+        if !bench {
+            base_test()
+                .k(14)
+                .lookup_bits(13)
+                .expect_satisfied(true)
+                .run(|ctx, range| {
+                    let fp_chip = FpChip::<Fr>::new(range, 88, 3);
+                    let ecc_chip = EccChip::<Fr, FpChip<Fr>>::new(&fp_chip);
 
-                let plume_input = PlumeInput {
-                    nullifier,
-                    s,
-                    c,
-                    pk,
-                    m,
-                };
+                    let sha256_chip = Sha256Chip::new(range);
 
-                verify_plume::<Fr>(ctx, &ecc_chip, &sha256_chip, 4, 4, plume_input)
-            });
+                    let nullifier =
+                        ecc_chip.load_private_unchecked(ctx, (nullifier.x, nullifier.y));
+                    let s = fp_chip.load_private(ctx, s);
+                    let c = fp_chip.load_private(ctx, c);
+                    let pk = ecc_chip.load_private_unchecked(ctx, (pk.x, pk.y));
+                    let m = m.iter().map(|m| ctx.load_witness(*m)).collect::<Vec<_>>();
+
+                    let plume_input = PlumeInput {
+                        nullifier,
+                        s,
+                        c,
+                        pk,
+                        m,
+                    };
+
+                    verify_plume::<Fr>(ctx, &ecc_chip, &sha256_chip, 4, 4, plume_input)
+                });
+        } else {
+            let stats = base_test()
+                .k(15)
+                .lookup_bits(14)
+                .expect_satisfied(true)
+                .bench_builder(
+                    test_data.clone(),
+                    test_data.clone(),
+                    |pool, range, test_data: TestPlumeInput| {
+                        let ctx = pool.main();
+
+                        let fp_chip = FpChip::<Fr>::new(range, 88, 3);
+                        let ecc_chip = EccChip::<Fr, FpChip<Fr>>::new(&fp_chip);
+
+                        let sha256_chip = Sha256Chip::new(range);
+
+                        let nullifier = ecc_chip.load_private_unchecked(
+                            ctx,
+                            (test_data.nullifier.0, test_data.nullifier.1),
+                        );
+                        let s = fp_chip.load_private(ctx, test_data.s);
+                        let c = fp_chip.load_private(ctx, test_data.c);
+                        let pk =
+                            ecc_chip.load_private_unchecked(ctx, (test_data.pk.0, test_data.pk.1));
+                        let m = test_data
+                            .m
+                            .iter()
+                            .map(|m| ctx.load_witness(*m))
+                            .collect::<Vec<_>>();
+
+                        let plume_input = PlumeInput {
+                            nullifier,
+                            s,
+                            c,
+                            pk,
+                            m,
+                        };
+
+                        verify_plume::<Fr>(ctx, &ecc_chip, &sha256_chip, 4, 4, plume_input)
+                    },
+                );
+
+            println!("config params = {:?}", stats.config_params);
+            println!("vk time = {:?}", stats.vk_time.time.elapsed());
+            println!("pk time = {:?}", stats.pk_time.time.elapsed());
+            println!("proof time = {:?}", stats.proof_time.time.elapsed());
+            println!("proof size = {:?}", stats.proof_size);
+            println!("verify time = {:?}", stats.verify_time.time.elapsed());
+        }
     }
 }
