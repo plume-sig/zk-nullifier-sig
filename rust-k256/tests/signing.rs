@@ -34,7 +34,7 @@ impl CryptoRng for Mock {}
 // values for both test are from `plume_arkworks`
 
 #[test]
-pub fn v1() {
+pub fn test_sign_v1() {
     let sk = SecretKey::from_bytes(&SK.into()).unwrap();
 
     let sig = PlumeSignature::sign_v2(&sk, message, &mut Mock{});

@@ -7,17 +7,22 @@
 //!
 // Find `arkworks-rs` crate as `plume_arkworks`.
 //
-// # Examples
-// For V2 just set `v1` to `None`
-// ```rust
-// # fn main() {
-//     let sig_good = PlumeSignature<'a>{
-//         message: &b"An example app message string",
-//         pk: ProjectivePoint::GENERATOR * Scalar::from_repr(hex!("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464").into()).unwrap(),
-//         ...
-//     };
-// # }
-// ```
+/// # Examples
+/// If you want more control or generic `use` [`PlumeSigner`]
+/// ```rust
+/// # use plume_rustcrypto::PlumeSignature;
+/// use plume_rustcrypto::SecretKey;
+/// use rand_core::OsRng;
+/// # fn main() {
+///     let sk = SecretKey::random(&mut OsRng);
+///         
+///     let sig_v1 = PlumeSignature::sign_v1(&sk, b"ZK nullifier signature", &mut OsRng);
+///     let sig_v2 = PlumeSignature::sign_v2(&sk, b"ZK nullifier signature", &mut OsRng);
+///
+///     assert!(sig_v1.verify());
+///     assert!(sig_v2.verify());
+/// # }
+/// ```
 
 use k256::{
     elliptic_curve::{
@@ -37,7 +42,7 @@ pub use k256::{
 };
 use rand_core::CryptoRngCore;
 use signature::{Error, RandomizedSigner};
-use std::panic;
+use std::{borrow::Borrow, panic};
 
 mod utils;
 // not published due to use of `Projective...`; these utils can be found in other crates
@@ -57,7 +62,7 @@ impl PlumeSignature {
 
         let c_scalar = *self.c;
 
-        let r_point = ProjectivePoint::GENERATOR * *self.s - self.pk * c_scalar;
+        let r_point = (ProjectivePoint::GENERATOR * *self.s) - (self.pk * (c_scalar));
 
         let hashed_to_curve = hash_to_curve(&self.message, &self.pk);
         if hashed_to_curve.is_err() {
@@ -65,17 +70,19 @@ impl PlumeSignature {
         }
         let hashed_to_curve = hashed_to_curve.unwrap();
 
-        let hashed_to_curve_r = hashed_to_curve * *self.s - self.nullifier * c_scalar;
+        let hashed_to_curve_r = hashed_to_curve * *self.s - self.nullifier * (c_scalar);
 
         if let Some(PlumeSignatureV1Fields {
             r_point: sig_r_point,
             hashed_to_curve_r: sig_hashed_to_curve_r,
         }) = self.v1specific
         {
+            dbg!("V1 specific part entered");
             // Check whether g^r equals g^s * pk^{-c}
             if &r_point != &sig_r_point {
                 return false;
             }
+            dbg!("`r_point` passed");
 
             // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
             if &hashed_to_curve_r != &sig_hashed_to_curve_r {
@@ -90,8 +97,12 @@ impl PlumeSignature {
                 &r_point,
                 &hashed_to_curve_r,
             ])); 
-            if c_computed.is_none().into() {false}
+            if c_computed.is_none().into() {
+                dbg!("hash was processed **not** ok");
+                false
+            }
             else {
+                dbg!("hash was processed ok");
                 // Check if the given hash matches
                 c_scalar == *c_computed.unwrap()
             }
@@ -127,8 +138,8 @@ impl<'signing> signature::RandomizedSigner<PlumeSignature> for PlumeSigner<'sign
         
         // TODO remove me!
         use k256::elliptic_curve::point::AffineCoordinates;
-        println!("{:x}", r_point.as_affine().x()); 
-        dbg!("{}", r_point.as_affine().y_is_odd());
+        // println!("{:x}", r_point.as_affine().x()); 
+        // dbg!(r_point.as_affine().y_is_odd());
 
         let pk = self.secret_key.public_key();
         let pk_bytes = pk.to_encoded_point(true).to_bytes();
@@ -143,6 +154,7 @@ impl<'signing> signature::RandomizedSigner<PlumeSignature> for PlumeSigner<'sign
         
         // it feels not that scary to store `r_scalar` as `NonZeroScalar` (compared to `self.secret_key`)
         let r_scalar = r_scalar.to_nonzero_scalar();
+        println!("`r_scalar` as a `NonZero`:{}", r_scalar.to_string()); // TODO remove me!
 
         // Compute z = h^r
         let hashed_to_curve_r = hashed_to_curve * r_scalar;

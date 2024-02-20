@@ -28,6 +28,9 @@ fn plume_v1_test() {
     let r_point = test_data.4.unwrap();
     let hashed_to_curve_r = test_data.5.unwrap();
 
+    println!("{:?}", test_data.3);
+    println!("{}", NonZeroScalar::new(test_data.3).unwrap().to_string());
+
     let sig = PlumeSignature {
         message: M.to_owned().into(),
         pk: G * gen_test_scalar_sk(),
@@ -98,6 +101,8 @@ fn plume_v1_test() {
         )
     );
 
+    
+    
     assert!(verified);
 }
 
@@ -273,7 +278,7 @@ mod helpers {
         };
         dbg!(&c, version);
 
-        let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.to_owned()));
+        let c_scalar = Scalar::from_repr(c).unwrap();
         // This value is part of the discrete log equivalence (DLEQ) proof.
         let r_sk_c = r + sk * c_scalar;
 
