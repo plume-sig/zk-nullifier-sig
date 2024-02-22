@@ -67,7 +67,7 @@ fn limbs_to_bytes32_be<F: BigPrimeField>(
     bytes[1..].to_vec()
 }
 
-fn compress_point<F: BigPrimeField>(
+pub fn compress_point<F: BigPrimeField>(
     ctx: &mut Context<F>,
     range: &RangeChip<F>,
     pt: &EcPoint<F, ProperCrtUint<F>>,
@@ -127,7 +127,7 @@ pub fn verify_plume<F: BigPrimeField>(
 
     // 1. compute hash[m, pk]
     let compressed_pk = compress_point(ctx, range, &pk);
-    let message = vec![m.as_slice(), compressed_pk.as_slice()].concat();
+    let message = [m.as_slice(), compressed_pk.as_slice()].concat();
     let hashed_message = hash_to_curve(ctx, secp256k1_chip, sha256_chip, message.as_slice());
 
     // 2. compute g^s
@@ -183,7 +183,7 @@ pub fn verify_plume<F: BigPrimeField>(
         secp256k1_chip.add_unequal(ctx, &hashed_message_s, &nullifierc_inv, false);
 
     // 8. compute hash2(g, pk, hash[m, pk], nullifier, g^s / pk^c, hash[m, pk]^s / nullifier^c)
-    let input = vec![
+    let input = [
         compress_point(ctx, range, &g).as_slice(),
         compressed_pk.as_slice(),
         compress_point(ctx, range, &hashed_message).as_slice(),
