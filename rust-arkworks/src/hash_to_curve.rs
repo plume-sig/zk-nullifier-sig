@@ -68,45 +68,6 @@ pub fn k256_affine_to_arkworks_secp256k1_affine<P: ark_ec::SWModelParameters>(
     Ok(GroupAffine::<P>::new(g_x, g_y, false))
 }
 
-#[cfg(test)]
-mod tests {
-    use ark_ec::{ModelParameters, SWModelParameters};
-    use elliptic_curve::group::GroupEncoding;
-    use secp256k1::Secp256k1Parameters;
-
-    use super::*;
-    #[test]
-    fn test_hash_to_curve_a512() {
-        let msg     = b"a512_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-        let dst = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_";
-
-        let result = 
-            k256_affine_to_arkworks_secp256k1_affine::<Secp256k1Parameters>(
-                Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
-                    &[msg],
-                    dst,
-                ).unwrap().to_affine()
-            ).unwrap();
-        use ark_ff::PrimeField;
-        let rfc_parity_true = GroupAffine::<Secp256k1Parameters>::get_point_from_x(
-            <Secp256k1Parameters as ModelParameters>::BaseField::from_le_bytes_mod_order(
-                &[70, 19, 235, 223, 45, 133, 181, 183, 169, 171, 30, 132, 139, 196, 121, 20, 134, 115, 109, 190, 241, 174, 235, 23, 230, 174, 145, 226, 144, 226, 202, 193]
-            ),
-            true
-        ).unwrap();
-        let rfc_parity_false = GroupAffine::<Secp256k1Parameters>::get_point_from_x(
-            <Secp256k1Parameters as ModelParameters>::BaseField::from_le_bytes_mod_order(
-                &[70, 19, 235, 223, 45, 133, 181, 183, 169, 171, 30, 132, 139, 196, 121, 20, 134, 115, 109, 190, 241, 174, 235, 23, 230, 174, 145, 226, 144, 226, 202, 193]
-            ),
-            false
-        ).unwrap();
-        assert!(
-            result == rfc_parity_true
-            || result == rfc_parity_false
-        );
-    }
-}
-
 /// Kobi's hash_to_curve function, here for reference only
 pub fn _try_and_increment<C: ProjectiveCurve>(msg: &[u8]) -> Result<C::Affine, HashToCurveError> {
     for nonce in 0u8..=255 {

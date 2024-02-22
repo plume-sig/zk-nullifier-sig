@@ -176,11 +176,9 @@ impl<P: SWModelParameters> PlumeSignature<P> {
             ),
             PlumeVersion::V2 => compute_c_v2(&nullifier, &r_point, &hashed_to_curve_r),
         };
-        dbg!(&c);
         let c_scalar = P::ScalarField::from_be_bytes_mod_order(c.as_ref());
         // Compute s = r + sk ⋅ c
         let sk_c = keypair.1.into_repr().into() * c_scalar.into_repr().into();
-        dbg!(P::ScalarField::from(sk_c.clone()).to_string());
         let s = r_scalar.into_repr().into() + sk_c;
 
         let s_scalar = P::ScalarField::from(s);
