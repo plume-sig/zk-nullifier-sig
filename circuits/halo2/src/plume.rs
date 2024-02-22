@@ -23,6 +23,24 @@ pub struct PlumeInput<F: BigPrimeField> {
     m: Vec<AssignedValue<F>>, // bytes
 }
 
+impl<F: BigPrimeField> PlumeInput<F> {
+    pub fn new(
+        nullifier: EcPoint<F, ProperCrtUint<F>>,
+        s: ProperCrtUint<F>,
+        c: ProperCrtUint<F>,
+        pk: EcPoint<F, ProperCrtUint<F>>,
+        m: Vec<AssignedValue<F>>,
+    ) -> Self {
+        Self {
+            nullifier,
+            s,
+            c,
+            pk,
+            m,
+        }
+    }
+}
+
 fn bytes_le_to_limb<F: BigPrimeField>(
     ctx: &mut Context<F>,
     gate: &GateChip<F>,
