@@ -15,7 +15,7 @@ rand_core = "~0.6.3"
 # hash2field = "0.4.0"
 num-bigint = "~0.4.3"
 num-integer = "~0.1.45"
-k256 = {version = "~0.13.3", features = ["arithmetic", "hash2curve", "expose-field", "sha2", "serde"]}
+k256 = {version = "~0.13.3", features = ["arithmetic", "hash2curve", "expose-field", "sha2"]}
 signature = "^2.2.0"
 
 [dev-dependencies]
