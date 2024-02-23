@@ -10,7 +10,6 @@ use halo2_ecc::{
     fields::FieldChip,
     secp256k1::{hash_to_curve::hash_to_curve, sha256::Sha256Chip, Secp256k1Chip},
 };
-use num_bigint::BigUint;
 
 #[derive(Clone, Debug)]
 pub struct PlumeInput<F: BigPrimeField> {
@@ -139,10 +138,6 @@ pub fn verify_plume<F: BigPrimeField>(
     let base_chip = secp256k1_chip.field_chip();
     let range = base_chip.range();
 
-    let one_int = base_chip.load_constant_uint(ctx, BigUint::from(1u64));
-    let c_scalar = base_chip.add_no_carry(ctx, c.clone(), one_int); // TODO: Why should a 1 be added to c?
-    let c_scalar = base_chip.carry_mod(ctx, c_scalar);
-
     // 1. compute hash[m, pk]
     let compressed_pk = compress_point(ctx, range, &pk);
     let message = [m.as_slice(), compressed_pk.as_slice()].concat();
@@ -168,7 +163,7 @@ pub fn verify_plume<F: BigPrimeField>(
     let pkc = secp256k1_chip.scalar_mult::<Secp256k1Affine>(
         ctx,
         pk,
-        c_scalar.limbs().to_vec(),
+        c.limbs().to_vec(),
         base_chip.limb_bits,
         var_window_bits,
     );
@@ -190,7 +185,7 @@ pub fn verify_plume<F: BigPrimeField>(
     let nullifierc = secp256k1_chip.scalar_mult::<Secp256k1Affine>(
         ctx,
         nullifier.clone(),
-        c_scalar.limbs().to_vec(),
+        c.limbs().to_vec(),
         base_chip.limb_bits,
         var_window_bits,
     );
@@ -236,39 +231,148 @@ pub fn verify_plume<F: BigPrimeField>(
 mod test {
     use halo2_base::{
         halo2_proofs::halo2curves::{
-            bn256::Fr, secp256k1::Secp256k1Affine, secq256k1::Fq as Fp, CurveAffine,
+            bn256::Fr,
+            secp256k1::{Secp256k1, Secp256k1Affine},
+            secq256k1::{Fp, Fq},
+            CurveAffine,
         },
         utils::{testing::base_test, ScalarField},
     };
     use halo2_ecc::{
         ecc::EccChip,
         fields::FieldChip,
-        secp256k1::{sha256::Sha256Chip, FpChip},
+        secp256k1::{sha256::Sha256Chip, FpChip, FqChip},
     };
-    use num_bigint::BigUint;
-    use num_traits::Num;
+    use k256::{
+        elliptic_curve::{
+            group::Curve,
+            hash2curve::{ExpandMsgXmd, GroupDigest},
+            sec1::ToEncodedPoint,
+            Field, PrimeField,
+        },
+        sha2::{Digest, Sha256 as K256Sha256},
+        Secp256k1 as K256Secp256k1,
+    };
+    use rand::rngs::OsRng;
 
     use crate::plume::PlumeInput;
 
     use super::verify_plume;
 
+    fn compress_point(point: &Secp256k1Affine) -> [u8; 33] {
+        let mut x = point.x.to_bytes();
+        x.reverse();
+        let y_is_odd = if point.y.is_odd().unwrap_u8() == 1u8 {
+            3u8
+        } else {
+            2u8
+        };
+        let mut compressed_pk = [0u8; 33];
+        compressed_pk[0] = y_is_odd;
+        compressed_pk[1..].copy_from_slice(&x);
+
+        compressed_pk
+    }
+
+    fn hash_to_curve(message: &[u8], compressed_pk: &[u8; 33]) -> Secp256k1Affine {
+        let hashed_to_curve = K256Secp256k1::hash_from_bytes::<ExpandMsgXmd<K256Sha256>>(
+            &[[message, compressed_pk].concat().as_slice()],
+            &[b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"],
+        )
+        .unwrap()
+        .to_affine();
+        let hashed_to_curve = hashed_to_curve
+            .to_encoded_point(false)
+            .to_bytes()
+            .into_vec();
+        assert_eq!(hashed_to_curve.len(), 65);
+
+        let mut x = hashed_to_curve[1..33].to_vec();
+        x.reverse();
+        let mut y = hashed_to_curve[33..].to_vec();
+        y.reverse();
+
+        Secp256k1Affine::from_xy(
+            Fq::from_bytes_le(x.as_slice()),
+            Fq::from_bytes_le(y.as_slice()),
+        )
+        .unwrap()
+    }
+
+    fn verify_nullifier(
+        message: &[u8],
+        nullifier: &Secp256k1Affine,
+        pk: &Secp256k1Affine,
+        s: &Fp,
+        c: &Fp,
+    ) {
+        let compressed_pk = compress_point(&pk);
+        let hashed_to_curve = hash_to_curve(message, &compressed_pk);
+        let hashed_to_curve_s_nullifier_c = (hashed_to_curve * s - nullifier * c).to_affine();
+        let gs_pkc = (Secp256k1::generator() * s - pk * c).to_affine();
+
+        let mut sha_hasher = K256Sha256::new();
+        sha_hasher.update(
+            vec![
+                compress_point(&Secp256k1::generator().to_affine()),
+                compressed_pk,
+                compress_point(&hashed_to_curve),
+                compress_point(&nullifier),
+                compress_point(&gs_pkc),
+                compress_point(&hashed_to_curve_s_nullifier_c),
+            ]
+            .concat(),
+        );
+
+        let mut _c = sha_hasher.finalize();
+        _c.reverse();
+        let _c = Fp::from_bytes_le(_c.as_slice());
+
+        assert_eq!(*c, _c);
+    }
+
+    fn gen_test_nullifier(sk: &Fp, message: &[u8]) -> (Secp256k1Affine, Fp, Fp) {
+        let pk = (Secp256k1::generator() * sk).to_affine();
+        let compressed_pk = compress_point(&pk);
+
+        let hashed_to_curve = hash_to_curve(message, &compressed_pk);
+
+        let hashed_to_curve_sk = (hashed_to_curve * sk).to_affine();
+
+        let r = Fp::random(OsRng);
+        let g_r = (Secp256k1::generator() * r).to_affine();
+        let hashed_to_curve_r = (hashed_to_curve * r).to_affine();
+
+        let mut sha_hasher = K256Sha256::new();
+        sha_hasher.update(
+            vec![
+                compress_point(&Secp256k1::generator().to_affine()),
+                compressed_pk,
+                compress_point(&hashed_to_curve),
+                compress_point(&hashed_to_curve_sk),
+                compress_point(&g_r),
+                compress_point(&hashed_to_curve_r),
+            ]
+            .concat(),
+        );
+
+        let mut c = sha_hasher.finalize();
+        c.reverse();
+
+        let c = Fp::from_bytes_le(c.as_slice());
+        let s = r + sk * c;
+
+        (hashed_to_curve_sk, s, c)
+    }
+
     #[test]
     fn test_plume_verify() {
-        // Test data
-        // m: "416e206578616d706c6520617070206d65737361676520737472696e67"
-        // pk.x: "0cec028ee08d09e02672a68310814354f9eabfff0de6dacc1cd3a774496076ae"
-        // pk.y: "eff471fba0409897b6a48e8801ad12f95d0009b753cf8f51c128bf6b0bd27fbd"
-        // nullifier.x: "57bc3ed28172ef8adde4b9e0c2cce745fcc5a66473a45c1e626f1d0c67e55830"
-        // nullifier.y: "6a2f41488d58f33ae46edd2188e111609f9f3ae67ea38fa891d6087fe59ecb73"
-        // c: "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
-        // s: "383a44baf62afb3e16b18c222b230e7b5226bc9044efb19e8863044183f69bed"
-
         #[derive(Clone, Debug)]
         struct TestPlumeInput {
-            nullifier: (Fp, Fp),
+            nullifier: (Fq, Fq),
             s: Fp,
             c: Fp,
-            pk: (Fp, Fp),
+            pk: (Fq, Fq),
             m: Vec<Fr>,
         }
 
@@ -278,69 +382,10 @@ mod test {
             .map(|b| Fr::from(*b as u64))
             .collect::<Vec<_>>();
 
-        let pk = Secp256k1Affine::from_xy(
-            Fp::from_bytes_le(
-                BigUint::from_str_radix(
-                    "0cec028ee08d09e02672a68310814354f9eabfff0de6dacc1cd3a774496076ae",
-                    16,
-                )
-                .unwrap()
-                .to_bytes_le()
-                .as_slice(),
-            ),
-            Fp::from_bytes_le(
-                BigUint::from_str_radix(
-                    "eff471fba0409897b6a48e8801ad12f95d0009b753cf8f51c128bf6b0bd27fbd",
-                    16,
-                )
-                .unwrap()
-                .to_bytes_le()
-                .as_slice(),
-            ),
-        )
-        .unwrap();
-
-        let nullifier = Secp256k1Affine::from_xy(
-            Fp::from_bytes_le(
-                BigUint::from_str_radix(
-                    "57bc3ed28172ef8adde4b9e0c2cce745fcc5a66473a45c1e626f1d0c67e55830",
-                    16,
-                )
-                .unwrap()
-                .to_bytes_le()
-                .as_slice(),
-            ),
-            Fp::from_bytes_le(
-                BigUint::from_str_radix(
-                    "6a2f41488d58f33ae46edd2188e111609f9f3ae67ea38fa891d6087fe59ecb73",
-                    16,
-                )
-                .unwrap()
-                .to_bytes_le()
-                .as_slice(),
-            ),
-        )
-        .unwrap();
-
-        let c = Fp::from_bytes_le(
-            BigUint::from_str_radix(
-                "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254",
-                16,
-            )
-            .unwrap()
-            .to_bytes_le()
-            .as_slice(),
-        );
-
-        let s = Fp::from_bytes_le(
-            BigUint::from_str_radix(
-                "383a44baf62afb3e16b18c222b230e7b5226bc9044efb19e8863044183f69bed",
-                16,
-            )
-            .unwrap()
-            .to_bytes_le()
-            .as_slice(),
-        );
+        let sk = Fp::random(OsRng);
+        let pk = (Secp256k1::generator() * sk).to_affine();
+        let (nullifier, s, c) = gen_test_nullifier(&sk, b"An example app message string");
+        verify_nullifier(b"An example app message string", &nullifier, &pk, &s, &c);
 
         let test_data = TestPlumeInput {
             nullifier: (nullifier.x, nullifier.y),
@@ -359,14 +404,15 @@ mod test {
                 .expect_satisfied(true)
                 .run(|ctx, range| {
                     let fp_chip = FpChip::<Fr>::new(range, 88, 3);
+                    let fq_chip = FqChip::<Fr>::new(range, 88, 3);
                     let ecc_chip = EccChip::<Fr, FpChip<Fr>>::new(&fp_chip);
 
                     let sha256_chip = Sha256Chip::new(range);
 
                     let nullifier =
                         ecc_chip.load_private_unchecked(ctx, (nullifier.x, nullifier.y));
-                    let s = fp_chip.load_private(ctx, s);
-                    let c = fp_chip.load_private(ctx, c);
+                    let s = fq_chip.load_private(ctx, s);
+                    let c = fq_chip.load_private(ctx, c);
                     let pk = ecc_chip.load_private_unchecked(ctx, (pk.x, pk.y));
                     let m = m.iter().map(|m| ctx.load_witness(*m)).collect::<Vec<_>>();
 
@@ -392,6 +438,7 @@ mod test {
                         let ctx = pool.main();
 
                         let fp_chip = FpChip::<Fr>::new(range, 88, 3);
+                        let fq_chip = FqChip::<Fr>::new(range, 88, 3);
                         let ecc_chip = EccChip::<Fr, FpChip<Fr>>::new(&fp_chip);
 
                         let sha256_chip = Sha256Chip::new(range);
@@ -400,8 +447,8 @@ mod test {
                             ctx,
                             (test_data.nullifier.0, test_data.nullifier.1),
                         );
-                        let s = fp_chip.load_private(ctx, test_data.s);
-                        let c = fp_chip.load_private(ctx, test_data.c);
+                        let s = fq_chip.load_private(ctx, test_data.s);
+                        let c = fq_chip.load_private(ctx, test_data.c);
                         let pk =
                             ecc_chip.load_private_unchecked(ctx, (test_data.pk.0, test_data.pk.1));
                         let m = test_data
