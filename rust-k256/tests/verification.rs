@@ -101,8 +101,6 @@ fn plume_v1_test() {
         )
     );
 
-    
-    
     assert!(verified);
 }
 

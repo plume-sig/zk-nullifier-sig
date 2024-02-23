@@ -27,12 +27,12 @@
 //! # }
 //! ```
 
-use k256::elliptic_curve::bigint::{ArrayEncoding, Encoding};
-use k256::elliptic_curve::PrimeField;
+use k256::elliptic_curve::bigint::ArrayEncoding;
 use k256::elliptic_curve::ops::Reduce;
 use k256::sha2::{digest::Output, Digest, Sha256}; // requires 'getrandom' feature
-use k256::U256;
 use k256::Scalar;
+use k256::U256;
+use signature::RandomizedSigner;
 // TODO
 pub use k256::ProjectivePoint;
 /// Re-exports the `NonZeroScalar` and `SecretKey` types from the `k256` crate.
@@ -43,19 +43,18 @@ pub use k256::{NonZeroScalar, SecretKey};
 pub use rand_core::CryptoRngCore;
 
 mod utils;
-use signature::RandomizedSigner;
 // not published due to use of `Projective...`; these utils can be found in other crates
 use utils::*;
 
 /// Provides the [`RandomizedSigner`] trait implementation over [`PlumeSignature`].
 pub mod randomizedsigner;
-use randomizedsigner::{PlumeSigner};
+use randomizedsigner::PlumeSigner;
 
 /// The domain separation tag used for hashing to the `secp256k1` curve
 pub const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // Hash to curve algorithm
 
 /// Struct holding signature data for a PLUME signature.
-/// 
+///
 /// `v1specific` field differintiate whether V1 or V2 protocol will be used.
 pub struct PlumeSignature {
     /// The message that was signed.
@@ -103,7 +102,8 @@ impl PlumeSignature {
         if let Some(PlumeSignatureV1Fields {
             r_point: sig_r_point,
             hashed_to_curve_r: sig_hashed_to_curve_r,
-        }) = self.v1specific {
+        }) = self.v1specific
+        {
             // Check whether g^r equals g^s * pk^{-c}
             if r_point != sig_r_point {
                 return false;
@@ -115,26 +115,36 @@ impl PlumeSignature {
             }
 
             // Check if the given hash matches
-            c_scalar == Scalar::reduce(U256::from_be_byte_array(c_sha256_vec_signal(vec![
-                &ProjectivePoint::GENERATOR,
-                &self.pk,
-                &hashed_to_curve,
-                &self.nullifier,
-                &r_point,
-                &hashed_to_curve_r,
-            ])))
+            c_scalar
+                == Scalar::reduce(U256::from_be_byte_array(c_sha256_vec_signal(vec![
+                    &ProjectivePoint::GENERATOR,
+                    &self.pk,
+                    &hashed_to_curve,
+                    &self.nullifier,
+                    &r_point,
+                    &hashed_to_curve_r,
+                ])))
         } else {
             // Check if the given hash matches
-            c_scalar == Scalar::reduce(U256::from_be_byte_array(c_sha256_vec_signal(vec![&self.nullifier, &r_point, &hashed_to_curve_r])))
+            c_scalar
+                == Scalar::reduce(U256::from_be_byte_array(c_sha256_vec_signal(vec![
+                    &self.nullifier,
+                    &r_point,
+                    &hashed_to_curve_r,
+                ])))
         }
     }
 
-    /// Yields the signature with `None` for `v1specific`. Same as using [`RandomizedSigner`] with [`PlumeSigner`]; 
+    /// Yields the signature with `None` for `v1specific`. Same as using [`RandomizedSigner`] with [`PlumeSigner`];
     /// use it when you don't want to `use` PlumeSigner and the trait in your code.
-    pub fn sign_v1(secret_key: &SecretKey, msg: &[u8], rng: &mut impl CryptoRngCore) -> Self {PlumeSigner::new(secret_key, true).sign_with_rng(rng, msg)}
-    /// Yields the signature with `Some` for `v1specific`. Same as using [`RandomizedSigner`] with [`PlumeSigner`]; 
+    pub fn sign_v1(secret_key: &SecretKey, msg: &[u8], rng: &mut impl CryptoRngCore) -> Self {
+        PlumeSigner::new(secret_key, true).sign_with_rng(rng, msg)
+    }
+    /// Yields the signature with `Some` for `v1specific`. Same as using [`RandomizedSigner`] with [`PlumeSigner`];
     /// use it when you don't want to `use` PlumeSigner and the trait in your code.
-    pub fn sign_v2(secret_key: &SecretKey, msg: &[u8], rng: &mut impl CryptoRngCore) -> Self {PlumeSigner::new(secret_key, false).sign_with_rng(rng, msg)}
+    pub fn sign_v2(secret_key: &SecretKey, msg: &[u8], rng: &mut impl CryptoRngCore) -> Self {
+        PlumeSigner::new(secret_key, false).sign_with_rng(rng, msg)
+    }
 }
 
 fn c_sha256_vec_signal(values: Vec<&ProjectivePoint>) -> Output<Sha256> {
@@ -181,7 +191,7 @@ mod tests {
     fn test_byte_array_to_scalar() {
         let scalar = byte_array_to_scalar(&hex!(
             "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
-        )); // TODO this `fn` looks suspicious as in reproducing const time ops
+        )); 
         assert_eq!(
             hex::encode(scalar.to_bytes()),
             "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
