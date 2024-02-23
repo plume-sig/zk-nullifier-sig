@@ -1,56 +1,84 @@
 // #![feature(generic_const_expr)]
 // #![allow(incomplete_features)]
 
-//! A library for generating (coming [soon](https://github.com/plume-sig/zk-nullifier-sig/issues/84)) and verifying PLUME signatures.
+//! A library for generating and verifying PLUME signatures.
 //!
 //! See <https://blog.aayushg.com/nullifier> for more information.
 //!
 // Find `arkworks-rs` crate as `plume_arkworks`.
 //
-/// # Examples
-/// If you want more control or generic `use` [`PlumeSigner`]
-/// ```rust
-/// # use plume_rustcrypto::PlumeSignature;
-/// use plume_rustcrypto::SecretKey;
-/// use rand_core::OsRng;
-/// # fn main() {
-///     let sk = SecretKey::random(&mut OsRng);
-///         
-///     let sig_v1 = PlumeSignature::sign_v1(&sk, b"ZK nullifier signature", &mut OsRng);
-///     let sig_v2 = PlumeSignature::sign_v2(&sk, b"ZK nullifier signature", &mut OsRng);
-///
-///     assert!(sig_v1.verify());
-///     assert!(sig_v2.verify());
-/// # }
-/// ```
+//! # Examples
+//! If you want more control or to be more generic on traits `use` [`PlumeSigner`] from [`randomizedsigner`]
+//! ```rust
+//! use plume_rustcrypto::{PlumeSignature, SecretKey};
+//! use rand_core::OsRng;
+//! # fn main() {
+//! #   let sk = SecretKey::random(&mut OsRng);
+//! #       
+//!     let sig_v1 = PlumeSignature::sign_v1(
+//!         &sk, b"ZK nullifier signature", &mut OsRng
+//!     );
+//!     assert!(sig_v1.verify());
+//!
+//!     let sig_v2 = PlumeSignature::sign_v2(
+//!         &sk, b"ZK nullifier signature", &mut OsRng
+//!     );
+//!     assert!(sig_v2.verify());
+//! # }
+//! ```
 
-use k256::{
-    elliptic_curve::{
-        bigint::ArrayEncoding, hash2curve::{
-            ExpandMsgXmd, GroupDigest
-        }, ops::ReduceNonZero, point::NonIdentity, sec1::ToEncodedPoint, subtle::CtOption
-    }, NonZeroScalar, Secp256k1, U256
-}; // requires 'getrandom' feature
+use k256::elliptic_curve::bigint::{ArrayEncoding, Encoding};
+use k256::elliptic_curve::PrimeField;
+use k256::elliptic_curve::ops::Reduce;
+use k256::sha2::{digest::Output, Digest, Sha256}; // requires 'getrandom' feature
+use k256::U256;
+use k256::Scalar;
 // TODO
 pub use k256::ProjectivePoint;
-/// Re-exports the [`Scalar`] type, [`Sha256`] hash function, and [`Output`] type
-/// from the [`k256`] crate's [`sha2`] module. This allows them to be used
-/// from the current module.
-pub use k256::{
-    sha2::{digest::Output, Digest, Sha256},
-    Scalar, SecretKey
-};
-use rand_core::CryptoRngCore;
-use signature::{Error, RandomizedSigner};
-use std::{borrow::Borrow, panic};
+/// Re-exports the `NonZeroScalar` and `SecretKey` types from the `k256` crate.
+/// These are used for generating secret keys and non-zero scalars for signing.
+pub use k256::{NonZeroScalar, SecretKey};
+/// Re-exports the [`CryptoRngCore`] trait from the [`rand_core`] crate.
+/// This allows it to be used from the current module.
+pub use rand_core::CryptoRngCore;
 
 mod utils;
+use signature::RandomizedSigner;
 // not published due to use of `Projective...`; these utils can be found in other crates
 use utils::*;
+
+/// Provides the [`RandomizedSigner`] trait implementation over [`PlumeSignature`].
+pub mod randomizedsigner;
+use randomizedsigner::{PlumeSigner};
 
 /// The domain separation tag used for hashing to the `secp256k1` curve
 pub const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // Hash to curve algorithm
 
+/// Struct holding signature data for a PLUME signature.
+/// 
+/// `v1specific` field differintiate whether V1 or V2 protocol will be used.
+pub struct PlumeSignature {
+    /// The message that was signed.
+    pub message: Vec<u8>,
+    /// The public key used to verify the signature.
+    pub pk: ProjectivePoint,
+    /// The nullifier.
+    pub nullifier: ProjectivePoint,
+    /// Part of the signature data. SHA-256 interpreted as a scalar.
+    pub c: NonZeroScalar,
+    /// Part of the signature data, a scalar value.
+    pub s: NonZeroScalar,
+    /// Optional signature data for variant 1 signatures.
+    pub v1specific: Option<PlumeSignatureV1Fields>,
+}
+/// Nested struct holding additional signature data used in variant 1 of the protocol.
+#[derive(Debug)]
+pub struct PlumeSignatureV1Fields {
+    /// Part of the signature data, a curve point.  
+    pub r_point: ProjectivePoint,
+    /// Part of the signature data, a curve point.
+    pub hashed_to_curve_r: ProjectivePoint,
+}
 impl PlumeSignature {
     /// Verifies a PLUME signature.
     /// Returns `true` if the signature is valid.
@@ -75,164 +103,38 @@ impl PlumeSignature {
         if let Some(PlumeSignatureV1Fields {
             r_point: sig_r_point,
             hashed_to_curve_r: sig_hashed_to_curve_r,
-        }) = self.v1specific
-        {
-            dbg!("V1 specific part entered");
+        }) = self.v1specific {
             // Check whether g^r equals g^s * pk^{-c}
-            if &r_point != &sig_r_point {
+            if r_point != sig_r_point {
                 return false;
             }
-            dbg!("`r_point` passed");
 
             // Check whether h^r equals h^{r + sk * c} * nullifier^{-c}
-            if &hashed_to_curve_r != &sig_hashed_to_curve_r {
+            if hashed_to_curve_r != sig_hashed_to_curve_r {
                 return false;
             }
 
-            let c_computed = NonZeroScalar::from_repr(c_sha256_vec_signal(vec![
+            // Check if the given hash matches
+            c_scalar == Scalar::reduce(U256::from_be_byte_array(c_sha256_vec_signal(vec![
                 &ProjectivePoint::GENERATOR,
                 &self.pk,
                 &hashed_to_curve,
                 &self.nullifier,
                 &r_point,
                 &hashed_to_curve_r,
-            ])); 
-            if c_computed.is_none().into() {
-                dbg!("hash was processed **not** ok");
-                false
-            }
-            else {
-                dbg!("hash was processed ok");
-                // Check if the given hash matches
-                c_scalar == *c_computed.unwrap()
-            }
+            ])))
         } else {
-            let c_computed = NonZeroScalar::from_repr(c_sha256_vec_signal(vec![&self.nullifier, &r_point, &hashed_to_curve_r]));
-            if c_computed.is_none().into() {false}
-            else {
-                // Check if the given hash matches
-                c_scalar == *c_computed.unwrap()
-            }
+            // Check if the given hash matches
+            c_scalar == Scalar::reduce(U256::from_be_byte_array(c_sha256_vec_signal(vec![&self.nullifier, &r_point, &hashed_to_curve_r])))
         }
     }
 
-    /// Same as using [`RandomizedSigner`] with [`PlumeSigner`], but with dedicated method for a variant; use it when you don't want to `use` PlumeSigner and the trait in your code.
+    /// Yields the signature with `None` for `v1specific`. Same as using [`RandomizedSigner`] with [`PlumeSigner`]; 
+    /// use it when you don't want to `use` PlumeSigner and the trait in your code.
     pub fn sign_v1(secret_key: &SecretKey, msg: &[u8], rng: &mut impl CryptoRngCore) -> Self {PlumeSigner::new(secret_key, true).sign_with_rng(rng, msg)}
+    /// Yields the signature with `Some` for `v1specific`. Same as using [`RandomizedSigner`] with [`PlumeSigner`]; 
+    /// use it when you don't want to `use` PlumeSigner and the trait in your code.
     pub fn sign_v2(secret_key: &SecretKey, msg: &[u8], rng: &mut impl CryptoRngCore) -> Self {PlumeSigner::new(secret_key, false).sign_with_rng(rng, msg)}
-}
-
-pub struct PlumeSigner<'signing> {
-    secret_key: &'signing SecretKey,
-    // Since #lastoponsecret seems to me indistinguishible between variants here's `bool` is used instead of `subtle`
-    pub v1: bool
-}
-impl<'signing> PlumeSigner<'signing> {pub fn new(secret_key: &SecretKey, v1: bool) -> PlumeSigner {PlumeSigner { secret_key, v1 }}}
-impl<'signing> signature::RandomizedSigner<PlumeSignature> for PlumeSigner<'signing> {
-    fn try_sign_with_rng(
-        &self, rng: &mut impl CryptoRngCore, msg: &[u8]
-    ) -> Result<PlumeSignature, Error> {
-        // Pick a random r from Fp
-        let r_scalar = SecretKey::random(rng);
-
-        let r_point = r_scalar.public_key();
-        
-        // TODO remove me!
-        use k256::elliptic_curve::point::AffineCoordinates;
-        // println!("{:x}", r_point.as_affine().x()); 
-        // dbg!(r_point.as_affine().y_is_odd());
-
-        let pk = self.secret_key.public_key();
-        let pk_bytes = pk.to_encoded_point(true).to_bytes();
-        
-        // Compute h = htc([m, pk])
-        let hashed_to_curve = NonIdentity::new(Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
-            &[msg, &pk_bytes], &[DST]
-        ).map_err(|_| Error::new())?).expect(
-            "something is drammatically wrong if the input hashed to the identity"
-        );
-        println!("`hashed_to_curve`:{:x}", hashed_to_curve.to_point().to_affine().x()); // TODO remove me!
-        
-        // it feels not that scary to store `r_scalar` as `NonZeroScalar` (compared to `self.secret_key`)
-        let r_scalar = r_scalar.to_nonzero_scalar();
-        println!("`r_scalar` as a `NonZero`:{}", r_scalar.to_string()); // TODO remove me!
-
-        // Compute z = h^r
-        let hashed_to_curve_r = hashed_to_curve * r_scalar;
-        println!("`hashed_to_curve_r $x$:`{:x}", hashed_to_curve_r.to_point().to_affine().x()); // TODO remove me!
-        
-        // Compute nul = h^sk
-        let nullifier = hashed_to_curve * self.secret_key.to_nonzero_scalar();
-        
-        // Compute c = sha512([g, pk, h, nul, g^r, z])
-        let mut hasher = Sha256::new();
-        // shorthand for updating the hasher which repeats a lot below
-        macro_rules! updhash {
-            ($p:ident) => {
-                hasher.update($p.to_encoded_point(true).as_bytes())
-            };
-        }
-        if self.v1 {
-            hasher.update(ProjectivePoint::GENERATOR.to_encoded_point(true).as_bytes());
-            hasher.update(pk_bytes);
-            updhash!(hashed_to_curve);
-        }
-        updhash!(nullifier);
-        updhash!(r_point);
-        updhash!(hashed_to_curve_r);
-        
-        let c = hasher.finalize();
-        // let c_scalar = NonZeroScalar::reduce_nonzero(
-        //     U256::from_be_byte_array(c)
-        // );
-        let c_scalar = 
-            // <NonZeroScalar as ReduceNonZero<U256>>::reduce_nonzero_bytes(&c);
-            NonZeroScalar::from_repr(c).unwrap(); // TODO replace `unwrap`
-        println!("c:{:x}", c_scalar); // TODO remove me!
-        // Compute $s = r + sk ⋅ c$. #lastoponsecret
-        let s_scalar = NonZeroScalar::new(*r_scalar + *(c_scalar * self.secret_key.to_nonzero_scalar()))
-            .expect("something is terribly wrong if the nonce is equal to negated product of the secret and the hash");
-        println!("sk_c:{:x}", self.secret_key.to_nonzero_scalar() * c_scalar); // TODO remove me!
-        println!("sk:{:x}", self.secret_key.to_nonzero_scalar()); // TODO remove me!
-        
-        Ok(PlumeSignature{
-            message: msg.to_owned(),
-            pk: pk.into(),
-            nullifier: nullifier.to_point(),
-            c: c_scalar,
-            s: s_scalar,
-            v1specific: 
-                if self.v1 {Some(PlumeSignatureV1Fields{
-                    r_point: r_point.into(),
-                    hashed_to_curve_r: hashed_to_curve_r.to_point(),
-                })}
-                else {None}
-        })
-    }
-}
-/// Struct holding signature data for a PLUME signature.
-/// 
-/// `v1` field differintiate whether V1 or V2 protocol will be used.
-pub struct PlumeSignature {
-    /// The message that was signed.
-    pub message: Vec<u8>,
-    /// The public key used to verify the signature.
-    pub pk: ProjectivePoint,
-    /// The nullifier.
-    pub nullifier: ProjectivePoint,
-    /// Part of the signature data.
-    pub c: NonZeroScalar,
-    /// Part of the signature data, a scalar value.
-    pub s: NonZeroScalar,
-    /// Optional signature data for variant 1 signatures.
-    pub v1specific: Option<PlumeSignatureV1Fields>,
-}
-/// Nested struct holding additional signature data used in variant 1 of the protocol.
-#[derive(Debug)]
-pub struct PlumeSignatureV1Fields {
-    /// Part of the signature data, a curve point.  
-    pub r_point: ProjectivePoint,
-    /// Part of the signature data, a curve point.
-    pub hashed_to_curve_r: ProjectivePoint,
 }
 
 fn c_sha256_vec_signal(values: Vec<&ProjectivePoint>) -> Output<Sha256> {

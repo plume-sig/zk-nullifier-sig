@@ -4,7 +4,7 @@
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
 use k256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar};
-use plume_rustcrypto::{Output, PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint, Sha256};
+use plume_rustcrypto::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";

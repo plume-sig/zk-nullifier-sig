@@ -1,7 +1,7 @@
 use k256::{elliptic_curve::{point::AffineCoordinates, PrimeField}, FieldBytes, Scalar};
 use rand_core::CryptoRng;
 use signature::RandomizedSigner;
-use plume_rustcrypto::{PlumeSignature, PlumeSigner, SecretKey};
+use plume_rustcrypto::{PlumeSignature, SecretKey};
 
 const message: &[u8; 29] = b"An example app message string";
 const R: &[u8] =
@@ -37,13 +37,13 @@ impl CryptoRng for Mock {}
 pub fn test_sign_v1() {
     let sk = SecretKey::from_bytes(&SK.into()).unwrap();
 
-    let sig = PlumeSignature::sign_v2(&sk, message, &mut Mock{});
-    assert_eq!(Scalar::from_repr(V2_C.into()).unwrap(), *sig.c);
-    assert_eq!(Scalar::from_repr(V2_S.into()).unwrap(), *sig.s);
+    let sig = PlumeSignature::sign_v1(&sk, message, &mut Mock{});
+    assert_eq!(Scalar::from_repr(V1_C.into()).unwrap(), *sig.c);
+    assert_eq!(Scalar::from_repr(V1_S.into()).unwrap(), *sig.s);
 }
 
 #[test]
-pub fn v2() {
+pub fn test_sign_v2() {
     let sk = SecretKey::from_bytes(&SK.into()).unwrap();
 
     let sig = PlumeSignature::sign_v2(&sk, message, &mut Mock{});
