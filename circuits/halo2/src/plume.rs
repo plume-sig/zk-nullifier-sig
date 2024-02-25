@@ -377,15 +377,16 @@ mod test {
         }
 
         // Inputs
-        let m = b"An example app message string"
+        let msg_str = b"An example app message string";
+        let m = msg_str
             .iter()
             .map(|b| Fr::from(*b as u64))
             .collect::<Vec<_>>();
 
         let sk = Fp::random(OsRng);
         let pk = (Secp256k1::generator() * sk).to_affine();
-        let (nullifier, s, c) = gen_test_nullifier(&sk, b"An example app message string");
-        verify_nullifier(b"An example app message string", &nullifier, &pk, &s, &c);
+        let (nullifier, s, c) = gen_test_nullifier(&sk, msg_str);
+        verify_nullifier(msg_str, &nullifier, &pk, &s, &c);
 
         let test_data = TestPlumeInput {
             nullifier: (nullifier.x, nullifier.y),
@@ -399,8 +400,8 @@ mod test {
 
         if !bench {
             base_test()
-                .k(14)
-                .lookup_bits(13)
+                .k(16)
+                .lookup_bits(15)
                 .expect_satisfied(true)
                 .run(|ctx, range| {
                     let fp_chip = FpChip::<Fr>::new(range, 88, 3);
