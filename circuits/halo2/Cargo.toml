@@ -1,5 +1,5 @@
 [package]
-name = "halo2"
+name = "plume-halo2"
 version = "0.1.0"
 edition = "2021"
 
