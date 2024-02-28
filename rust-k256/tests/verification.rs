@@ -3,13 +3,13 @@
 //! Their setup is shared, `mod helpers` contains barely not refactored code, which is still instrumental to the tests.
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
-use k256::elliptic_curve::sec1::ToEncodedPoint;
+use k256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar};
 use plume_rustcrypto::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
-const C_V1: &[u8] =
-    &hex_literal::hex!("c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254");
+const C_V1: [u8; 32] =
+    hex_literal::hex!("c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254");
 
 // `test_gen_signals` provides fixed key nullifier, secret key, and the random value for testing
 // Normally a secure enclave would generate these values, and output to a wallet implementation
@@ -25,16 +25,19 @@ const C_V1: &[u8] =
 #[test]
 fn plume_v1_test() {
     let test_data = test_gen_signals(M, PlumeVersion::V1);
-    let r_point = &test_data.4.unwrap();
-    let hashed_to_curve_r = &test_data.5.unwrap();
+    let r_point = test_data.4.unwrap();
+    let hashed_to_curve_r = test_data.5.unwrap();
+
+    println!("{:?}", test_data.3);
+    println!("{}", NonZeroScalar::new(test_data.3).unwrap().to_string());
 
     let sig = PlumeSignature {
-        message: M,
-        pk: &(G * gen_test_scalar_sk()),
-        nullifier: &test_data.1,
-        c: C_V1,
-        s: &test_data.3,
-        v1: Some(PlumeSignatureV1Fields {
+        message: M.to_owned().into(),
+        pk: G * gen_test_scalar_sk(),
+        nullifier: test_data.1,
+        c: NonZeroScalar::from_repr(C_V1.into()).unwrap(),
+        s: NonZeroScalar::new(test_data.3).unwrap(),
+        v1specific: Some(PlumeSignatureV1Fields {
             r_point,
             hashed_to_curve_r,
         }),
@@ -105,12 +108,12 @@ fn plume_v1_test() {
 fn plume_v2_test() {
     let test_data = test_gen_signals(M, PlumeVersion::V2);
     assert!(PlumeSignature {
-        message: M,
-        pk: &(G * gen_test_scalar_sk()),
-        nullifier: &test_data.1,
-        c: &test_data.2,
-        s: &test_data.3,
-        v1: None
+        message: M.to_owned().into(),
+        pk: G * gen_test_scalar_sk(),
+        nullifier: test_data.1,
+        c: NonZeroScalar::from_repr(test_data.2).unwrap(),
+        s: NonZeroScalar::new(test_data.3).unwrap(),
+        v1specific: None
     }
     .verify());
 }
@@ -273,7 +276,7 @@ mod helpers {
         };
         dbg!(&c, version);
 
-        let c_scalar = &Scalar::reduce_nonzero(U256::from_be_byte_array(c.to_owned()));
+        let c_scalar = Scalar::from_repr(c).unwrap();
         // This value is part of the discrete log equivalence (DLEQ) proof.
         let r_sk_c = r + sk * c_scalar;
 

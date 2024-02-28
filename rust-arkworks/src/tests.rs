@@ -41,8 +41,8 @@ pub fn test_k256_affine_to_arkworks_secp256k1_affine() {
 }
 
 fn hex_to_fr(hex: &str) -> secp256k1::fields::Fr {
-    let num_field_bytes = 320;
-    let mut sk_bytes_vec = vec![0u8; num_field_bytes];
+    let num_field_bits = 320;
+    let mut sk_bytes_vec = vec![0u8; num_field_bits];
     let mut sk_bytes = hex::decode(hex).unwrap();
 
     sk_bytes.reverse();
@@ -245,7 +245,7 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
     let sig =
         PlumeSignature::sign_with_r(&pp, (&keypair.0, &keypair.1), message, r, PlumeVersion::V2)
             .unwrap();
-
+    
     assert_eq!(
         coord_to_hex(sig.c.into()),
         "00000000000000003dbfb717705010d4f44a70720c95e74b475bd3a783ab0b9e8a6b3b363434eb96"
