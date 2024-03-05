@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 halo2-base = { git = "https://github.com/shreyas-londhe/halo2-lib.git", branch = "feat/secp256k1-hash2curve", default-features = false, features = ["halo2-axiom", "test-utils"] }
-halo2-ecc = { git = "https://github.com/shreyas-londhe/halo2-lib.git", branch = "feat/secp256k1-hash2curve", default-features = false, features = ["halo2-axiom", "mimalloc"] }
+halo2-ecc = { git = "https://github.com/shreyas-londhe/halo2-lib.git", branch = "feat/secp256k1-hash2curve", default-features = false, features = ["halo2-axiom"] }
 k256 = { version = "0.13.3", features = ["arithmetic", "hash2curve", "expose-field", "sha2"]}
 num-bigint = "0.4.4"
 num-traits = "0.2.18"
