@@ -20,7 +20,7 @@ If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any 
 
 ### Wallet Implementations
 
-- Mina: Uses it for nullifiers [here](https://github.com/o1-labs/o1js/blob/main/src/lib/nullifier.ts) and [here](https://github.com/o1-labs/o1js/blob/main/src/mina-signer/src/nullifier.ts). We are working with them to be fully ERC compliant!
+- Mina: Uses it for nullifiers in their code [here](https://github.com/o1-labs/o1js/blob/main/src/lib/nullifier.ts) and [here](https://github.com/o1-labs/o1js/blob/main/src/mina-signer/src/nullifier.ts). They use Poseidon for the hash function instead, which makes it slower to generate in hardware wallets, but faster to prove. Their [docs for this scheme are here](https://docs.minaprotocol.com/zkapps/o1js-reference/classes/Nullifier).
 - Taho: We have an [open PR](https://github.com/tahowallet/extension/pull/3638) that we are waiting on them to merge!
 - Rabby: We have an [open PR](https://github.com/RabbyHub/Rabby/pull/2047) that we are waiting on them to merge!
 - Metamask: We have an open PR set ([rpc](https://github.com/MetaMask/eth-json-rpc-middleware/pull/198
