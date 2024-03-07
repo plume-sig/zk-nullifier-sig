@@ -30,10 +30,10 @@
 use k256::elliptic_curve::bigint::ArrayEncoding;
 use k256::elliptic_curve::ops::Reduce;
 use k256::sha2::{digest::Output, Digest, Sha256}; // requires 'getrandom' feature
+use k256::ProjectivePoint;
 use k256::Scalar;
 use k256::U256;
 use signature::RandomizedSigner;
-use k256::ProjectivePoint;
 
 /// Exports types from the `k256` crate:
 ///
@@ -194,7 +194,7 @@ mod tests {
     fn test_byte_array_to_scalar() {
         let scalar = byte_array_to_scalar(&hex!(
             "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
-        )); 
+        ));
         assert_eq!(
             hex::encode(scalar.to_bytes()),
             "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"

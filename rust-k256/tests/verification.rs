@@ -4,7 +4,7 @@
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
 use k256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar, ProjectivePoint};
-use plume_rustcrypto::{PlumeSignature, PlumeSignatureV1Fields, AffinePoint};
+use plume_rustcrypto::{AffinePoint, PlumeSignature, PlumeSignatureV1Fields};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
@@ -48,21 +48,11 @@ fn plume_v1_test() {
     // Print nullifier
     println!(
         "nullifier.x: {:?}",
-        hex::encode(
-            sig.nullifier
-                .to_encoded_point(false)
-                .x()
-                .unwrap()
-        )
+        hex::encode(sig.nullifier.to_encoded_point(false).x().unwrap())
     );
     println!(
         "nullifier.y: {:?}",
-        hex::encode(
-            sig.nullifier
-                .to_encoded_point(false)
-                .y()
-                .unwrap()
-        )
+        hex::encode(sig.nullifier.to_encoded_point(false).y().unwrap())
     );
     // Print c
     println!("c: {:?}", hex::encode(C_V1));
