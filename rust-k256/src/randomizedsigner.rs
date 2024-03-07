@@ -94,7 +94,7 @@ impl<'signing> RandomizedSigner<PlumeSignature> for PlumeSigner<'signing> {
         Ok(PlumeSignature {
             message: msg.to_owned(),
             pk: pk.into(),
-            nullifier: nullifier.to_point(),
+            nullifier: nullifier.to_point().to_affine(),
             c: c_scalar,
             s: s_scalar,
             v1specific: if self.v1 {

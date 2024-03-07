@@ -33,11 +33,14 @@ use k256::sha2::{digest::Output, Digest, Sha256}; // requires 'getrandom' featur
 use k256::Scalar;
 use k256::U256;
 use signature::RandomizedSigner;
-// TODO
-pub use k256::ProjectivePoint;
-/// Re-exports the `NonZeroScalar` and `SecretKey` types from the `k256` crate.
-/// These are used for generating secret keys and non-zero scalars for signing.
-pub use k256::{NonZeroScalar, SecretKey};
+use k256::ProjectivePoint;
+
+/// Exports types from the `k256` crate:
+///
+/// - `NonZeroScalar`: A secret 256-bit scalar value.
+/// - `SecretKey`: A secret 256-bit scalar wrapped in a struct.  
+/// - `AffinePoint`: A public elliptic curve point.
+pub use k256::{AffinePoint, NonZeroScalar, SecretKey};
 /// Re-exports the [`CryptoRngCore`] trait from the [`rand_core`] crate.
 /// This allows it to be used from the current module.
 pub use rand_core::CryptoRngCore;
@@ -60,9 +63,9 @@ pub struct PlumeSignature {
     /// The message that was signed.
     pub message: Vec<u8>,
     /// The public key used to verify the signature.
-    pub pk: ProjectivePoint,
+    pub pk: AffinePoint,
     /// The nullifier.
-    pub nullifier: ProjectivePoint,
+    pub nullifier: AffinePoint,
     /// Part of the signature data. SHA-256 interpreted as a scalar.
     pub c: NonZeroScalar,
     /// Part of the signature data, a scalar value.
@@ -91,7 +94,7 @@ impl PlumeSignature {
 
         let r_point = (ProjectivePoint::GENERATOR * *self.s) - (self.pk * (c_scalar));
 
-        let hashed_to_curve = hash_to_curve(&self.message, &self.pk);
+        let hashed_to_curve = hash_to_curve(&self.message, &self.pk.into());
         if hashed_to_curve.is_err() {
             return false;
         }
@@ -118,9 +121,9 @@ impl PlumeSignature {
             c_scalar
                 == Scalar::reduce(U256::from_be_byte_array(c_sha256_vec_signal(vec![
                     &ProjectivePoint::GENERATOR,
-                    &self.pk,
+                    &self.pk.into(),
                     &hashed_to_curve,
-                    &self.nullifier,
+                    &self.nullifier.into(),
                     &r_point,
                     &hashed_to_curve_r,
                 ])))
@@ -128,7 +131,7 @@ impl PlumeSignature {
             // Check if the given hash matches
             c_scalar
                 == Scalar::reduce(U256::from_be_byte_array(c_sha256_vec_signal(vec![
-                    &self.nullifier,
+                    &self.nullifier.into(),
                     &r_point,
                     &hashed_to_curve_r,
                 ])))
