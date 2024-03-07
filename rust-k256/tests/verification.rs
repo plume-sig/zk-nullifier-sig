@@ -38,8 +38,8 @@ fn plume_v1_test() {
         c: NonZeroScalar::from_repr(C_V1.into()).unwrap(),
         s: NonZeroScalar::new(test_data.3).unwrap(),
         v1specific: Some(PlumeSignatureV1Fields {
-            r_point,
-            hashed_to_curve_r,
+            r_point: r_point.into(),
+            hashed_to_curve_r: hashed_to_curve_r.into(),
         }),
     };
     let verified = sig.verify();

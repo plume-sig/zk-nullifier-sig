@@ -77,9 +77,9 @@ pub struct PlumeSignature {
 #[derive(Debug)]
 pub struct PlumeSignatureV1Fields {
     /// Part of the signature data, a curve point.  
-    pub r_point: ProjectivePoint,
+    pub r_point: AffinePoint,
     /// Part of the signature data, a curve point.
-    pub hashed_to_curve_r: ProjectivePoint,
+    pub hashed_to_curve_r: AffinePoint,
 }
 impl PlumeSignature {
     /// Verifies a PLUME signature.

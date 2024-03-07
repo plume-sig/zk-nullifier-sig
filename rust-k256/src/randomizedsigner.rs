@@ -100,7 +100,7 @@ impl<'signing> RandomizedSigner<PlumeSignature> for PlumeSigner<'signing> {
             v1specific: if self.v1 {
                 Some(PlumeSignatureV1Fields {
                     r_point: r_point.into(),
-                    hashed_to_curve_r: hashed_to_curve_r.to_point(),
+                    hashed_to_curve_r: hashed_to_curve_r.to_point().to_affine(),
                 })
             } else {
                 None
