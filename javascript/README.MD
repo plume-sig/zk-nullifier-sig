@@ -1,20 +1,34 @@
-JavaScript implementation of the PLUME signature scheme.
+`plume-sig`
+==============
+TypeScript implementation of the PLUME signature scheme.
 
-## API
-### sign(message, privateKey)
-Signs a message using the provided private key.
-* `message` - String message to sign
-* `privateKey` - Hex private key
+## Installation
+`npm install plume-sig`
 
-Returns the PLUME signature.
+## Usage
 
-### `verify(message, publicKey, signature)`
-Verifies a signature matches the message and public key.
-* `message` - Original string message
-* `publicKey` - Hex public key
-* `signature` - PLUME signature
+```js
+import { computeAllInputs, PlumeVersion } from 'plume-sig';
 
-Returns true if the signature is valid, false otherwise.
+return computeAllInputs(message, secretKey, uniqueRandomScalar);
+```
 
-### License
+The function returns the signature w.r.t. to given arguments as the object of the following structure.
+### `plume`
+`secp256k1` point
+### `s`
+`secp256k1` scalar hexstring
+### `pk`
+Public key of the signer; SEC1 encoded.
+### `c`
+SHA-256 hash. It's value depends on `PlumeVersion` of the signature.
+### `rPoint`
+`secp256k1` point representing the unique random scalar used for signing. V1 specific.
+### `hashedToCurveR`
+`secp256k1` point. V1 specific.
+
+## Signature variants
+The scheme comes in two variants. V2 is default for this implementation. It won't need V1 specific fields for it verification.
+
+## License
 MIT
