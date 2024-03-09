@@ -4,8 +4,6 @@ This repository provides libraries for the construction of deterministic nullifi
 
 We hope that wallets integrate the javascript, rust, or C repositories for both software and hardware signature generation, and dapps integrate the zk proof in the circuits/ directory.
 
-If you would like to get a grant to create PLUME applications or improve the library, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are projects ideas both below in the README, as well as bountied every issue in Github has a $50 bounty on it. Feel free to pick one up, and dm us on Twitter/Telegram (@yush_g) for guidance and help, or join the discussion in the public channel in the [PSE Discord](https://discord.gg/pse) for progress updates and community questions! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as yush_g, Oren Yomtov, Richard Liu, Blake M Scurr, Piotr Roslaniec, Vu Voth, Weijie Koh, and Vivek Bhupatiraju who directly contributed to the code. Thanks to Poseidon Labs for a [V2 proposal](https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff) and Weiking Chen for his filed issues, and our auditors (0xbok), as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf) and [blog post](https://blog.aayushg.com/posts/plume).
-
 ## Installation
 
 To install our [npm package](https://www.npmjs.com/package/plume-sig) for JS/TS, do
@@ -20,7 +18,9 @@ cargo add plume_rustcrypto
 
 Docs and usage guides are linked to from the packages.
 
-## Contributions
+## Contributions and Grants
+
+If you would like to get a grant to create PLUME applications or improve the library, we have grants available from Ethereum Foundation PSE and Gitcoin Grants, and would give grants for any PRs to the repository! There are projects ideas both below in the README, as well as bountied every issue in Github has a $50 bounty on it. Feel free to pick one up, and dm us on Twitter/Telegram (@yush_g) for guidance and help, or join the discussion in the public channel in the [PSE Discord](https://discord.gg/pse) for progress updates and community questions! This work was generously funded and supported by 0xPARC, Gitcoin donors, and EF PSE, and exists only due to the valuable work by contributors to this Github such as yush_g, Oren Yomtov, Richard Liu, Blake M Scurr, Piotr Roslaniec, Vu Voth, Weijie Koh, and Vivek Bhupatiraju who directly contributed to the code. Thanks to Poseidon Labs for a [V2 proposal](https://www.notion.so/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff) and Weiking Chen for his filed issues, and our auditors (0xbok), as well as all of the folks [acknowledged in the research paper](https://aayushg.com/thesis.pdf) and [blog post](https://blog.aayushg.com/posts/plume).
 
 If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any of the bugs in our issues! Each of them is quite small. That includes 
 [#28](https://github.com/plume-sig/zk-nullifier-sig/issues/28), [#24](https://github.com/plume-sig/zk-nullifier-sig/issues/24), 
@@ -40,11 +40,11 @@ If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any 
 - Metamask: We have an open PR set ([rpc](https://github.com/MetaMask/eth-json-rpc-middleware/pull/198
 ), [api](https://github.com/MetaMask/api-specs/pull/120), [core](https://github.com/MetaMask/metamask-extension/pull/17482)) that we are waiting on them to merge! Snaps [dropped support for secret key access](https://github.com/MetaMask/snaps/issues/1665) so a Metamask Snap is no longer a tenable path, although we did have a snap as well.
 - Aztec: WIP, pending implementation in Noir.
-- Ledger: 
+- Ledger: This [app](https://github.com/base0010/plume-ledger-app/tree/sswu) compiles and generates PLUME signatures on embedded hardware and works on Ledgers. Test via the [Ledger app builder](https://github.com/LedgerHQ/ledger-app-builder).
 - ZK Snap: The "holy grail of private voting", according to Ameen, co-author of the private voting report. Uses PLUME as a [core component of an end-to-end private voting system](https://twitter.com/AeriusLabs/status/1753052458249785836).
 
 ### Audits
-We have been audited by 0xbok for these three implementations V1 and V2 implementations, as well as for V1 circuits in circom. We expect the halo2 circuits to be runnable on mobile (once we have audited that code and put up a recursive proving infrastructure setup).
+We have been audited by [PSE Security](https://github.com/0xbok) for these three implementations V1 and V2 implementations, as well as for V1 circuits in circom. We expect the halo2 circuits to be runnable on mobile (once we have audited that code circa ~April and put up a recursive proving infrastructure setup).
 
 ## Testing the circom circuit
 
