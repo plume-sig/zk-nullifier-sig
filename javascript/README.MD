@@ -7,10 +7,11 @@ TypeScript implementation of the PLUME signature scheme.
 
 ## Usage
 
-```js
+```ts
 import { computeAllInputs, PlumeVersion } from 'plume-sig';
 
-return computeAllInputs(message, secretKey, uniqueRandomScalar);
+return computeAllInputs(message: string | Uint8Array,
+  sk: string | Uint8Array,);
 ```
 
 The function returns the signature w.r.t. to given arguments as the object of the following structure.
@@ -29,6 +30,18 @@ SHA-256 hash. It's value depends on `PlumeVersion` of the signature.
 
 ## Signature variants
 The scheme comes in two variants. V2 is default for this implementation. It won't need V1 specific fields for it verification.
+
+### Version 1: Verifier Optimized
+
+In a situation where there is a verifier who must *not* know the signer's `pk`, but the signer must nevertheless prove that they know `secretKey` corresponding to the signature given `message`, a zero-knowledge proof is required.
+
+The following verification function may be described via a circuit as part of a non-interactive zero-knowledge proving system, such as Groth16. To create a proof, the prover supplies the following inputs:
+
+### Version 2: Prover Optimized
+
+Currently, SHA-256 hashing operations are particularly expensive with zk proofs in the browser. In the context of PLUME, the computation of $c$ is a bottleneck for efficient proof times, so one modification suggested by the Poseidon team was to move this hash computation outside the circuit, into the verifier.
+
+Due to SHA-256 being a native precompile on Ethereum, this operation will still be efficient for smart contract verifiers.
 
 ## License
 MIT
