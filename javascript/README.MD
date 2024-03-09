@@ -1,6 +1,8 @@
 `plume-sig`
 ==============
-TypeScript implementation of the PLUME signature scheme.
+TypeScript implementation of the ERC-7524 PLUME signature scheme.
+
+A new type of cryptographic signature that would allow for anonymous and unique digital identities on the Ethereum blockchain in a verifiable way.
 
 ## Installation
 `npm install plume-sig`
