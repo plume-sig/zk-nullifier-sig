@@ -31,7 +31,7 @@ SHA-256 hash. It's value depends on `PlumeVersion` of the signature.
 `secp256k1` point. V1 specific.
 
 ## Signature variants
-The scheme comes in two variants. V2 is default for this implementation. It won't need V1 specific fields for it verification.
+The scheme comes in two variants. V2 is default for this implementation.
 
 ### Version 1: Verifier Optimized
 
