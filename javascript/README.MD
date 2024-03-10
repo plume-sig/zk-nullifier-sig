@@ -12,8 +12,7 @@ A new type of cryptographic signature that would allow for anonymous and unique 
 ```ts
 import { computeAllInputs, PlumeVersion } from 'plume-sig';
 
-return computeAllInputs(message: string | Uint8Array,
-  sk: string | Uint8Array,);
+return computeAllInputs(message, secretKey);
 ```
 
 The function returns the signature w.r.t. to given arguments as the object of the following structure.
