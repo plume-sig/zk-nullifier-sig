@@ -3,8 +3,8 @@
 //! Their setup is shared, `mod helpers` contains barely not refactored code, which is still instrumental to the tests.
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
-use k256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar};
-use plume_rustcrypto::{PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint};
+use k256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar, ProjectivePoint};
+use plume_rustcrypto::{AffinePoint, PlumeSignature, PlumeSignatureV1Fields};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
@@ -33,13 +33,13 @@ fn plume_v1_test() {
 
     let sig = PlumeSignature {
         message: M.to_owned().into(),
-        pk: G * gen_test_scalar_sk(),
-        nullifier: test_data.1,
+        pk: (G * gen_test_scalar_sk()).into(),
+        nullifier: test_data.1.into(),
         c: NonZeroScalar::from_repr(C_V1.into()).unwrap(),
         s: NonZeroScalar::new(test_data.3).unwrap(),
         v1specific: Some(PlumeSignatureV1Fields {
-            r_point,
-            hashed_to_curve_r,
+            r_point: r_point.into(),
+            hashed_to_curve_r: hashed_to_curve_r.into(),
         }),
     };
     let verified = sig.verify();
@@ -48,23 +48,11 @@ fn plume_v1_test() {
     // Print nullifier
     println!(
         "nullifier.x: {:?}",
-        hex::encode(
-            sig.nullifier
-                .to_affine()
-                .to_encoded_point(false)
-                .x()
-                .unwrap()
-        )
+        hex::encode(sig.nullifier.to_encoded_point(false).x().unwrap())
     );
     println!(
         "nullifier.y: {:?}",
-        hex::encode(
-            sig.nullifier
-                .to_affine()
-                .to_encoded_point(false)
-                .y()
-                .unwrap()
-        )
+        hex::encode(sig.nullifier.to_encoded_point(false).y().unwrap())
     );
     // Print c
     println!("c: {:?}", hex::encode(C_V1));
@@ -109,8 +97,8 @@ fn plume_v2_test() {
     let test_data = test_gen_signals(M, PlumeVersion::V2);
     assert!(PlumeSignature {
         message: M.to_owned().into(),
-        pk: G * gen_test_scalar_sk(),
-        nullifier: test_data.1,
+        pk: (G * gen_test_scalar_sk()).into(),
+        nullifier: test_data.1.into(),
         c: NonZeroScalar::from_repr(test_data.2).unwrap(),
         s: NonZeroScalar::new(test_data.3).unwrap(),
         v1specific: None
@@ -167,6 +155,7 @@ mod helpers {
         pt
     }
 
+    use k256::ProjectivePoint;
     // These generate test signals as if it were passed from a secure enclave to wallet. Note that leaking these signals would leak pk, but not sk.
     // Outputs these 6 signals, in this order
     // g^sk																(private)
