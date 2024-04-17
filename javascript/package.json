@@ -1,6 +1,7 @@
 {
   "name": "plume-sig",
-  "version": "2.0.8",
+  "version": "2.0.9",
+  "keywords": ["nullifier", "zero-knowledge", "ECDSA", "PLUME"],
   "repository": "https://github.com/plume-sig/zk-nullifier-sig/",
   "pnpm": {
     "overrides": {
