@@ -213,6 +213,7 @@ pub fn verify_plume<F: BigPrimeField>(
 #[cfg(test)]
 pub mod test {
   use halo2_base::{
+    gates::circuit::builder::BaseCircuitBuilder,
     halo2_proofs::halo2curves::{ bn256::Fr, secp256k1::Secp256k1, secq256k1::{ Fp, Fq } },
     utils::testing::base_test,
   };
@@ -340,5 +341,51 @@ pub mod test {
       println!("proof size = {:?}", stats.proof_size);
       println!("verify time = {:?}", stats.verify_time.time.elapsed());
     }
+  }
+
+  #[test]
+  fn calculate_params() {
+    let msg_str = b"An example app message string";
+    let m = msg_str
+      .iter()
+      .map(|b| Fr::from(*b as u64))
+      .collect::<Vec<_>>();
+
+    let sk = Fp::random(OsRng);
+    let pk = (Secp256k1::generator() * sk).to_affine();
+    let (nullifier, s, c) = gen_test_nullifier(&sk, msg_str);
+    verify_nullifier(msg_str, &nullifier, &pk, &s, &c);
+
+    let mut builder = BaseCircuitBuilder::<Fr>::default().use_k(17).use_lookup_bits(16);
+    let range = &builder.range_chip();
+    let ctx = builder.main(0);
+
+    let fp_chip = FpChip::<Fr>::new(range, 88, 3);
+    let fq_chip = FqChip::<Fr>::new(range, 88, 3);
+    let ecc_chip = EccChip::<Fr, FpChip<Fr>>::new(&fp_chip);
+
+    let sha256_chip = Sha256Chip::new(range);
+
+    let nullifier = ecc_chip.load_private_unchecked(ctx, (nullifier.x, nullifier.y));
+    let s = fq_chip.load_private(ctx, s);
+    let c = fq_chip.load_private(ctx, c);
+    let pk = ecc_chip.load_private_unchecked(ctx, (pk.x, pk.y));
+    let m = m
+      .iter()
+      .map(|m| ctx.load_witness(*m))
+      .collect::<Vec<_>>();
+
+    let plume_input = PlumeInput {
+      nullifier,
+      s,
+      c,
+      pk,
+      m,
+    };
+
+    verify_plume::<Fr>(ctx, &ecc_chip, &sha256_chip, 4, 4, plume_input);
+
+    let config = builder.calculate_params(Some(10));
+    println!("config = {:?}", config);
   }
 }
