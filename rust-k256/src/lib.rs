@@ -45,7 +45,7 @@ pub use k256::{AffinePoint, NonZeroScalar, SecretKey};
 /// This allows it to be used from the current module.
 pub use rand_core::CryptoRngCore;
 #[cfg(feature = "serde")]
-/// Provides the ability to serialize and deserialize data using the Serde library. 
+/// Provides the ability to serialize and deserialize data using the Serde library.
 /// The `Serialize` and `Deserialize` traits from the Serde library are re-exported for convenience.
 pub use serde::{Deserialize, Serialize};
 
@@ -63,7 +63,7 @@ pub const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // 
 /// Struct holding signature data for a PLUME signature.
 ///
 /// `v1specific` field differintiate whether V1 or V2 protocol will be used.
-#[cfg_attr(feature="serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PlumeSignature {
     /// The message that was signed.
     pub message: Vec<u8>,
@@ -80,7 +80,7 @@ pub struct PlumeSignature {
 }
 /// Nested struct holding additional signature data used in variant 1 of the protocol.
 #[derive(Debug)]
-#[cfg_attr(feature="serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PlumeSignatureV1Fields {
     /// Part of the signature data, a curve point.  
     pub r_point: AffinePoint,

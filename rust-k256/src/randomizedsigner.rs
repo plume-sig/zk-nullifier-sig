@@ -15,12 +15,12 @@ use k256::{
 use signature::{Error, RandomizedSigner};
 
 /// `PlumeSigner` is a `struct` that contains a reference to a secret key and a
-/// boolean defining output [`PlumeSignature`] variant. 
-/// 
+/// boolean defining output [`PlumeSignature`] variant.
+///
 /// It implements the `RandomizedSigner` trait to generate signatures using the provided secret
 /// key. The struct is generic over the lifetime of the secret key reference so that the key can be borrowed immutably.
-/// 
-/// `serde` traits aren't added to this struct on purpose. It's a wrapper around [`SecretKey`] which provides variety of serialization formats (SEC1, bytes, ...). 
+///
+/// `serde` traits aren't added to this struct on purpose. It's a wrapper around [`SecretKey`] which provides variety of serialization formats (SEC1, bytes, ...).
 /// Also it uses just a reference to the secret key itself, so the choices for handling the key is kept open here.
 pub struct PlumeSigner<'signing> {
     /// The secret key to use for signing. This is borrowed immutably.
