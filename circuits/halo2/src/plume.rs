@@ -29,21 +29,16 @@ fn bytes_le_to_limb<F: BigPrimeField>(
   gate: &GateChip<F>,
   bytes: &[AssignedValue<F>]
 ) -> AssignedValue<F> {
-  let mut limb = ctx.load_zero();
+  let byte_base = (0..bytes.len())
+    .map(|i| QuantumCell::Constant(gate.pow_of_two()[i * 8]))
+    .collect::<Vec<_>>();
 
-  for (i, byte) in bytes.iter().enumerate() {
-    let shift = ctx.load_constant(F::from_u128(1u128 << ((i as u128) * 8u128)));
-    let shifted_byte = gate.mul(ctx, *byte, shift);
-
-    limb = gate.add(ctx, limb, shifted_byte);
-  }
-
-  limb
+  gate.inner_product(ctx, bytes.to_vec(), byte_base)
 }
 
 fn limbs_to_bytes32_be<F: BigPrimeField>(
   ctx: &mut Context<F>,
-  gate: &GateChip<F>,
+  range: &RangeChip<F>,
   limbs: &[AssignedValue<F>],
   max_limb_bits: usize
 ) -> Vec<AssignedValue<F>> {
@@ -54,9 +49,13 @@ fn limbs_to_bytes32_be<F: BigPrimeField>(
     let limb_bytes = limb.value().to_bytes_le();
     let mut limb_bytes = limb_bytes[0..11]
       .iter()
-      .map(|byte| ctx.load_witness(F::from(*byte as u64)))
+      .map(|byte| {
+        let byte = ctx.load_witness(F::from(*byte as u64));
+        range.range_check(ctx, byte, 8);
+        byte
+      })
       .collect::<Vec<_>>();
-    let _limb = bytes_le_to_limb(ctx, gate, &limb_bytes);
+    let _limb = bytes_le_to_limb(ctx, range.gate(), &limb_bytes);
 
     assert_eq!(limb.value(), _limb.value());
     ctx.constrain_equal(&_limb, limb);
@@ -96,12 +95,7 @@ pub fn compress_point<F: BigPrimeField>(
 
   compressed_pt.push(tag);
   compressed_pt.append(
-    &mut limbs_to_bytes32_be(
-      ctx,
-      range.gate(),
-      x.as_ref().limbs(),
-      x.as_ref().truncation.max_limb_bits
-    )
+    &mut limbs_to_bytes32_be(ctx, range, x.as_ref().limbs(), x.as_ref().truncation.max_limb_bits)
   );
 
   compressed_pt
@@ -195,12 +189,7 @@ pub fn verify_plume<F: BigPrimeField>(
   let final_hash = sha256_chip.digest(ctx, input).unwrap();
 
   // 9. constraint hash2(g, pk, hash[m, pk], nullifier, g^s / pk^c, hash[m, pk]^s / nullifier^c) == c
-  let c_bytes = limbs_to_bytes32_be(
-    ctx,
-    range.gate(),
-    c.limbs(),
-    c.as_ref().truncation.max_limb_bits
-  );
+  let c_bytes = limbs_to_bytes32_be(ctx, range, c.limbs(), c.as_ref().truncation.max_limb_bits);
   c_bytes
     .iter()
     .zip(final_hash.iter())
@@ -241,7 +230,7 @@ pub mod test {
     }
 
     // Inputs
-    let msg_str = b"An example app message string";
+    let msg_str = b"An example app message string!";
     let m = msg_str
       .iter()
       .map(|b| Fr::from(*b as u64))
@@ -260,7 +249,7 @@ pub mod test {
       m: m.clone(),
     };
 
-    let bench = false;
+    let bench = true;
 
     if !bench {
       base_test()
@@ -295,8 +284,8 @@ pub mod test {
         });
     } else {
       let stats = base_test()
-        .k(15)
-        .lookup_bits(14)
+        .k(14)
+        .lookup_bits(13)
         .expect_satisfied(true)
         .bench_builder(
           test_data.clone(),
@@ -356,7 +345,7 @@ pub mod test {
     let (nullifier, s, c) = gen_test_nullifier(&sk, msg_str);
     verify_nullifier(msg_str, &nullifier, &pk, &s, &c);
 
-    let mut builder = BaseCircuitBuilder::<Fr>::default().use_k(17).use_lookup_bits(16);
+    let mut builder = BaseCircuitBuilder::<Fr>::default().use_k(14).use_lookup_bits(13);
     let range = &builder.range_chip();
     let ctx = builder.main(0);
 
