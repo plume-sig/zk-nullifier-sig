@@ -23,22 +23,22 @@ self.onmessage = async (e) => {
 
       halo2wasm.config({
         k: 15,
-        numAdvice: 412,
-        numLookupAdvice: 11,
+        numAdvice: 68,
+        numLookupAdvice: 8,
         numInstance: 1,
         numLookupBits: 14,
         numVirtualInstance: 1,
       });
       console.log("Halo2Wasm configured");
 
-      let stats = halo2wasm.getCircuitStats();
-      console.log("Circuit stats:", stats);
-
       const myCircuit = new MyCircuit(halo2wasm);
       console.log("MyCircuit instance created");
 
       myCircuit.run();
       console.log("MyCircuit run method called");
+
+      let stats = halo2wasm.getCircuitStats();
+      console.log("Circuit stats:", stats);
 
       halo2wasm.useInstances();
       console.log("Instances used");

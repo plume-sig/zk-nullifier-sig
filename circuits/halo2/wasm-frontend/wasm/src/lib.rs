@@ -1,20 +1,21 @@
+use halo2_wasm::{
+  halo2_base::{
+    gates::{ circuit::builder::BaseCircuitBuilder, RangeChip, RangeInstructions },
+    halo2_proofs::halo2curves::group::Curve,
+    poseidon::hasher::{ spec::OptimizedPoseidonSpec, PoseidonHasher },
+  },
+  halo2_ecc::secp256k1::{ FpChip, FqChip },
+  halo2_proofs::{ arithmetic::Field, halo2curves::secp256k1::Secp256k1 },
+  halo2lib::ecc::{ Bn254Fr as Fr, EccChip, FieldChip, Secp256k1Fq as Fq },
+  Halo2Wasm,
+};
 use plume_halo2::{
   plume::{ verify_plume, PlumeInput },
   utils::{ gen_test_nullifier, verify_nullifier },
 };
 use rand::rngs::OsRng;
-use wasm_bindgen::prelude::*;
 use std::{ cell::RefCell, rc::Rc };
-use halo2_wasm::{
-  halo2_base::{
-    gates::{ circuit::builder::BaseCircuitBuilder, RangeChip },
-    halo2_proofs::halo2curves::group::Curve,
-  },
-  halo2_ecc::secp256k1::{ sha256::Sha256Chip, FpChip, FqChip },
-  halo2_proofs::{ arithmetic::Field, halo2curves::secp256k1::Secp256k1 },
-  halo2lib::ecc::{ Bn254Fr as Fr, EccChip, FieldChip, Secp256k1Fq as Fq },
-  Halo2Wasm,
-};
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct MyCircuit {
@@ -59,7 +60,10 @@ impl MyCircuit {
     let fq_chip = FqChip::<Fr>::new(&range, 88, 3);
     let ecc_chip = EccChip::<Fr, FpChip<Fr>>::new(&fp_chip);
 
-    let sha256_chip = Sha256Chip::new(&range);
+    let mut poseidon_hasher = PoseidonHasher::<Fr, 3, 2>::new(
+      OptimizedPoseidonSpec::new::<8, 57, 0>()
+    );
+    poseidon_hasher.initialize_consts(ctx, range.gate());
 
     let nullifier = ecc_chip.load_private_unchecked(ctx, (nullifier.x, nullifier.y));
     let s = fq_chip.load_private(ctx, s);
@@ -78,6 +82,6 @@ impl MyCircuit {
       m,
     };
 
-    verify_plume::<Fr>(ctx, &ecc_chip, &sha256_chip, 4, 4, plume_input)
+    verify_plume::<Fr>(ctx, &ecc_chip, &poseidon_hasher, 4, 4, plume_input)
   }
 }
