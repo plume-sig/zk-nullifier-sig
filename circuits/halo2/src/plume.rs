@@ -203,12 +203,12 @@ pub fn verify_plume<F: BigPrimeField>(
 pub mod test {
   use halo2_base::{
     gates::{ circuit::builder::BaseCircuitBuilder, RangeInstructions },
-    halo2_proofs::halo2curves::{ bn256::Fr, secp256k1::Secp256k1, secq256k1::{ Fp, Fq } },
+    halo2_proofs::halo2curves::{ bn256::Fr, secp256k1::{ Fp, Fq, Secp256k1, Secp256k1Affine } },
     poseidon::hasher::{ spec::OptimizedPoseidonSpec, PoseidonHasher },
     utils::testing::base_test,
   };
   use halo2_ecc::{ ecc::EccChip, fields::FieldChip, secp256k1::{ FpChip, FqChip } };
-  use k256::elliptic_curve::{ group::Curve, Field };
+  use k256::elliptic_curve::Field;
   use rand::rngs::OsRng;
 
   use crate::{ plume::PlumeInput, utils::{ gen_test_nullifier, verify_nullifier } };
@@ -219,10 +219,10 @@ pub mod test {
   fn test_plume_verify() {
     #[derive(Clone, Debug)]
     struct TestPlumeInput {
-      nullifier: (Fq, Fq),
-      s: Fp,
-      c: Fp,
-      pk: (Fq, Fq),
+      nullifier: (Fp, Fp),
+      s: Fq,
+      c: Fq,
+      pk: (Fp, Fp),
       m: Vec<Fr>,
     }
 
@@ -233,8 +233,8 @@ pub mod test {
       .map(|b| Fr::from(*b as u64))
       .collect::<Vec<_>>();
 
-    let sk = Fp::random(OsRng);
-    let pk = (Secp256k1::generator() * sk).to_affine();
+    let sk = Fq::random(OsRng);
+    let pk = Secp256k1Affine::from(Secp256k1::generator() * sk);
     let (nullifier, s, c) = gen_test_nullifier(&sk, msg_str);
     verify_nullifier(msg_str, &nullifier, &pk, &s, &c);
 
@@ -284,8 +284,8 @@ pub mod test {
         });
     } else {
       let stats = base_test()
-        .k(14)
-        .lookup_bits(13)
+        .k(15)
+        .lookup_bits(14)
         .expect_satisfied(true)
         .bench_builder(
           test_data.clone(),
@@ -343,8 +343,8 @@ pub mod test {
       .map(|b| Fr::from(*b as u64))
       .collect::<Vec<_>>();
 
-    let sk = Fp::random(OsRng);
-    let pk = (Secp256k1::generator() * sk).to_affine();
+    let sk = Fq::random(OsRng);
+    let pk = Secp256k1Affine::from(Secp256k1::generator() * sk);
     let (nullifier, s, c) = gen_test_nullifier(&sk, msg_str);
     verify_nullifier(msg_str, &nullifier, &pk, &s, &c);
 
