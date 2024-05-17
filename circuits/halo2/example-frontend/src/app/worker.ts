@@ -46,6 +46,9 @@ self.onmessage = async (e) => {
       halo2wasm.useInstances();
       console.log("Using instances");
 
+      let instanceValues = halo2wasm.getInstanceValues(0);
+      console.log("Instance values:", instanceValues);
+
       let params = await getKzgParams(15);
       if (params instanceof Uint8Array) {
         halo2wasm.loadParams(params);

@@ -87,13 +87,16 @@ impl PlumeVerify {
       .collect::<Vec<_>>();
 
     let plume_input = PlumeInput::<Fr> {
-      nullifier,
+      nullifier: nullifier.clone(),
       s,
       c,
       pk,
       m,
     };
 
-    verify_plume::<Fr>(ctx, &ecc_chip, &poseidon_hasher, 4, 4, plume_input)
+    verify_plume::<Fr>(ctx, &ecc_chip, &poseidon_hasher, 4, 4, plume_input);
+
+    builder_borrow.assigned_instances[0].append(&mut nullifier.x().limbs().to_vec());
+    builder_borrow.assigned_instances[0].append(&mut nullifier.y().limbs().to_vec());
   }
 }
