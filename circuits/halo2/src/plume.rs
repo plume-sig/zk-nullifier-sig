@@ -114,6 +114,7 @@ pub fn verify_plume<F: BigPrimeField>(
 
   let base_chip = secp256k1_chip.field_chip();
   let range = base_chip.range();
+  let gate = range.gate();
 
   // 1. compute hash[m, pk]
   let compressed_pk = compress_point(ctx, range, &pk);
@@ -183,8 +184,7 @@ pub fn verify_plume<F: BigPrimeField>(
     compress_point(ctx, range, &hashed_message_s_nullifierc).as_slice(),
   ].concat();
 
-  let input_len = ctx.load_witness(F::from(input.len() as u64));
-  let hash = poseidon_hasher.hash_var_len_array(ctx, range, &input, input_len);
+  let hash = poseidon_hasher.hash_fix_len_array(ctx, gate, &input);
   let mut hash_bytes = fe_to_bytes_le(ctx, range, hash);
   hash_bytes.reverse();
 
@@ -201,11 +201,17 @@ pub fn verify_plume<F: BigPrimeField>(
 
 #[cfg(test)]
 pub mod test {
+  use std::{ fs::File, io::BufWriter };
+
   use halo2_base::{
     gates::{ circuit::builder::BaseCircuitBuilder, RangeInstructions },
-    halo2_proofs::halo2curves::{ bn256::Fr, secp256k1::{ Fp, Fq, Secp256k1, Secp256k1Affine } },
+    halo2_proofs::{
+      halo2curves::{ bn256::Fr, secp256k1::{ Fp, Fq, Secp256k1, Secp256k1Affine } },
+      plonk::{ keygen_pk, keygen_vk },
+      SerdeFormat,
+    },
     poseidon::hasher::{ spec::OptimizedPoseidonSpec, PoseidonHasher },
-    utils::testing::base_test,
+    utils::{ fs::gen_srs, testing::base_test },
   };
   use halo2_ecc::{ ecc::EccChip, fields::FieldChip, secp256k1::{ FpChip, FqChip } };
   use k256::elliptic_curve::Field;
@@ -215,36 +221,45 @@ pub mod test {
 
   use super::verify_plume;
 
-  #[test]
-  fn test_plume_verify() {
-    #[derive(Clone, Debug)]
-    struct TestPlumeInput {
-      nullifier: (Fp, Fp),
-      s: Fq,
-      c: Fq,
-      pk: (Fp, Fp),
-      m: Vec<Fr>,
-    }
+  #[derive(Clone, Debug, Default)]
+  struct TestPlumeInput {
+    nullifier: (Fp, Fp),
+    s: Fq,
+    c: Fq,
+    pk: (Fp, Fp),
+    m: Vec<Fr>,
+  }
 
-    // Inputs
-    let msg_str = b"An example app message string!";
-    let m = msg_str
+  fn generate_test_data(msg: &[u8]) -> TestPlumeInput {
+    let m = msg
       .iter()
       .map(|b| Fr::from(*b as u64))
       .collect::<Vec<_>>();
 
     let sk = Fq::random(OsRng);
     let pk = Secp256k1Affine::from(Secp256k1::generator() * sk);
-    let (nullifier, s, c) = gen_test_nullifier(&sk, msg_str);
-    verify_nullifier(msg_str, &nullifier, &pk, &s, &c);
+    let (nullifier, s, c) = gen_test_nullifier(&sk, msg);
+    verify_nullifier(msg, &nullifier, &pk, &s, &c);
 
-    let test_data = TestPlumeInput {
+    TestPlumeInput {
       nullifier: (nullifier.x, nullifier.y),
       s,
       c,
       pk: (pk.x, pk.y),
-      m: m.clone(),
-    };
+      m,
+    }
+  }
+
+  #[test]
+  fn test_plume_verify() {
+    // Inputs
+    let msg_str_1 =
+      b"vulputate ut pharetra tis amet aliquam id diam maecenas ultricies mi eget mauris pharetra et adasdds";
+    let msg_str_2 =
+      b"vulputate ut pharetra sit amet aliquam id diam maecenas ultricies mi eget mauris pharetra et adasdds";
+
+    let test_data_1 = generate_test_data(msg_str_1);
+    let test_data_2 = generate_test_data(msg_str_2);
 
     let bench = true;
 
@@ -263,11 +278,14 @@ pub mod test {
           );
           poseidon_hasher.initialize_consts(ctx, range.gate());
 
-          let nullifier = ecc_chip.load_private_unchecked(ctx, (nullifier.x, nullifier.y));
-          let s = fq_chip.load_private(ctx, s);
-          let c = fq_chip.load_private(ctx, c);
-          let pk = ecc_chip.load_private_unchecked(ctx, (pk.x, pk.y));
-          let m = m
+          let nullifier = ecc_chip.load_private_unchecked(ctx, (
+            test_data_1.nullifier.0,
+            test_data_1.nullifier.1,
+          ));
+          let s = fq_chip.load_private(ctx, test_data_1.s);
+          let c = fq_chip.load_private(ctx, test_data_1.c);
+          let pk = ecc_chip.load_private_unchecked(ctx, (test_data_1.pk.0, test_data_1.pk.1));
+          let m = test_data_1.m
             .iter()
             .map(|m| ctx.load_witness(*m))
             .collect::<Vec<_>>();
@@ -287,44 +305,40 @@ pub mod test {
         .k(15)
         .lookup_bits(14)
         .expect_satisfied(true)
-        .bench_builder(
-          test_data.clone(),
-          test_data.clone(),
-          |pool, range, test_data: TestPlumeInput| {
-            let ctx = pool.main();
+        .bench_builder(test_data_1, test_data_2, |pool, range, test_data: TestPlumeInput| {
+          let ctx = pool.main();
 
-            let fp_chip = FpChip::<Fr>::new(range, 88, 3);
-            let fq_chip = FqChip::<Fr>::new(range, 88, 3);
-            let ecc_chip = EccChip::<Fr, FpChip<Fr>>::new(&fp_chip);
+          let fp_chip = FpChip::<Fr>::new(range, 88, 3);
+          let fq_chip = FqChip::<Fr>::new(range, 88, 3);
+          let ecc_chip = EccChip::<Fr, FpChip<Fr>>::new(&fp_chip);
 
-            let mut poseidon_hasher = PoseidonHasher::<Fr, 3, 2>::new(
-              OptimizedPoseidonSpec::new::<8, 57, 0>()
-            );
-            poseidon_hasher.initialize_consts(ctx, range.gate());
+          let mut poseidon_hasher = PoseidonHasher::<Fr, 3, 2>::new(
+            OptimizedPoseidonSpec::new::<8, 57, 0>()
+          );
+          poseidon_hasher.initialize_consts(ctx, range.gate());
 
-            let nullifier = ecc_chip.load_private_unchecked(ctx, (
-              test_data.nullifier.0,
-              test_data.nullifier.1,
-            ));
-            let s = fq_chip.load_private(ctx, test_data.s);
-            let c = fq_chip.load_private(ctx, test_data.c);
-            let pk = ecc_chip.load_private_unchecked(ctx, (test_data.pk.0, test_data.pk.1));
-            let m = test_data.m
-              .iter()
-              .map(|m| ctx.load_witness(*m))
-              .collect::<Vec<_>>();
+          let nullifier = ecc_chip.load_private_unchecked(ctx, (
+            test_data.nullifier.0,
+            test_data.nullifier.1,
+          ));
+          let s = fq_chip.load_private(ctx, test_data.s);
+          let c = fq_chip.load_private(ctx, test_data.c);
+          let pk = ecc_chip.load_private_unchecked(ctx, (test_data.pk.0, test_data.pk.1));
+          let m = test_data.m
+            .iter()
+            .map(|m| ctx.load_witness(*m))
+            .collect::<Vec<_>>();
 
-            let plume_input = PlumeInput {
-              nullifier,
-              s,
-              c,
-              pk,
-              m,
-            };
+          let plume_input = PlumeInput {
+            nullifier,
+            s,
+            c,
+            pk,
+            m,
+          };
 
-            verify_plume::<Fr>(ctx, &ecc_chip, &poseidon_hasher, 4, 4, plume_input)
-          }
-        );
+          verify_plume::<Fr>(ctx, &ecc_chip, &poseidon_hasher, 4, 4, plume_input)
+        });
 
       println!("config params = {:?}", stats.config_params);
       println!("vk time = {:?}", stats.vk_time.time.elapsed());
@@ -337,7 +351,10 @@ pub mod test {
 
   #[test]
   fn calculate_params() {
-    let msg_str = b"An example app message string";
+    const K: usize = 15;
+
+    let msg_str =
+      b"vulputate ut pharetra tis amet aliquam id diam maecenas ultricies mi eget mauris pharetra et adasdds";
     let m = msg_str
       .iter()
       .map(|b| Fr::from(*b as u64))
@@ -348,7 +365,10 @@ pub mod test {
     let (nullifier, s, c) = gen_test_nullifier(&sk, msg_str);
     verify_nullifier(msg_str, &nullifier, &pk, &s, &c);
 
-    let mut builder = BaseCircuitBuilder::<Fr>::default().use_k(15).use_lookup_bits(14);
+    let mut builder = BaseCircuitBuilder::<Fr>
+      ::default()
+      .use_k(K)
+      .use_lookup_bits(K - 1);
     let range = &builder.range_chip();
     let ctx = builder.main(0);
 
@@ -382,5 +402,15 @@ pub mod test {
 
     let config = builder.calculate_params(Some(10));
     println!("config = {:?}", config);
+
+    let params = gen_srs(K as u32);
+
+    let vk = keygen_vk(&params, &builder).unwrap();
+    let mut vk_buffer = BufWriter::new(File::create("build/plume_verify_vk_15.bin").unwrap());
+    vk.write(&mut vk_buffer, SerdeFormat::RawBytesUnchecked).unwrap();
+
+    let pk = keygen_pk(&params, vk, &builder).unwrap();
+    let mut pk_buffer = BufWriter::new(File::create("build/plume_verify_pk_15.bin").unwrap());
+    pk.write(&mut pk_buffer, SerdeFormat::RawBytesUnchecked).unwrap();
   }
 }
