@@ -1,7 +1,7 @@
 use halo2_base::{
   halo2_proofs::halo2curves::{
-    secp256k1::{ Secp256k1, Secp256k1Affine },
-    secq256k1::{ Fp, Fq },
+    bn256::Fr,
+    secp256k1::{ Fp, Fq, Secp256k1, Secp256k1Affine },
     CurveAffine,
   },
   utils::ScalarField,
@@ -18,6 +18,8 @@ use k256::{
   Secp256k1 as K256Secp256k1,
 };
 use rand::rngs::OsRng;
+
+use crate::PlumeCircuitInput;
 
 pub fn compress_point(point: &Secp256k1Affine) -> [u8; 33] {
   let mut x = point.x.to_bytes();
@@ -46,8 +48,8 @@ pub fn hash_to_curve(message: &[u8], compressed_pk: &[u8; 33]) -> Secp256k1Affin
   y.reverse();
 
   Secp256k1Affine::from_xy(
-    Fq::from_bytes_le(x.as_slice()),
-    Fq::from_bytes_le(y.as_slice())
+    Fp::from_bytes_le(x.as_slice()),
+    Fp::from_bytes_le(y.as_slice())
   ).unwrap()
 }
 
@@ -55,8 +57,8 @@ pub fn verify_nullifier(
   message: &[u8],
   nullifier: &Secp256k1Affine,
   pk: &Secp256k1Affine,
-  s: &Fp,
-  c: &Fp
+  s: &Fq,
+  c: &Fq
 ) {
   let compressed_pk = compress_point(&pk);
   let hashed_to_curve = hash_to_curve(message, &compressed_pk);
@@ -77,12 +79,12 @@ pub fn verify_nullifier(
 
   let mut _c = sha_hasher.finalize();
   _c.reverse();
-  let _c = Fp::from_bytes_le(_c.as_slice());
+  let _c = Fq::from_bytes_le(_c.as_slice());
 
   assert_eq!(*c, _c);
 }
 
-pub fn gen_test_nullifier(sk: &Fp, message: &[u8]) -> (Secp256k1Affine, Fp, Fp) {
+pub fn gen_test_nullifier(sk: &Fq, message: &[u8]) -> (Secp256k1Affine, Fq, Fq) {
   let pk = (Secp256k1::generator() * sk).to_affine();
   let compressed_pk = compress_point(&pk);
 
@@ -90,7 +92,7 @@ pub fn gen_test_nullifier(sk: &Fp, message: &[u8]) -> (Secp256k1Affine, Fp, Fp) 
 
   let hashed_to_curve_sk = (hashed_to_curve * sk).to_affine();
 
-  let r = Fp::random(OsRng);
+  let r = Fq::random(OsRng);
   let g_r = (Secp256k1::generator() * r).to_affine();
   let hashed_to_curve_r = (hashed_to_curve * r).to_affine();
 
@@ -109,8 +111,28 @@ pub fn gen_test_nullifier(sk: &Fp, message: &[u8]) -> (Secp256k1Affine, Fp, Fp) 
   let mut c = sha_hasher.finalize();
   c.reverse();
 
-  let c = Fp::from_bytes_le(c.as_slice());
+  let c = Fq::from_bytes_le(c.as_slice());
   let s = r + sk * c;
 
   (hashed_to_curve_sk, s, c)
+}
+
+pub fn generate_test_data(msg: &[u8]) -> PlumeCircuitInput {
+  let m = msg
+    .iter()
+    .map(|b| Fr::from(*b as u64))
+    .collect::<Vec<_>>();
+
+  let sk = Fq::random(OsRng);
+  let pk = Secp256k1Affine::from(Secp256k1::generator() * sk);
+  let (nullifier, s, c) = gen_test_nullifier(&sk, msg);
+  verify_nullifier(msg, &nullifier, &pk, &s, &c);
+
+  PlumeCircuitInput {
+    nullifier: (nullifier.x, nullifier.y),
+    s,
+    c,
+    pk: (pk.x, pk.y),
+    m,
+  }
 }

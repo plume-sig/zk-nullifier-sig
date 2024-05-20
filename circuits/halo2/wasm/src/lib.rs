@@ -9,7 +9,7 @@ use halo2_wasm::{
   halo2lib::ecc::{ Bn254Fr as Fr, EccChip, FieldChip },
   Halo2Wasm,
 };
-use plume_halo2::plume::{ verify_plume, PlumeInput };
+use plume_halo2::{ verify_plume, PlumeInput };
 use serde::{ Deserialize, Serialize };
 use tsify::Tsify;
 use std::{ cell::RefCell, rc::Rc };

@@ -8,9 +8,21 @@ edition = "2021"
 [dependencies]
 halo2-base = { git = "https://github.com/shreyas-londhe/halo2-lib.git", branch = "feat/secp256k1-hash2curve-poseidon", default-features = false, features = ["halo2-axiom", "test-utils"] }
 halo2-ecc = { git = "https://github.com/shreyas-londhe/halo2-lib.git", branch = "feat/secp256k1-hash2curve-poseidon", default-features = false, features = ["halo2-axiom"] }
+snark-verifier-sdk = { git = "https://github.com/shreyas-londhe/snark-verifier.git" }
 k256 = { version = "0.13.3", features = ["arithmetic", "hash2curve", "expose-field", "sha2"]}
-num-bigint = "0.4.4"
-num-traits = "0.2.18"
 rand = "0.8.5"
 
+[dev-dependencies]
+ark-std = "0.4.0"
+num-bigint = "0.4.4"
+num-traits = "0.2.18"
+criterion = "0.5.1"
+pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
 
+[[bin]]
+name = "generate-solidity-verifier"
+path = "./scripts/generate_solidity_verifier.rs"
+
+[[bench]]
+name = "plume_verify"
+harness = false
