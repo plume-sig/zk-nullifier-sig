@@ -3,7 +3,7 @@ use halo2_base::gates::circuit::BaseCircuitParams;
 use halo2_base::gates::circuit::{ builder::RangeCircuitBuilder, CircuitBuilderStage };
 use halo2_base::gates::flex_gate::MultiPhaseThreadBreakPoints;
 use halo2_base::gates::RangeInstructions;
-use halo2_base::poseidon::hasher::PoseidonHasher;
+use halo2_base::poseidon::hasher::{ PoseidonHasher, spec::OptimizedPoseidonSpec };
 use halo2_base::{
   halo2_proofs::{ halo2curves::bn256::{ Bn256, Fr }, plonk::*, poly::kzg::commitment::ParamsKZG },
   utils::testing::gen_proof,
@@ -19,7 +19,6 @@ use criterion::{ criterion_group, criterion_main };
 use criterion::{ BenchmarkId, Criterion };
 
 use pprof::criterion::{ Output, PProfProfiler };
-use snark_verifier_sdk::halo2::OptimizedPoseidonSpec;
 
 const K: u32 = 15;
 

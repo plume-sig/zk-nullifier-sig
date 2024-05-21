@@ -20,7 +20,7 @@ export async function generateNullifier(): Promise<NullifierData> {
   )[0];
 
   let message =
-    "vulputate ut pharetra sit tame aliquam id diam maecenas ultricies mi eget mauris pharetra et adasdds";
+    "vulputate ut pharetra sit mate aliquam id diam maecenas ultricies mi eget mauris pharetra et adasdds";
 
   let nullifier = await window.ethereum.request({
     method: "eth_getPlumeSignature",

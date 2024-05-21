@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{ fs::{ self, File }, io::{ BufReader, BufWriter, Write }, path::Path };
 
 use halo2_base::{
   gates::{
@@ -8,7 +8,8 @@ use halo2_base::{
   halo2_proofs::{
     circuit::{ Layouter, SimpleFloorPlanner },
     halo2curves::{ bn256::Fr, secp256k1::{ Fq, Secp256k1, Secp256k1Affine } },
-    plonk::{ keygen_vk, Circuit, ConstraintSystem, Error },
+    plonk::{ keygen_pk, keygen_vk, Circuit, ConstraintSystem, Error },
+    SerdeFormat,
   },
   poseidon::hasher::PoseidonHasher,
   utils::{ fs::gen_srs, BigPrimeField },
@@ -119,12 +120,22 @@ fn main() {
 
   let params = gen_srs(K as u32);
 
-  let vk = keygen_vk(&params, &builder).unwrap();
+  fs::create_dir_all("build").unwrap();
 
-  let _ = gen_evm_verifier_shplonk::<PlumeVerifyCircuit<Fr>>(
-    &params,
-    &vk,
-    vec![6],
-    Some(Path::new("build/PlumeVerifier.sol"))
-  );
+  let vk = keygen_vk(&params, &builder).unwrap();
+  let mut vk_writer = BufWriter::new(File::create("build/vk.bin").unwrap());
+  vk.write(&mut vk_writer, SerdeFormat::RawBytesUnchecked).unwrap();
+  vk_writer.flush().unwrap();
+
+  let pk = keygen_pk(&params, vk.clone(), &builder).unwrap();
+  let mut pk_writer = BufWriter::new(File::create("build/pk.bin").unwrap());
+  pk.write(&mut pk_writer, SerdeFormat::RawBytesUnchecked).unwrap();
+  pk_writer.flush().unwrap();
+
+  // let _ = gen_evm_verifier_shplonk::<PlumeVerifyCircuit<Fr>>(
+  //   &params,
+  //   &vk,
+  //   vec![6],
+  //   Some(Path::new("build/PlumeVerifier.sol"))
+  // );
 }
