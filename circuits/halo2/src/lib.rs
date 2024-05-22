@@ -194,19 +194,19 @@ pub fn verify_plume<F: BigPrimeField>(
     compress_point(ctx, range, &hashed_message_s_nullifierc).as_slice(),
   ].concat();
 
-  let hash = poseidon_hasher.hash_fix_len_array(ctx, gate, &input);
-  let mut hash_bytes = fe_to_bytes_le(ctx, range, hash);
-  hash_bytes.reverse();
+  let final_hash = poseidon_hasher.hash_fix_len_array(ctx, gate, &input);
+  let final_hash_bytes = fe_to_bytes_le(ctx, range, final_hash);
 
-  // // 9. constraint hash2(g, pk, hash[m, pk], nullifier, g^s / pk^c, hash[m, pk]^s / nullifier^c) == c
-  // let c_bytes = limbs_to_bytes32_be(ctx, range, c.limbs(), c.as_ref().truncation.max_limb_bits);
-  // c_bytes
-  //   .iter()
-  //   .zip(final_hash.iter())
-  //   .for_each(|(c_byte, hash_byte)| {
-  //     assert_eq!(c_byte.value(), hash_byte.value());
-  //     ctx.constrain_equal(c_byte, hash_byte);
-  //   });
+  // 9. constraint hash2(g, pk, hash[m, pk], nullifier, g^s / pk^c, hash[m, pk]^s / nullifier^c) == c
+  let mut c_bytes = limbs_to_bytes32_be(ctx, range, c.limbs(), c.as_ref().truncation.max_limb_bits);
+  c_bytes.reverse();
+  c_bytes
+    .iter()
+    .zip(final_hash_bytes.iter())
+    .for_each(|(c_byte, hash_byte)| {
+      assert_eq!(c_byte.value(), hash_byte.value());
+      ctx.constrain_equal(c_byte, hash_byte);
+    });
 }
 
 #[cfg(test)]

@@ -14,9 +14,9 @@ use k256::{
     Field,
     PrimeField,
   },
-  sha2::{ Digest, Sha256 as K256Sha256 },
   Secp256k1 as K256Secp256k1,
 };
+use pse_poseidon::Poseidon;
 use rand::rngs::OsRng;
 
 use crate::PlumeCircuitInput;
@@ -33,7 +33,7 @@ pub fn compress_point(point: &Secp256k1Affine) -> [u8; 33] {
 }
 
 pub fn hash_to_curve(message: &[u8], compressed_pk: &[u8; 33]) -> Secp256k1Affine {
-  let hashed_to_curve = K256Secp256k1::hash_from_bytes::<ExpandMsgXmd<K256Sha256>>(
+  let hashed_to_curve = K256Secp256k1::hash_from_bytes::<ExpandMsgXmd<Poseidon<Fr, 3, 2>>>(
     &[[message, compressed_pk].concat().as_slice()],
     &[b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"]
   )
@@ -65,21 +65,25 @@ pub fn verify_nullifier(
   let hashed_to_curve_s_nullifier_c = (hashed_to_curve * s - nullifier * c).to_affine();
   let gs_pkc = (Secp256k1::generator() * s - pk * c).to_affine();
 
-  let mut sha_hasher = K256Sha256::new();
-  sha_hasher.update(
-    vec![
+  let mut poseidon_hasher = Poseidon::<Fr, 3, 2>::new(8, 57);
+  poseidon_hasher.update(
+    &[
       compress_point(&Secp256k1::generator().to_affine()),
       compressed_pk,
       compress_point(&hashed_to_curve),
       compress_point(&nullifier),
       compress_point(&gs_pkc),
-      compress_point(&hashed_to_curve_s_nullifier_c)
-    ].concat()
+      compress_point(&hashed_to_curve_s_nullifier_c),
+    ]
+      .concat()
+      .iter()
+      .map(|v| Fr::from(*v as u64))
+      .collect::<Vec<Fr>>()
   );
 
-  let mut _c = sha_hasher.finalize();
-  _c.reverse();
-  let _c = Fq::from_bytes_le(_c.as_slice());
+  let mut _c = poseidon_hasher.squeeze_and_reset();
+
+  let _c = Fq::from_bytes_le(&_c.to_bytes_le());
 
   assert_eq!(*c, _c);
 }
@@ -96,22 +100,25 @@ pub fn gen_test_nullifier(sk: &Fq, message: &[u8]) -> (Secp256k1Affine, Fq, Fq) 
   let g_r = (Secp256k1::generator() * r).to_affine();
   let hashed_to_curve_r = (hashed_to_curve * r).to_affine();
 
-  let mut sha_hasher = K256Sha256::new();
-  sha_hasher.update(
-    vec![
+  let mut poseidon_hasher = Poseidon::<Fr, 3, 2>::new(8, 57);
+  poseidon_hasher.update(
+    &[
       compress_point(&Secp256k1::generator().to_affine()),
       compressed_pk,
       compress_point(&hashed_to_curve),
       compress_point(&hashed_to_curve_sk),
       compress_point(&g_r),
-      compress_point(&hashed_to_curve_r)
-    ].concat()
+      compress_point(&hashed_to_curve_r),
+    ]
+      .concat()
+      .iter()
+      .map(|v| Fr::from(*v as u64))
+      .collect::<Vec<Fr>>()
   );
 
-  let mut c = sha_hasher.finalize();
-  c.reverse();
+  let c = poseidon_hasher.squeeze_and_reset();
 
-  let c = Fq::from_bytes_le(c.as_slice());
+  let c = Fq::from_bytes_le(&c.to_bytes_le());
   let s = r + sk * c;
 
   (hashed_to_curve_sk, s, c)

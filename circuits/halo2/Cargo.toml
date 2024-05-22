@@ -11,6 +11,7 @@ halo2-ecc = { git = "https://github.com/shreyas-londhe/halo2-lib.git", branch = 
 snark-verifier-sdk = { git = "https://github.com/shreyas-londhe/snark-verifier.git", optional = true}
 k256 = { version = "0.13.3", features = ["arithmetic", "hash2curve", "expose-field", "sha2"]}
 rand = "0.8.5"
+pse-poseidon = { git = "https://github.com/shreyas-londhe/pse-poseidon.git" }
 
 [features]
 scripts = ["snark-verifier-sdk"]
