@@ -35,7 +35,7 @@ pub fn compress_point(point: &Secp256k1Affine) -> [u8; 33] {
 pub fn hash_to_curve(message: &[u8], compressed_pk: &[u8; 33]) -> Secp256k1Affine {
   let hashed_to_curve = K256Secp256k1::hash_from_bytes::<ExpandMsgXmd<Poseidon<Fr, 3, 2>>>(
     &[[message, compressed_pk].concat().as_slice()],
-    &[b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"]
+    &[b"QUUX-V01-CS02-with-secp256k1_XMD:POSEIDON_SSWU_RO_"]
   )
     .unwrap()
     .to_affine();
