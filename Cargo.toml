@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = [ "circuits/halo2","rust-arkworks", "rust-k256", "circuits/halo2/wasm"]
+members = [ "circuits/halo2","rust-arkworks", "rust-k256", "circuits/halo2/wasm", "js-wasm" ]
 
 [patch.crates-io]
 ark-ec = { git = "https://github.com/FindoraNetwork/ark-algebra" }

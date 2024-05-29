@@ -1,0 +1,21 @@
+[package]
+name = "js_wasm"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hex = "0.4.3"
+wasm-bindgen = "0.2.92"
+getrandom = { version = "0.2.7", features = ["js"] }
+num-bigint = "0.4.5"
+num-traits = "0.2.19"
+rand = "0.8.5"
+serde = { version = "1.0.197" ,features = ["derive"] }
+tsify = "0.4.5"
+halo2curves-axiom = { git = "https://github.com/axiom-crypto/halo2curves.git" }
+pse-poseidon = { git = "https://github.com/shreyas-londhe/pse-poseidon.git" }
+k256 = { version = "0.13.3", features = ["arithmetic", "hash2curve", "expose-field" ] }
+

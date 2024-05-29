@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Wasm Function Example</title>
+  </head>
+  <body>
+    <script type="module">
+      import init, { computeAllInputs } from "./pkg/js_wasm.js";
+
+      async function run() {
+        await init();
+        const plume = computeAllInputs(
+          "hello world",
+          "db8f65ab8e9a54b25d57d7cb55401806ecdd1c7deb676808f9aa721f43bd3906",
+          "",
+          1,
+        );
+        console.log("Plume:", plume);
+      }
+
+      run();
+    </script>
+  </body>
+</html>
