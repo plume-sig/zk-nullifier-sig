@@ -39,3 +39,42 @@ export const getKzgParams = async (k: number) => {
     `https://axiom-crypto.s3.amazonaws.com/challenge_0085/kzg_bn254_${k}.srs`,
   );
 };
+
+export const getMerkleData = (merkleTree: string[][], leafIndex: number) => {
+  const proof = [];
+  const proofHelper = [];
+  let index = leafIndex;
+
+  for (let level = 0; level < merkleTree.length - 1; level++) {
+    const isRightNode = index % 2 === 1;
+    const siblingIndex = isRightNode ? index - 1 : index + 1;
+
+    if (siblingIndex < merkleTree[level].length) {
+      proof.push(merkleTree[level][siblingIndex]);
+      proofHelper.push(isRightNode ? "0x0" : "0x1");
+    }
+
+    index = Math.floor(index / 2);
+  }
+
+  const root = merkleTree[merkleTree.length - 1][0];
+
+  return { proof, proofHelper, root };
+};
+
+export const fetchMerkleData = async (url: string, leafIndex: number) => {
+  const response = await fetch(url);
+  const data = await response.json();
+
+  let {
+    proof: merkleProof,
+    proofHelper,
+    root,
+  } = getMerkleData(data, leafIndex);
+
+  console.log("proof", merkleProof);
+  console.log("proofHelper", proofHelper);
+  console.log("root", root);
+
+  return { merkleProof, proofHelper, root };
+};

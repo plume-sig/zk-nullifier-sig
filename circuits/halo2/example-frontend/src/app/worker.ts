@@ -1,13 +1,15 @@
-import { getKzgParams } from "./utils";
+import { fetchMerkleData, getKzgParams } from "./utils";
 import init, {
   initThreadPool,
   initPanicHook,
   Halo2Wasm,
-  PlumeVerify,
+  Circuit,
 } from "plume-wasm";
 
 self.onmessage = async (e) => {
-  if (e.data.action === "runMain") {
+  const { action, data } = e.data;
+  if (action === "runMain") {
+    const { provingKey, verifyingKey, plume, option } = data;
     try {
       await init();
       console.log("Wasm initialized");
@@ -31,17 +33,32 @@ self.onmessage = async (e) => {
       });
       console.log("Halo2Wasm configured");
 
-      const plumeVerify = new PlumeVerify(halo2wasm);
-      console.log("PlumeVerify instance created");
+      const circuit = new Circuit(halo2wasm);
+      console.log("circuit instance created");
 
-      plumeVerify.run({
-        nullifier: e.data.data.plume.nullifier,
-        s: e.data.data.plume.s,
-        c: e.data.data.plume.c,
-        message: e.data.data.plume.message,
-        publicKey: e.data.data.plume.publicKey,
+      circuit.plumeVerify({
+        nullifier: plume.nullifier,
+        s: plume.s,
+        c: plume.c,
+        message: plume.message,
+        publicKey: plume.publicKey,
       });
-      console.log("PlumeVerify run completed");
+      console.log("PlumeVerify completed");
+
+      if (option === "merkle") {
+        const { merkleProof, proofHelper, root } = await fetchMerkleData(
+          "https://storage.googleapis.com/plume-keys/merkle_tree_8.json",
+          0,
+        );
+
+        circuit.merkleVerify({
+          root,
+          publicKey: plume.publicKey,
+          proof: merkleProof,
+          proofHelper,
+        });
+        console.log("MerkleVerify completed");
+      }
 
       halo2wasm.useInstances();
       console.log("Using instances");
@@ -57,10 +74,10 @@ self.onmessage = async (e) => {
         console.error("Invalid KZG params format");
       }
 
-      halo2wasm.loadVk(e.data.data.verifyingKey);
+      halo2wasm.loadVk(verifyingKey);
       console.log("Verification key loaded");
 
-      halo2wasm.loadPk(e.data.data.provingKey);
+      halo2wasm.loadPk(provingKey);
       console.log("Proving key loaded");
 
       const proofStart = performance.now();

@@ -69,6 +69,7 @@ impl Circuit {
     }
   }
 
+  #[wasm_bindgen(js_name = plumeVerify)]
   pub fn plume_verify(&mut self, input: PlumeVerifyInput) {
     let nullifier = parse_compressed_point(input.nullifier);
     let s = parse_scalar(input.s);
@@ -115,6 +116,7 @@ impl Circuit {
     builder_borrow.assigned_instances[0].append(&mut nullifier.y().limbs().to_vec());
   }
 
+  #[wasm_bindgen(js_name = merkleVerify)]
   pub fn merkle_verify(&mut self, input: MerkleVerifyInput) {
     let pk = parse_compressed_point(input.public_key);
     let root = parse_fr(input.root);

@@ -19,7 +19,7 @@ export async function generateNullifier(): Promise<NullifierData> {
     })
   )[0];
 
-  let message = "CLAIM MY MONI!!";
+  let message = "CLAIM MY MONIII";
 
   let nullifier = await window.ethereum.request({
     method: "eth_getPlumeSignature",
