@@ -1,5 +1,5 @@
 {
-  "name": "js_wasm",
+  "name": "plume-wasm",
   "version": "0.1.0",
   "files": [
     "js_wasm_bg.wasm",
