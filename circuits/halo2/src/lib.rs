@@ -15,6 +15,7 @@ use halo2_ecc::{
   fields::FieldChip,
   secp256k1::{ hash_to_curve::{ hash_to_curve, util::fe_to_bytes_le }, Secp256k1Chip },
 };
+
 #[derive(Clone, Debug, Default)]
 pub struct PlumeCircuitInput {
   pub nullifier: (Fp, Fp),

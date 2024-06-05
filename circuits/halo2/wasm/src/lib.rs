@@ -11,7 +11,7 @@ use halo2_wasm::{
   Halo2Wasm,
 };
 use merkle::verify_merkle_proof;
-use plume_halo2::{ verify_plume, PlumeInput };
+use halo2_plume::{ verify_plume, PlumeInput };
 use serde::{ Deserialize, Serialize };
 use tsify::Tsify;
 use std::{ cell::RefCell, rc::Rc };
