@@ -10,38 +10,30 @@ repository = "https://github.com/plume-sig/zk-nullifier-sig/"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["console_error_panic_hook"]
+# I'd alias this to `sec1` if that won't be trickyt
+verify = ["dep:sec1"]
 
 [dependencies]
 wasm-bindgen = "~0.2.84"
-
-# The `console_error_panic_hook` crate provides better debugging of panics by
-# logging them with `console.error`. This is great for development, but requires
-# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
-# code size when deploying.
-console_error_panic_hook = { version = "0.1.7", optional = true }
-
 js-sys = "0.3"
 
-plume_rustcrypto = "0.2" # TODO change to <crates.io>
-rand_chacha = "0.3"
-sec1 = "0.7.3" # match with `k256`
-elliptic-curve = {version = "0.13.8", features = ["sec1"]} # match with `k256`
-hex = "0.4"
-k256 = "~0.13.3" # match with `k256`
+plume_rustcrypto = {version = "~0.2.1", default-features = false} 
+# rand_chacha = "0.3"
+sec1 = {version = "0.7.3", optional = true} # match with `k256`
+# elliptic-curve = {version = "0.13.8", features = ["sec1"]} # match with `k256`
+elliptic-curve = {version = "0.13.8"}
+# hex = "0.4"
+# k256 = "~0.13.3" # match with `k256`
 zeroize = "1.8"
 signature = "^2.2.0"
 getrandom = { version = "0.2", features = ["js"] }
 # getrandom_or_panic = "0.0.3"
-rand = {version = "0.8"}
+# rand = {version = "0.8"}
 anyhow = "1"
-
-web-sys = { version = "0.3", features = ["CryptoKey", "SubtleCrypto", "Crypto", "EcKeyImportParams"] }
-wasm-bindgen-futures = "0.4"
 
 [dev-dependencies]
 wasm-bindgen-test = "~0.3.34"
 
-[profile.release]
+[profile.release] # This comes from template; didn't touch this yet - docs doesn't tell much about it.
 # Tell `rustc` to optimize for small code size.
 # opt-level = "s"
