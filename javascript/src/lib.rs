@@ -1,11 +1,5 @@
-//! TODO is it possible to add top-level?
-// TODO should I do examples rustdoc style or javadoc?
-/* 
-I want to have a look at good and *small* example for...
-* JS tests and CI
-* documenting */
+//! sadly `wasm-bindgen` doesn't support top-level @module docs yet
 
-use std::convert::TryFrom;
 #[cfg(feature = "verify")]
 use std::convert::TryInto;
 
@@ -76,23 +70,34 @@ impl PlumeSignature {
         // values.get
     }
 
-    /// Depending on your context you may want to zeroize from Wasm memory private parts of the result after getting the values.
+    #[wasm_bindgen(js_name = zeroizePrivateParts)]
+    /// Zeroize private values of the object from Wasm memory.
     pub fn zeroize_privateparts(&mut self) {
         self.c.zeroize();
         self.pk.zeroize();
+    }
+    #[wasm_bindgen(js_name = zeroizeAll)]
+    /// Zeroize all values of the object from Wasm memory.
+    pub fn zeroize_all(&mut self) {
+        self.zeroize_privateparts();
+        self.message.zeroize();
+        self.nullifier.zeroize();
+        self.s.zeroize();
+        if let Some(v1) = self.v1specific.as_mut() {
+            v1.hashed_to_curve_r.zeroize();
+            v1.r_point.zeroize();
+        }
     }
 }
 
 #[wasm_bindgen(skip_jsdoc)]
 /// @throws a "crypto error" in case of a problem with the secret key
 /// @param {boolean} v1 - is the flag to choose between V1 and V2 output.
-/// @param {Uint8Array} sk - must be exactly 32 bytes, and strictly represent a non-zero scalar of `secp256` in big-endian.
+/// @param {Uint8Array} sk - secret key in SEC1 DER format.
 /// @param {Uint8Array} msg
 /// @returns {PlumeSignature}
 pub fn sign(v1: bool, sk: &mut [u8], msg: &[u8]) -> Result<PlumeSignature, JsError> {
-    let sk_z = 
-        plume_rustcrypto::SecretKey
-            ::from(plume_rustcrypto::NonZeroScalar::try_from(sk.as_ref())?);
+    let sk_z = plume_rustcrypto::SecretKey::from_sec1_der(sk)?;
     sk.zeroize();
     let signer = plume_rustcrypto::randomizedsigner::PlumeSigner::new(&sk_z, v1);
 
@@ -136,7 +141,7 @@ impl TryInto<plume_rustcrypto::PlumeSignature> for PlumeSignature {
     }
 }
 
-impl From <plume_rustcrypto::PlumeSignature> for PlumeSignature {
+impl From<plume_rustcrypto::PlumeSignature> for PlumeSignature {
     fn from(value: plume_rustcrypto::PlumeSignature) -> Self {
         PlumeSignature {
             message: value.message,

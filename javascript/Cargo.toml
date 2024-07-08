@@ -18,17 +18,11 @@ wasm-bindgen = "~0.2.84"
 js-sys = "0.3"
 
 plume_rustcrypto = {version = "~0.2.1", default-features = false} 
-# rand_chacha = "0.3"
-sec1 = {version = "0.7.3", optional = true} # match with `k256`
-# elliptic-curve = {version = "0.13.8", features = ["sec1"]} # match with `k256`
-elliptic-curve = {version = "0.13.8"}
-# hex = "0.4"
-# k256 = "~0.13.3" # match with `k256`
+sec1 = {version = "~0.7.3", optional = true} # match with `k256`
+elliptic-curve = {version = "~0.13.8"}
 zeroize = "1.8"
 signature = "^2.2.0"
 getrandom = { version = "0.2", features = ["js"] }
-# getrandom_or_panic = "0.0.3"
-# rand = {version = "0.8"}
 anyhow = "1"
 
 [dev-dependencies]

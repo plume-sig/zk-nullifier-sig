@@ -1,84 +1,67 @@
-<div align="center">
+This is wrapper around `plume_rustcrypto` crate to produce PLUME signatures in JS contexts using Wasm.
 
-  <h1><code>wasm-pack-template</code></h1>
+TODO add here couple of examples from systems which uses this.
 
-  <strong>A template for kick starting a Rust and WebAssembly project using <a href="https://github.com/rustwasm/wasm-pack">wasm-pack</a>.</strong>
+# Getting Started
 
-  <p>
-    <a href="https://travis-ci.org/rustwasm/wasm-pack-template"><img src="https://img.shields.io/travis/rustwasm/wasm-pack-template.svg?style=flat-square" alt="Build Status" /></a>
-  </p>
+Get the package from NPM. The repository contains Rust code for generating Wasm and packaging it.
 
-  <h3>
-    <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">Tutorial</a>
-    <span> | </span>
-    <a href="https://discordapp.com/channels/442252698964721669/443151097398296587">Chat</a>
-  </h3>
-
-  <sub>Built with 🦀🕸 by <a href="https://rustwasm.github.io/">The Rust and WebAssembly Working Group</a></sub>
-</div>
-
-## About
-
-[**📚 Read this template tutorial! 📚**][template-docs]
-
-This template is designed for compiling Rust libraries into WebAssembly and
-publishing the resulting package to NPM.
-
-Be sure to check out [other `wasm-pack` tutorials online][tutorials] for other
-templates and usages of `wasm-pack`.
-
-[tutorials]: https://rustwasm.github.io/docs/wasm-pack/tutorials/index.html
-[template-docs]: https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html
-
-## 🚴 Usage
-
-### 🐑 Use `cargo generate` to Clone this Template
-
-[Learn more about `cargo generate` here.](https://github.com/ashleygwilliams/cargo-generate)
-
-```
-cargo generate --git https://github.com/rustwasm/wasm-pack-template.git --name my-project
-cd my-project
+The package usage outline; see the details in subsections.
+```js
+// ...
+let result = plume.sign(true, secretKeySec1Der, msg);
+console.log(result.nullifier);
+result.zeroizePrivateParts();
 ```
 
-### 🛠️ Build with `wasm-pack build`
+Please, refer to the JS-doc for types description, function signatures, and exceptions notes.
 
+Values in the following examples are in line with tests in the wrapped crate.
+## producing the signature
+```js
+import * as plume from "TODO";
+
+let result = plume.sign(
+  false, 
+  new Uint8Array([48, 107, 2, 1, 1, 4, 32, 81, 155, 66, 61, 113, 95, 139, 88, 31, 79, 168, 238, 89, 244, 119, 26, 91, 68, 200, 19, 11, 78, 62, 172, 202, 84, 165, 109, 218, 114, 180, 100, 161, 68, 3, 66, 0, 4, 12, 236, 2, 142, 224, 141, 9, 224, 38, 114, 166, 131, 16, 129, 67, 84, 249, 234, 191, 255, 13, 230, 218, 204, 28, 211, 167, 116, 73, 96, 118, 174, 239, 244, 113, 251, 160, 64, 152, 151, 182, 164, 142, 136, 1, 173, 18, 249, 93, 0, 9, 183, 83, 207, 143, 81, 193, 40, 191, 107, 11, 210, 127, 189]),
+  new Uint8Array([
+    65, 110, 32, 101, 120, 97, 109, 112, 108, 101, 32, 97, 112, 112, 32, 109, 101, 115, 115, 97, 103, 101, 32, 115, 116, 114, 105, 110, 103
+  ])
+);
 ```
-wasm-pack build
+## getters
+`PlumeSignature` provide getters for each property of it, so you have access to any of them upon signing.
+```js
+// ...
+console.log(result.nullifier);
+console.log(result.s);
+console.log(result.c);
+console.log(result.pk);
+console.log(result.message);
+```
+Note that variant is specified by `v1specific`; if it's `undefined` then the object contains V2, otherwise it's V1.
+```js
+// ...
+console.log(result.v1specific.r_point);
+console.log(result.v1specific.hashed_to_curve_r);
+```
+Also there's #convertion utility provided.
+## zeroization
+Depending on your context you might want to clear values of the result from Wasm memory after getting the values.
+```js
+// ...
+result.zeroizePrivateParts();
+result.zeroizeAll();
 ```
 
-### 🔬 Test in Headless Browsers with `wasm-pack test`
+# #convertion of `s` to `BigInt`
+JS most native format for scalar is `BigInt`, but it's not really transportable or secure, so for uniformity of approach `s` in `PlumeSignature` is defined similar to `c`; but if you want to have it as a `BigInt` there's `sec1DerScalarToBigint` helper funtion.
 
-```
-wasm-pack test --headless --firefox
-```
+# Working with source files
 
-### 🎁 Publish to NPM with `wasm-pack publish`
+This package is built with the tech provided by <https://github.com/rustwasm> which contains everything needed to work with it. Also the wrapper crate was initiated with `wasm-pack-template`.
 
-```
-wasm-pack publish
-```
+Note that the wrapper crate has `verify` feature which can check the resulting signature.
 
-## 🔋 Batteries Included
-
-* [`wasm-bindgen`](https://github.com/rustwasm/wasm-bindgen) for communicating
-  between WebAssembly and JavaScript.
-* [`console_error_panic_hook`](https://github.com/rustwasm/console_error_panic_hook)
-  for logging panic messages to the developer console.
-* `LICENSE-APACHE` and `LICENSE-MIT`: most Rust projects are licensed this way, so these are included for you
-
-## License
-
-Licensed under either of
-
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
-
-### Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally
-submitted for inclusion in the work by you, as defined in the Apache-2.0
-license, shall be dual licensed as above, without any additional terms or
-conditions.
+# License
+See <https://github.com/plume-sig/zk-nullifier-sig/blob/main/LICENSE>.
