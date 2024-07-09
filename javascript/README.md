@@ -9,7 +9,7 @@ Get the package from NPM. The repository contains Rust code for generating Wasm 
 The package usage outline; see the details in subsections.
 ```js
 // ...
-let result = plume.sign(true, secretKeySec1Der, msg);
+let result = plume.sign(isV1, secretKeySec1Der, msg);
 console.log(result.nullifier);
 result.zeroizePrivateParts();
 ```
@@ -19,7 +19,7 @@ Please, refer to the JS-doc for types description, function signatures, and exce
 Values in the following examples are in line with tests in the wrapped crate.
 ## producing the signature
 ```js
-import * as plume from "TODO";
+import * as plume from "plume-sig";
 
 let result = plume.sign(
   false, 
@@ -34,16 +34,39 @@ let result = plume.sign(
 ```js
 // ...
 console.log(result.nullifier);
+/* Uint8Array(33) [
+    3,  87, 188,  62, 210, 129, 114, 239,
+  138, 221, 228, 185, 224, 194, 204, 231,
+   69, 252, 197, 166, 100, 115, 164,  92,
+   30,  98, 111,  29,  12, 103, 229,  88,
+   48
+] */
 console.log(result.s);
+/* Uint8Array(109) [
+   48, 107,   2,   1,   1,   4,  32,  73,  27, 195, 183, 106,
+  202, 136, 167,  50, 193, 119, 152, 153, 233,  56, 176,  58,
+  221, 183,   4, 126, 189,  69, 201, 173, 102,  98, 248,  36,
+  112, 183, 176, 161,  68,   3,  66,   0,   4,  13,  18, 115,
+  220, 215, 120, 156,  20, 128, 225, 106,  29, 255,  16, 218,
+    5,  19, 179,  80, 204,  25, 144,  61, 150, 121,  83,  76,
+  174,  21, 232,  58, 153,  97, 227, 239,  78, 114, 199,  53,
+  138,  93, 108, 150,  98, 141,  89, 159, 219, 243, 182, 188,
+   22, 224, 154, 171,
+  ... 9 more items
+] */
 console.log(result.c);
 console.log(result.pk);
 console.log(result.message);
+console.log(result.v1specific);
+// undefined
 ```
 Note that variant is specified by `v1specific`; if it's `undefined` then the object contains V2, otherwise it's V1.
 ```js
 // ...
-console.log(result.v1specific.r_point);
-console.log(result.v1specific.hashed_to_curve_r);
+if (result.v1specific) {
+  console.log(result.v1specific.r_point);
+  console.log(result.v1specific.hashed_to_curve_r);
+}
 ```
 Also there's #convertion utility provided.
 ## zeroization

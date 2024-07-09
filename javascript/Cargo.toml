@@ -5,12 +5,14 @@ authors = ["skaunov"]
 edition = "2018"
 keywords = ["nullifier", "zero-knowledge", "ECDSA", "PLUME"]
 repository = "https://github.com/plume-sig/zk-nullifier-sig/"
+description = "wrapper around `plume_rustcrypto` crate to produce PLUME signatures in JS contexts using Wasm"
+license = "MIT"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [features]
-# I'd alias this to `sec1` if that won't be trickyt
+# I'd alias this to `sec1` if that won't be tricky
 verify = ["dep:sec1"]
 
 [dependencies]
