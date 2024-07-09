@@ -1,6 +1,6 @@
 [package]
 name = "plume-sig"
-version = "3.0.0-rc.0"
+version = "3.0.0-rc.1"
 authors = ["skaunov"]
 edition = "2018"
 keywords = ["nullifier", "zero-knowledge", "ECDSA", "PLUME"]
