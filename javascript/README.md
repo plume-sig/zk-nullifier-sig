@@ -19,7 +19,7 @@ Please, refer to the JS-doc for types description, function signatures, and exce
 Values in the following examples are in line with tests in the wrapped crate.
 ## producing the signature
 ```js
-import * as plume from "plume-sig";
+import * as plume from 'plume-sig';
 
 let result = plume.sign(
   false, 
