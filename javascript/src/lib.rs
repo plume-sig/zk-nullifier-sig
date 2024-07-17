@@ -1,14 +1,13 @@
 //! sadly `wasm-bindgen` doesn't support top-level @module docs yet
 
-#[cfg(feature = "verify")]
-use std::convert::TryInto;
-
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "verify")]
 use elliptic_curve::sec1::FromEncodedPoint;
 use elliptic_curve::sec1::ToEncodedPoint;
 use signature::RandomizedSigner;
+#[cfg(feature = "verify")]
+use std::convert::TryInto;
 use zeroize::Zeroize;
 
 #[wasm_bindgen(getter_with_clone)]
@@ -45,13 +44,6 @@ impl PlumeSignatureV1Fields {
 
 #[wasm_bindgen]
 impl PlumeSignature {
-    #[cfg(feature = "verify")]
-    /// @deprecated Use this only for testing purposes.
-    /// @throws an error if the data in the object doesn't let it to properly run verification; message contains nature of the problem and indicates relevant property of the object. In case of other (crypto) problems returns `false`.
-    pub fn verify(self) -> Result<bool, JsError> {
-        Ok(plume_rustcrypto::PlumeSignature::verify(&self.try_into()?))
-    }
-
     /// there's no case for constructing it from values, so this only used internally and for testing
     /// `v1specific` discriminates if it's V1 or V2 scheme used. Pls, see wrapped docs for details.
     #[wasm_bindgen(constructor)]
@@ -97,6 +89,13 @@ impl PlumeSignature {
             v1.r_point.zeroize();
         }
     }
+
+    #[cfg(feature = "verify")]
+    /// @deprecated Use this only for testing purposes.
+    /// @throws an error if the data in the object doesn't let it to properly run verification; message contains nature of the problem and indicates relevant property of the object. In case of other (crypto) problems returns `false`.
+    pub fn verify(self) -> Result<bool, JsError> {
+        Ok(plume_rustcrypto::PlumeSignature::verify(&self.try_into()?))
+    }
 }
 
 #[wasm_bindgen(skip_jsdoc)]
@@ -113,6 +112,42 @@ pub fn sign(v1: bool, sk: &mut [u8], msg: &[u8]) -> Result<PlumeSignature, JsErr
     Ok(signer
         .sign_with_rng(&mut signature::rand_core::OsRng, msg)
         .into())
+}
+
+impl From<plume_rustcrypto::PlumeSignature> for PlumeSignature {
+    fn from(value: plume_rustcrypto::PlumeSignature) -> Self {
+        PlumeSignature {
+            message: value.message,
+            pk: value.pk.to_encoded_point(true).as_bytes().to_vec(),
+            nullifier: value.nullifier.to_encoded_point(true).as_bytes().to_vec(),
+            c: plume_rustcrypto::SecretKey::from(value.c).to_sec1_der().expect("`k256` restricts this type to proper keys, so it's serialized representation shouldn't have a chance to fail")
+                .to_vec(),
+            s: plume_rustcrypto::SecretKey::from(value.s).to_sec1_der().expect("`k256` restricts this type to proper keys, so it's serialized representation shouldn't have a chance to fail")
+                .to_vec(),
+            v1specific: value.v1specific.map(|v1| {PlumeSignatureV1Fields {
+                r_point: v1.r_point.to_encoded_point(true).as_bytes().to_vec(),
+                hashed_to_curve_r: v1.hashed_to_curve_r.to_encoded_point(true).as_bytes().to_vec(),
+            }})
+        }
+    }
+}
+
+#[wasm_bindgen(js_name = sec1DerScalarToBigint)]
+/// This might leave values in memory! Don't use for private values.
+/// JS most native format for scalar is `BigInt`, but it's not really transportable or secure, so for uniformity of approach `s` in `PlumeSignature` is defined similar to `c`;
+/// but if you want to have it as a `BigInt` this util is left here.
+pub fn sec1derscalar_to_bigint(scalar: &[u8]) -> Result<js_sys::BigInt, JsError> {
+    Ok(js_sys::BigInt::new(&JsValue::from_str(
+        ("0x".to_owned()
+            + plume_rustcrypto::SecretKey::from_sec1_der(scalar)?
+                .to_nonzero_scalar()
+                .to_string()
+                .as_str())
+        .as_str(),
+    ))
+    .expect(
+        "`BigInt` always can be created from hex string, and `v.to_string()` always produce that",
+    ))
 }
 
 // TODO deprecate when `verify` gone
@@ -158,40 +193,4 @@ impl TryInto<plume_rustcrypto::PlumeSignature> for PlumeSignature {
             },
         })
     }
-}
-
-impl From<plume_rustcrypto::PlumeSignature> for PlumeSignature {
-    fn from(value: plume_rustcrypto::PlumeSignature) -> Self {
-        PlumeSignature {
-            message: value.message,
-            pk: value.pk.to_encoded_point(true).as_bytes().to_vec(),
-            nullifier: value.nullifier.to_encoded_point(true).as_bytes().to_vec(),
-            c: plume_rustcrypto::SecretKey::from(value.c).to_sec1_der().expect("`k256` restricts this type to proper keys, so it's serialized representation shouldn't have a chance to fail")
-                .to_vec(),
-            s: plume_rustcrypto::SecretKey::from(value.s).to_sec1_der().expect("`k256` restricts this type to proper keys, so it's serialized representation shouldn't have a chance to fail")
-                .to_vec(),
-            v1specific: value.v1specific.map(|v1| {PlumeSignatureV1Fields {
-                r_point: v1.r_point.to_encoded_point(true).as_bytes().to_vec(),
-                hashed_to_curve_r: v1.hashed_to_curve_r.to_encoded_point(true).as_bytes().to_vec(),
-            }})
-        }
-    }
-}
-
-#[wasm_bindgen(js_name = sec1DerScalarToBigint)]
-/// This might leave values in memory! Don't use for private values.
-/// JS most native format for scalar is `BigInt`, but it's not really transportable or secure, so for uniformity of approach `s` in `PlumeSignature` is defined similar to `c`;
-/// but if you want to have it as a `BigInt` this util is left here.
-pub fn sec1derscalar_to_bigint(scalar: &[u8]) -> Result<js_sys::BigInt, JsError> {
-    Ok(js_sys::BigInt::new(&JsValue::from_str(
-        ("0x".to_owned()
-            + plume_rustcrypto::SecretKey::from_sec1_der(scalar)?
-                .to_nonzero_scalar()
-                .to_string()
-                .as_str())
-        .as_str(),
-    ))
-    .expect(
-        "`BigInt` always can be created from hex string, and `v.to_string()` always produce that",
-    ))
 }
