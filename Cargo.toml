@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = ["rust-arkworks", "rust-k256"]
+members = ["rust-arkworks", "rust-k256", "javascript"]
 
 [patch.crates-io]
 ark-ec = { git = "https://github.com/FindoraNetwork/ark-algebra" }

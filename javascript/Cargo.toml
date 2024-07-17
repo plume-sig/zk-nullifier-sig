@@ -1,0 +1,35 @@
+[package]
+name = "plume-sig"
+version = "3.0.0-rc.1"
+authors = ["skaunov"]
+edition = "2018"
+keywords = ["nullifier", "zero-knowledge", "ECDSA", "PLUME"]
+repository = "https://github.com/plume-sig/zk-nullifier-sig/"
+description = "wrapper around `plume_rustcrypto` crate to produce PLUME signatures in JS contexts using Wasm"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# I'd alias this to `sec1` if that won't be tricky
+verify = ["dep:sec1"]
+
+[dependencies]
+wasm-bindgen = "~0.2.84"
+js-sys = "0.3"
+
+plume_rustcrypto = {version = "~0.2.1", default-features = false} 
+sec1 = {version = "~0.7.3", optional = true} # match with `k256`
+elliptic-curve = {version = "~0.13.8"}
+zeroize = "1.8"
+signature = "^2.2.0"
+getrandom = { version = "0.2", features = ["js"] }
+anyhow = "1"
+
+[dev-dependencies]
+wasm-bindgen-test = "~0.3.34"
+
+[profile.release] # This comes from template; didn't touch this yet - docs doesn't tell much about it.
+# Tell `rustc` to optimize for small code size.
+# opt-level = "s"
