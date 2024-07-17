@@ -2,13 +2,13 @@
 
 use wasm_bindgen::prelude::*;
 
-use elliptic_curve::sec1::ToEncodedPoint;
-use signature::RandomizedSigner;
-use zeroize::Zeroize;
 #[cfg(feature = "verify")]
 use elliptic_curve::sec1::FromEncodedPoint;
+use elliptic_curve::sec1::ToEncodedPoint;
+use signature::RandomizedSigner;
 #[cfg(feature = "verify")]
 use std::convert::TryInto;
+use zeroize::Zeroize;
 
 #[wasm_bindgen(getter_with_clone)]
 /// @typedef {Object} PlumeSignature - Wrapper around [`plume_rustcrypto::PlumeSignature`](https://docs.rs/plume_rustcrypto/latest/plume_rustcrypto/struct.PlumeSignature.html).
@@ -70,7 +70,7 @@ impl PlumeSignature {
         // js_sys::Object::from_entries(&values)?
         // values.get
     }
-    
+
     #[wasm_bindgen(js_name = zeroizePrivateParts)]
     /// Zeroize private values of the object from Wasm memory.
     pub fn zeroize_privateparts(&mut self) {
