@@ -30,11 +30,16 @@ template plume_v1(n, k, message_length) {
     signal input q1_x_mapped[4];
     signal input q1_y_mapped[4];
 
+    // compressing public key here to avoid compressing it twice in both `check_ec_equations` and `sha256_12_coordinates`
+    component pk_compressor = compress_ec_point(n, k);
+    pk_compressor.uncompressed <== pk;
+
     component check_ec_equations = check_ec_equations(n, k, message_length);
 
     check_ec_equations.c <== c;
     check_ec_equations.s <== s;
     check_ec_equations.pk <== pk;
+    check_ec_equations.pk_compressed <== pk_compressor.compressed;
     check_ec_equations.nullifier <== nullifier;
 
     check_ec_equations.plume_message <== plume_message;
@@ -56,15 +61,15 @@ template plume_v1(n, k, message_length) {
     var g[2][100];
     g[0] = get_genx(n, k);
     g[1] = get_geny(n, k);
+    c_sha256.pk_compressed <== pk_compressor.compressed;
 
     for (var i = 0; i < 2; i++) {
         for (var j = 0; j < k; j++) {
             c_sha256.coordinates[i][j] <== g[i][j];
-            c_sha256.coordinates[2+i][j] <== pk[i][j];
-            c_sha256.coordinates[4+i][j] <== check_ec_equations.hashed_to_curve[i][j];
-            c_sha256.coordinates[6+i][j] <== nullifier[i][j];
-            c_sha256.coordinates[8+i][j] <== check_ec_equations.r_point[i][j];
-            c_sha256.coordinates[10+i][j] <== check_ec_equations.hashed_to_curve_r[i][j];
+            c_sha256.coordinates[2+i][j] <== check_ec_equations.hashed_to_curve[i][j];
+            c_sha256.coordinates[4+i][j] <== nullifier[i][j];
+            c_sha256.coordinates[6+i][j] <== check_ec_equations.r_point[i][j];
+            c_sha256.coordinates[8+i][j] <== check_ec_equations.hashed_to_curve_r[i][j];
         }
     }
 
@@ -112,11 +117,15 @@ template plume_v2(n, k, message_length) {
     signal input q1_x_mapped[4];
     signal input q1_y_mapped[4];
 
+    component pk_compressor = compress_ec_point(n, k);
+    pk_compressor.uncompressed <== pk;
+
     component check_ec_equations = check_ec_equations(n, k, message_length);
 
     check_ec_equations.c <== c;
     check_ec_equations.s <== s;
     check_ec_equations.pk <== pk;
+    check_ec_equations.pk_compressed <== pk_compressor.compressed;
     check_ec_equations.nullifier <== nullifier;
 
     check_ec_equations.plume_message <== plume_message;
@@ -142,6 +151,7 @@ template check_ec_equations(n, k, message_length) {
     signal input s[k];
     signal input plume_message[message_length];
     signal input pk[2][k];
+    signal input pk_compressed[33];
     signal input nullifier[2][k];
 
     signal output r_point[2][k];
@@ -183,14 +193,10 @@ template check_ec_equations(n, k, message_length) {
     component hash_to_curve = HashToCurve(message_length + 33);
     for (var i = 0; i < message_length; i++) {
         hash_to_curve.msg[i] <== plume_message[i];
-    }
-
-    component pk_compressor = compress_ec_point(n, k);
-
-    pk_compressor.uncompressed <== pk;    
+    }    
 
     for (var i = 0; i < 33; i++) {
-        hash_to_curve.msg[message_length + i] <== pk_compressor.compressed[i];
+        hash_to_curve.msg[message_length + i] <== pk_compressed[i];
     }
 
     // Input precalculated values into HashToCurve
@@ -255,12 +261,13 @@ template a_div_b_pow_c(n, k) {
 }
 
 template sha256_12_coordinates(n, k) {
-    signal input coordinates[12][k];
+    signal input pk_compressed[33];
+    signal input coordinates[10][k];
     signal output out[256];
 
     // compress coordinates
-    component compressors[6];
-    for (var i = 0; i < 6; i++) {
+    component compressors[5];
+    for (var i = 0; i < 5; i++) {
         compressors[i] = compress_ec_point(n, k);
         compressors[i].uncompressed[0] <== coordinates[2*i];
         compressors[i].uncompressed[1] <== coordinates[2*i + 1];
@@ -270,8 +277,16 @@ template sha256_12_coordinates(n, k) {
     component binary[6*33];
     for (var i = 0; i < 6; i++) { // for each compressor
         for (var j = 0; j < 33; j++) { // for each byte
-            binary[33*i + j] = Num2Bits(8);
-            binary[33*i + j].in <== compressors[i].compressed[j];
+            if (i == 0) {
+                binary[33*i + j] = Num2Bits(8);
+                binary[33*i + j].in <== compressors[i].compressed[j];                
+            } else if (i == 1) {
+                binary[33*i + j] = Num2Bits(8);
+                binary[33*i + j].in <== pk_compressed[j];
+            } else {
+                binary[33*i + j] = Num2Bits(8);
+                binary[33*i + j].in <== compressors[i-1].compressed[j];
+            }
         }
     }
 
