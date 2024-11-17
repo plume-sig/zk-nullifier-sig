@@ -7,13 +7,7 @@ use ark_ff::BigInt;
 // use crate::sec1::Sec1EncodePoint;
 // use crate::fields::{Fr, Fq};
 // use crate::curves::*;
-use ark_std::{
-    rand::Rng,
-    test_rng,
-    string::String,
-    vec::Vec,
-    io::BufReader,
-};
+use ark_std::{io::BufReader, rand::Rng, string::String, test_rng, vec::Vec};
 // use ark_algebra_test_templates::{
 //     fields::*,
 //     curves::*,
@@ -21,17 +15,17 @@ use ark_std::{
 //     groups::group_test,
 // };
 // use ark_ec::{AffineCurve, ProjectiveCurve};
-use ark_std::string::ToString;
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 use ark_ff::{
-    vec,
     biginteger::BigInteger320,
+    vec,
+    BigInteger,
+    PrimeField,
     // ToBytes,
     // FromBytes,
     ToConstraintField,
-    PrimeField,
-    BigInteger,
 };
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::string::ToString;
 use hex::ToHex;
 use sha2::Sha256;
 
@@ -114,35 +108,50 @@ fn test_h2c() {
     Q1.y    = 96eb8e2faf05e368efe5957c6167001760233e6dd2487516b46ae7
             25c4cce0c6 */
     use std::str::FromStr;
-    
+
     // assert_eq!(
     //     ExpanderXmd::expand([]),
     //     hex::decode("68a985b87eb6b46952128911f2a4412bbc302a9d759667f87f7a21d803f07235")
     // );
-    
+
     let dst = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_";
 
-    let defhasher: FixedFieldHasher<Sha256> = <FixedFieldHasher::<Sha256> as HashToField<secp256k1::fq::Fq>>::new(dst);
+    let defhasher: FixedFieldHasher<Sha256> =
+        <FixedFieldHasher<Sha256> as HashToField<secp256k1::fq::Fq>>::new(dst);
     let u: [secp256k1::fq::Fq; 2] = defhasher.hash_to_field::<2>(&[]);
     println!("{}", u[0]);
     assert_eq!(
         u[0],
-        secp256k1::fq::Fq::new(BigInt::from_str(//_radix(
-            "48425033926223359121679389614872723077618800904285921194876400224709273202611"
-            // 4424703167977793061848381150098601127251783968775290647828255579651460940578
-            // "6b0f9910dd2ba71c78f2ee9f04d73b5f4c5f7fc773a701abea1e573cab002fb3"
-        ).unwrap()), 
+        secp256k1::fq::Fq::new(
+            BigInt::from_str(
+                "48425033926223359121679389614872723077618800904285921194876400224709273202611"
+            )
+            .unwrap()
+        ),
     );
-    
+
     assert_eq!(
         ark_ec::hashing::map_to_curve_hasher::MapToCurveBasedHasher::<
-            ark_ec::short_weierstrass::Projective<secp256k1::Config>, 
-            FixedFieldHasher<Sha256>, 
-            ark_ec::hashing::curve_maps::wb::WBMap<secp256k1::Config>
-        >::new(dst).unwrap().hash(&[]).unwrap(),
+            ark_ec::short_weierstrass::Projective<secp256k1::Config>,
+            FixedFieldHasher<Sha256>,
+            ark_ec::hashing::curve_maps::wb::WBMap<secp256k1::Config>,
+        >::new(dst)
+        .unwrap()
+        .hash(&[])
+        .unwrap(),
         secp256k1::Affine::new(
-            secp256k1::fq::Fq::new(BigInt::from_str("87654846584422849836571930156466438379984710599888121545025567473301233275718").unwrap()), 
-            secp256k1::fq::Fq::new(BigInt::from_str("45673711333516174500892987253036094404176536844955599116957274814081860440167").unwrap()), 
+            secp256k1::fq::Fq::new(
+                BigInt::from_str(
+                    "87654846584422849836571930156466438379984710599888121545025567473301233275718"
+                )
+                .unwrap()
+            ),
+            secp256k1::fq::Fq::new(
+                BigInt::from_str(
+                    "45673711333516174500892987253036094404176536844955599116957274814081860440167"
+                )
+                .unwrap()
+            ),
         )
     );
 }

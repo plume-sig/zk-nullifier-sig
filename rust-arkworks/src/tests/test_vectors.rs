@@ -1,4 +1,4 @@
-pub fn encoding_test_vectors() -> Vec::<(u64, String, String)> {
+pub fn encoding_test_vectors() -> Vec<(u64, String, String)> {
     vec![
         (
             0u64,

@@ -1,12 +1,12 @@
 use ark_ff::{
     // biginteger::BigInteger320 as BigInteger,
-    fields::{*, /* MontConfig */}
+    fields::{* /* MontConfig */},
 };
 use ark_ff_macros::MontConfig;
 /*
-    ~~Supported BigInteger sizes:~~
-    ~~256, 320, 384, 448, 768, 832~~
- */
+   ~~Supported BigInteger sizes:~~
+   ~~256, 320, 384, 448, 768, 832~~
+*/
 
 #[derive(MontConfig)]
 #[modulus = "115792089237316195423570985008687907853269984665640564039457584007908834671663"]

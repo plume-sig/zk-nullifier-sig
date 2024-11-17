@@ -1,15 +1,15 @@
 mod test_vectors;
 
+use crate::secp256k1::{Affine, Config};
 use crate::{secp256k1, PlumeSignature, PlumeVersion};
 use ark_ec::AffineRepr;
 use ark_std::rand;
 use rand::{prelude::ThreadRng, thread_rng};
-use crate::secp256k1::{Affine, Config};
 
-use ark_ff::{BigInt, BigInteger};
+use crate::secp256k1::fq::Fq;
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
-use crate::secp256k1::fq::Fq;
+use ark_ff::{BigInt, BigInteger};
 use std::ops::Mul;
 
 type Parameters = crate::Parameters<Config>;
@@ -78,7 +78,8 @@ pub fn test_sign_and_verify() {
         (&keypair.0, &keypair.1),
         message,
         PlumeVersion::V1,
-    ).unwrap();
+    )
+    .unwrap();
 
     let is_valid = sig.verify_non_zk(&pp, &keypair.0, message, PlumeVersion::V1);
     assert!(is_valid.unwrap());
@@ -142,7 +143,7 @@ pub fn test_against_zk_nullifier_sig_g_r() {
     );
 }
 
-#[test] 
+#[test]
 pub fn test_against_zk_nullifier_sig_h() {
     let h = hash_to_curve_with_testvalues();
 
@@ -156,7 +157,7 @@ pub fn test_against_zk_nullifier_sig_h() {
     );
 }
 
-#[test] 
+#[test]
 pub fn test_against_zk_nullifier_sig_h_r() {
     let h = hash_to_curve_with_testvalues();
 
@@ -204,9 +205,8 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
     let pk = Affine::from(pk_projective);
 
     let keypair = (pk, sk);
-    let sig =
-        PlumeSignature::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V1)
-            .unwrap();
+    let sig = PlumeSignature::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V1)
+        .unwrap();
 
     assert_eq!(
         sig.c.into_bigint(),
@@ -217,10 +217,9 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
         BigInt!("0xe69f027d84cb6fe5f761e333d12e975fb190d163e8ea132d7de0bd6079ba28ca")
     );
 
-    let sig =
-        PlumeSignature::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V2)
-            .unwrap();
-    
+    let sig = PlumeSignature::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V2)
+        .unwrap();
+
     assert_eq!(
         sig.c.into_bigint(),
         BigInt!("0x3dbfb717705010d4f44a70720c95e74b475bd3a783ab0b9e8a6b3b363434eb96")

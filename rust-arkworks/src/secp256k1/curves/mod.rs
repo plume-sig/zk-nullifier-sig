@@ -1,15 +1,13 @@
 use super::{fq::Fq, fr::Fr};
 use ark_ec::{
-    // short_weierstrass_jacobian::{GroupAffine, GroupProjective},
-    // ModelParameters, SWModelParameters,
-    short_weierstrass::{self as sw, SWCurveConfig},
-    models::CurveConfig,
     hashing::curve_maps::{
         swu::SWUConfig,
         wb::{IsogenyMap, WBConfig},
     },
+    models::CurveConfig,
+    short_weierstrass::{self as sw, SWCurveConfig},
 };
-use ark_ff::{MontFp, AdditiveGroup, Field, Zero};
+use ark_ff::{AdditiveGroup, Field, MontFp, Zero};
 
 #[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub struct Secp256k1Parameters;
@@ -70,21 +68,13 @@ impl CurveConfig for ConfigIsogenous {
 }
 type TheIsoCurveAffine = sw::Affine<ConfigIsogenous>;
 impl SWCurveConfig for ConfigIsogenous {
-    const COEFF_A: Self::BaseField = MontFp!("0x3f8731abdd661adca08a5558f0f5d272e953d363cb6f0e5d405447c01a444533");
+    const COEFF_A: Self::BaseField =
+        MontFp!("0x3f8731abdd661adca08a5558f0f5d272e953d363cb6f0e5d405447c01a444533");
     const COEFF_B: Self::BaseField = MontFp!("1771");
     const GENERATOR: TheIsoCurveAffine = TheIsoCurveAffine::new_unchecked(
-        MontFp!("75295888890003590383366995344834012177557063699577440394299653383124903397514"), 
-        MontFp!("82553647407850972504999846303729620951309077682374043495922869307182479212755")
+        MontFp!("75295888890003590383366995344834012177557063699577440394299653383124903397514"),
+        MontFp!("82553647407850972504999846303729620951309077682374043495922869307182479212755"),
     );
-    /* $ sage iso_values.sage 
-    ** SECP256k1
-
-    generator
-    (55066263022277343669578718895168534326250603453777594175500187360389116729240 : 32670510020758816978083085130507043184471273380659243275938904335757337482424 : 1)
-    isogenous generator
-    (75295888890003590383366995344834012177557063699577440394299653383124903397514 : 82553647407850972504999846303729620951309077682374043495922869307182479212755 : 1)
-    does it looks good?
-    True */
 }
 impl SWUConfig for ConfigIsogenous {
     const ZETA: Self::BaseField = MontFp!("-11");

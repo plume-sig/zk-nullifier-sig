@@ -1,8 +1,8 @@
 mod expander;
-use expander::{ExpanderXmd, Expander};
 use ark_ff::{field_hashers::HashToField, Field, PrimeField};
-use sha2::digest::{core_api::BlockSizeUser, FixedOutputReset};
 use core::marker::PhantomData;
+use expander::{Expander, ExpanderXmd};
+use sha2::digest::{core_api::BlockSizeUser, FixedOutputReset};
 
 pub struct FixedFieldHasher<H: FixedOutputReset + Default + Clone, const SEC_PARAM: usize = 128> {
     expander: ExpanderXmd<H>,

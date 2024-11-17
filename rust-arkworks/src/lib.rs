@@ -1,22 +1,22 @@
 //! This crate provides the PLUME signature scheme.
 //!
 //! See <https://blog.aayushg.com/nullifier> for more information.
-//! 
+//!
 //! Find the crate to use with RustCrypto as `plume_rustcrypto`.
 //!
 //! # Examples
 //! ```rust
 //! use plume_arkworks::{PlumeSignature, PlumeVersion, SWCurveConfig};
 //! use rand_core::OsRng;
-//! 
+//!
 //! # fn main() {
 //!     let message_the = b"ZK nullifier signature";
 //!     let sk = PlumeSignature::keygen(&mut OsRng);
-//! 
+//!
 //!     let sig = PlumeSignature::sign(
 //!         &mut OsRng, (&sk.0, &sk.1), message_the.as_slice(), PlumeVersion::V1
 //!     );
-//! 
+//!
 //!     assert!(
 //!         sig.unwrap()
 //!         .verify_non_zk(
@@ -31,23 +31,23 @@
 //! # }
 //! ```
 
-/// Stand-in solution until [the curve hashing support](https://github.com/arkworks-rs/algebra/pull/863) is merged.
-pub mod secp256k1; // #standinDependencies
 /// Stand-in solution until [the default hasher issue](https://github.com/arkworks-rs/algebra/issues/849) is fixed.
 pub mod fixed_hasher; // #standinDependencies
+/// Stand-in solution until [the curve hashing support](https://github.com/arkworks-rs/algebra/pull/863) is merged.
+pub mod secp256k1; // #standinDependencies
 
 /* /// Re-exports `SWCurveConfig` type from `models::short_weierstrass` of the `ark_ec` crate,
 /// and `hashing` items.
 ///
 /// `HashToCurve` is the trait needed for hashing to the curve.
 /// `HashToCurveError` is the error type to process a `Result`.
-/// 
+///
 /// `SWCurveConfig` contains the parameters defining a short Weierstrass curve. */
 pub use ark_ec::{
+    hashing::{HashToCurve, HashToCurveError},
     models::short_weierstrass::SWCurveConfig,
-    hashing::{HashToCurve, HashToCurveError}
 };
-use ark_ec::{AffineRepr, CurveGroup, short_weierstrass};
+use ark_ec::{short_weierstrass, AffineRepr, CurveGroup};
 /// Re-exports the `Rng` trait from `rand` crate in `ark_std`.
 ///
 /// `Rng` provides methods for generating random values.
@@ -61,7 +61,7 @@ use ark_ff::{BigInteger, PrimeField};
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
 use fixed_hasher::FixedFieldHasher;
-use sha2::{Digest, Sha256, digest::Output};
+use sha2::{digest::Output, Digest, Sha256};
 use std::ops::Mul;
 
 /// Re-exports the `Affine` and `Fr` types from `secp256k1` module.
@@ -79,28 +79,39 @@ pub enum PlumeVersion {
 /// Converts an affine point on the curve to the byte representation.
 ///
 /// Serializes the affine point to its SEC1 compressed encoding and returns the raw bytes.
-/// 
+///
 /// Note that the identity element is coded with the `Vec` of single zero byte.
 pub fn affine_to_bytes(point: &Affine) -> Vec<u8> {
-    if point.is_zero() {return [0].into()}
+    if point.is_zero() {
+        return [0].into();
+    }
     let mut compressed_bytes = Vec::new();
     point.serialize_compressed(&mut compressed_bytes).expect("it's actually infallible here because the `BaseField` is a proper `Fp` (no flags on serialization)");
     compressed_bytes.reverse();
-    compressed_bytes[0] = 
-        if point.y().expect("zero check have been done above").into_bigint().is_odd() {3}
-        else {2};
+    compressed_bytes[0] = if point
+        .y()
+        .expect("zero check have been done above")
+        .into_bigint()
+        .is_odd()
+    {
+        3
+    } else {
+        2
+    };
     compressed_bytes
 }
 
 fn hash_to_curve(message: &[u8], pk: &Affine) -> Result<Affine, HashToCurveError> {
     ark_ec::hashing::map_to_curve_hasher::MapToCurveBasedHasher::<
-        ark_ec::short_weierstrass::Projective<secp256k1::Config>, 
-        FixedFieldHasher<Sha256>, 
-        ark_ec::hashing::curve_maps::wb::WBMap<secp256k1::Config>
-    >::new(b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_")?.hash([
-        message,
-        affine_to_bytes(pk).as_slice()
-    ].concat().as_slice())
+        ark_ec::short_weierstrass::Projective<secp256k1::Config>,
+        FixedFieldHasher<Sha256>,
+        ark_ec::hashing::curve_maps::wb::WBMap<secp256k1::Config>,
+    >::new(b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_")?
+    .hash(
+        [message, affine_to_bytes(pk).as_slice()]
+            .concat()
+            .as_slice(),
+    )
 }
 
 fn compute_c_v1(
@@ -187,7 +198,7 @@ impl PlumeSignature {
         let public_key = secp256k1::Config::GENERATOR * secret_key;
         (public_key.into_affine(), secret_key)
     }
-    
+
     /// Sign a message using the specified `r` value
     pub fn sign_with_r(
         keypair: (&PublicKey, &SecretKeyMaterial),
@@ -243,7 +254,7 @@ impl PlumeSignature {
     ) -> Result<Self, HashToCurveError> {
         // Pick a random r from Fp
         let r_scalar = secp256k1::Fr::rand(rng);
-        
+
         Self::sign_with_r(keypair, message, r_scalar, version)
     }
 
@@ -281,8 +292,7 @@ impl PlumeSignature {
                 compute_c_v2(&self.nullifier, &self.r_point, &self.hashed_to_curve_r)
             }
         };
-        let c_scalar = 
-            secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
+        let c_scalar = secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
 
         // Reject if g^s ⋅ pk^{-c} != g^r
         let g_s = pp.g_point.mul(self.s);
