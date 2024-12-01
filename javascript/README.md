@@ -68,7 +68,7 @@ if (result.v1specific) {
   console.log(result.v1specific.hashed_to_curve_r);
 }
 ```
-Also there's #convertion utility provided.
+Also there's #conversion utility provided.
 ## zeroization
 Depending on your context you might want to clear values of the result from Wasm memory after getting the values.
 ```js
