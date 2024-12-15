@@ -2,10 +2,3 @@
 resolver = "2"
 
 members = ["rust-arkworks", "rust-k256", "javascript"]
-
-[patch.crates-io]
-ark-ec = { git = "https://github.com/FindoraNetwork/ark-algebra" }
-ark-ff = { git = "https://github.com/FindoraNetwork/ark-algebra" }
-ark-serialize = { git = "https://github.com/FindoraNetwork/ark-algebra" }
-ark-algebra-test-templates = { git = "https://github.com/FindoraNetwork/ark-algebra" }
-ark-std = { git = "https://github.com/FindoraNetwork/ark-std" }

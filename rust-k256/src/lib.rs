@@ -5,7 +5,7 @@
 //!
 //! See <https://blog.aayushg.com/nullifier> for more information.
 //!
-// Find `arkworks-rs` crate as `plume_arkworks`.
+//! Find the crate to use with `arkworks-rs` crate as `plume_arkworks`.
 //
 //! # Examples
 //! If you want more control or to be more generic on traits `use` [`PlumeSigner`] from [`randomizedsigner`]
