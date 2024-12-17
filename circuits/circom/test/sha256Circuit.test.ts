@@ -28,26 +28,17 @@ describe("SHA256 Circuit", () => {
     hexToBigInt(hashMPk.y.toString()),
   );
 
+  const public_key_compressed = Array.from(
+    Point.fromPrivateKey(testSecretKey).toRawBytes(true),
+  );
+
   const sha_preimage_points: Point[] = [
     Point.BASE,
-    Point.fromPrivateKey(testSecretKey),
     hashMPkPoint,
     nullifier,
     rPoint,
     hashedToCurveR,
   ];
-
-  const v1_sha256_preimage_bits = bufToSha256PaddedBitArr(
-    Buffer.from(
-      concatUint8Arrays(
-        sha_preimage_points.map((point) => point.toRawBytes(true)),
-      ),
-    ),
-  );
-  const v1_sha256_preimage_bit_length = parseInt(
-    v1_sha256_preimage_bits.slice(-64),
-    2,
-  );
 
   const v1_binary_c = BigInt("0x" + c_v1)
     .toString(2)
@@ -65,7 +56,13 @@ describe("SHA256 Circuit", () => {
     const p = path.join(__dirname, "./circuits/12_point_sha_256_test.circom");
     const circuit = await wasm_tester(p, { json: true, sym: true });
 
-    const w = await circuit.calculateWitness({ coordinates }, true);
+    const w = await circuit.calculateWitness(
+      {
+        pk_compressed: public_key_compressed,
+        coordinates,
+      },
+      true,
+    );
     await circuit.checkConstraints(w);
     await circuit.assertOut(w, { out: v1_binary_c });
   });
