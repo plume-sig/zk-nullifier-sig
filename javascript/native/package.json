@@ -32,6 +32,7 @@
     "types": "dist/index.d.ts",
     "scripts": {
         "start": "nodemon",
+        "postinstall": "tsc",
         "build": "tsc",
         "prettier": "prettier -c . --config ../.prettierrc --ignore-path ../.prettierignore",
         "prettier:fix": "prettier -w . --config ../.prettierrc --ignore-path ../.prettierignore",
