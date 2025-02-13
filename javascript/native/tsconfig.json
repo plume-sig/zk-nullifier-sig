@@ -5,12 +5,9 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "strict": true,
     "esModuleInterop": true,
-    "noEmitOnError": true,
     "skipDefaultLibCheck": true,
     "skipLibCheck": true,
-    "composite": true,
     "resolveJsonModule": true,
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
@@ -21,11 +18,6 @@
     "jsx": "preserve",
     "moduleResolution": "nodenext"
   },
-  "ts-node": {
-    "experimentalResolver": true,
-    "files": true
-  },
-  "compileOnSave": true,
   "exclude": ["node_modules", "dist"],
   "include": ["src"]
 }

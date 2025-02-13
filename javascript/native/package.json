@@ -8,7 +8,7 @@
         "PLUME"
     ],
     "type": "module",
-    "repository": "https://github.com/plume-sig/zk-nullifier-sig/",
+    "repository": "https://github.com/signorecello/zk-nullifier-sig/",
     "devDependencies": {
         "@types/jest": "^29.5.0",
         "@types/js-sha512": "^0",
