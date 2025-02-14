@@ -1,0 +1,2 @@
+[workspace]
+members = ["plume", "use_v1", "use_v2"]
