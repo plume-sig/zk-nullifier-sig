@@ -92,12 +92,17 @@ plume = { tag = "main", git = "https://github.com/plume-sig/zk-nullifier-sig", d
 You can prove your PLUME nullifier is valid like so:
 
 ```nr
-plume_v2(message, scalar_c, scalar_s, pubkey_bg, nullifier);
+let plume = Plume::new(message, scalar_c, scalar_s, pubkey_bg, nullifier);
+plume.plume_v2();
 ```
 
-All inputs are elements of BigCurve (non-native curves), so you probably want to cast them first. For example:
+The Noir PLUME implementation is generic over whatever implements the `BigCurveTrait`. This means all the curves in the [`Noir BigCurve` library](https://github.com/noir-lang/noir_bigcurve/tree/main/src/curves), although we only have tests for `secp256k1`.
 
-```nr
+So for `secp256k1` you probably want to cast your values to `Secp256k1Fq` BigNum, `Secp256k1` Curve, `Secp256k1Scalar`, etc. For example:
+
+```rust
+// use noir_bigcurve::curves::secp256k1::{Secp256k1, Secp256k1Fq, Secp256k1Scalar};
+
 let c_bn = Secp256k1Fq::from_be_bytes(c);
 let scalar_c: Secp256k1Scalar = ScalarField::from_bignum(c_bn);
 let s_bn = Secp256k1Fq::from_be_bytes(s);
@@ -112,6 +117,7 @@ let nullifier = Secp256k1 {
    y: Secp256k1Fq::from_be_bytes(nullifier_y),
    is_infinity: false,
 };
+
 ```
 
 ## Testing
