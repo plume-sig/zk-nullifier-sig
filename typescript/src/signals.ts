@@ -7,7 +7,7 @@ import {
   uint8ArrayToBigInt,
 } from "./utils/encoding.js";
 import { HashedPoint, multiplyPoint } from "./utils/curve.js";
-import { BarretenbergSync, Fr } from "@aztec/bb.js";
+import { poseidon2Hash } from "@zkpassport/poseidon2";
 import { hashToCurve } from "@noble/curves/secp256k1";
 
 // PLUME version
@@ -106,12 +106,12 @@ export async function computeAllInputs(
   rScalar?: string | Uint8Array,
   version: PlumeVersion = PlumeVersion.V2,
 ) {
-  const bb = await BarretenbergSync.initSingleton();
-  const hasher = (nodes: Uint8Array) =>
-    bb
-      .poseidon2Hash([Fr.fromBuffer(nodes)])
-      .toString()
-      .slice(2);
+  const hasher = (nodes: Uint8Array) => {
+    // Hash each byte as individual BigInt
+    return poseidon2Hash(
+      Array.from(nodes).map((byte) => BigInt(byte)),
+    ).toString(16);
+  };
 
   const skBytes = typeof sk === "string" ? hexToUint8Array(sk) : sk;
   const messageBytes =
