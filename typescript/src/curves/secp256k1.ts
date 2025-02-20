@@ -5,8 +5,8 @@ import {
   hexToUint8Array,
   messageToUint8Array,
   uint8ArrayToBigInt,
-} from "./utils/encoding.js";
-import { HashedPoint, multiplyPoint } from "./utils/curve.js";
+} from "../utils/encoding.js";
+import { HashedPoint, multiplyPoint } from "../utils/curve.js";
 import { poseidon2Hash } from "@zkpassport/poseidon2";
 import { hashToCurve } from "@noble/curves/secp256k1";
 
