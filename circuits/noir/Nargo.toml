@@ -9,5 +9,5 @@ compiler_version = ">=0.36.0"
 [dependencies]
 bignum = { tag = "main", git = "https://github.com/noir-lang/noir-bignum" }
 noir_bigcurve = { tag = "v0.6.0", git = "https://github.com/noir-lang/noir_bigcurve" }
-nodash = { tag = "main", git = "https://github.com/olehmisar/nodash" }
+nodash = { tag = "v0.40.2", git = "https://github.com/olehmisar/nodash" }
 ec = { tag = "master", git = "https://github.com/noir-lang/ec" }
