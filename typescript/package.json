@@ -1,6 +1,6 @@
 {
     "name": "plume-sig",
-    "version": "2.0.9",
+    "version": "2.0.10",
     "keywords": [
         "nullifier",
         "zero-knowledge",
@@ -8,7 +8,7 @@
         "PLUME"
     ],
     "type": "module",
-    "repository": "https://github.com/signorecello/zk-nullifier-sig/",
+    "repository": "https://github.com/plume-sig/zk-nullifier-sig",
     "devDependencies": {
         "jest": "^29.7.0",
         "nodemon": "^2.0.20",
@@ -30,7 +30,7 @@
         "prettier:fix": "prettier -w . --config ../.prettierrc --ignore-path ../.prettierignore",
         "types": "tsc -p tsconfig.json --noEmit",
         "test": "jest",
-        "test:coverage": "pnpm run test --coverage",
-        "publish": "pnpm run build && pnpm publish"
+        "test:coverage": "bun run test --coverage",
+        "publish": "bun run build && bun publish"
     }
 }
