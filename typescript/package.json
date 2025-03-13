@@ -1,0 +1,36 @@
+{
+    "name": "plume-sig",
+    "version": "2.0.10",
+    "keywords": [
+        "nullifier",
+        "zero-knowledge",
+        "ECDSA",
+        "PLUME"
+    ],
+    "type": "module",
+    "repository": "https://github.com/plume-sig/zk-nullifier-sig",
+    "devDependencies": {
+        "jest": "^29.7.0",
+        "nodemon": "^2.0.20",
+        "prettier": "^3.0.3",
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "@noble/curves": "^1.8.1",
+        "@noble/secp256k1": "^1.7.0",
+        "@zkpassport/poseidon2": "^0.6.0"
+    },
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "start": "nodemon",
+        "postinstall": "tsc",
+        "build": "tsc",
+        "prettier": "prettier -c . --config ../.prettierrc --ignore-path ../.prettierignore",
+        "prettier:fix": "prettier -w . --config ../.prettierrc --ignore-path ../.prettierignore",
+        "types": "tsc -p tsconfig.json --noEmit",
+        "test": "jest",
+        "test:coverage": "bun run test --coverage",
+        "publish": "bun run build && bun publish"
+    }
+}
