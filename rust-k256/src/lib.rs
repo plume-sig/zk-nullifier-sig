@@ -1,6 +1,3 @@
-// #![feature(generic_const_expr)]
-// #![allow(incomplete_features)]
-
 //! A library for generating and verifying PLUME signatures.
 //!
 //! See <https://blog.aayushg.com/nullifier> for more information.
