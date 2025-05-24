@@ -36,24 +36,20 @@ pub mod fixed_hasher; // #standinDependencies
 /// Stand-in solution until [the curve hashing support](https://github.com/arkworks-rs/algebra/pull/863) is merged.
 pub mod secp256k1; // #standinDependencies
 
-/* /// Re-exports `SWCurveConfig` type from `models::short_weierstrass` of the `ark_ec` crate,
-/// and `hashing` items.
-///
-/// `HashToCurve` is the trait needed for hashing to the curve.
-/// `HashToCurveError` is the error type to process a `Result`.
-///
-/// `SWCurveConfig` contains the parameters defining a short Weierstrass curve. */
 pub use ark_ec::{
-    hashing::{HashToCurve, HashToCurveError},
+    hashing::{
+        curve_maps::wb::WBMap, map_to_curve_hasher::MapToCurveBasedHasher, HashToCurve,
+        HashToCurveError,
+    },
     models::short_weierstrass::SWCurveConfig,
+    short_weierstrass, AffineRepr, CurveGroup,
 };
-use ark_ec::{short_weierstrass, AffineRepr, CurveGroup};
 /// Re-exports the `Rng` trait from `rand` crate in `ark_std`.
 ///
 /// `Rng` provides methods for generating random values.
 pub use ark_std::rand::Rng;
 
-use ark_ff::{BigInteger, PrimeField};
+pub use ark_ff::{BigInteger, PrimeField};
 
 /// Re-exports the `CanonicalDeserialize` and `CanonicalSerialize` traits from `ark_serialize` crate.
 ///
@@ -102,10 +98,10 @@ pub fn affine_to_bytes(point: &Affine) -> Vec<u8> {
 }
 
 fn hash_to_curve(message: &[u8], pk: &Affine) -> Result<Affine, HashToCurveError> {
-    ark_ec::hashing::map_to_curve_hasher::MapToCurveBasedHasher::<
+    MapToCurveBasedHasher::<
         ark_ec::short_weierstrass::Projective<secp256k1::Config>,
         FixedFieldHasher<Sha256>,
-        ark_ec::hashing::curve_maps::wb::WBMap<secp256k1::Config>,
+        WBMap<secp256k1::Config>,
     >::new(b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_")?
     .hash(
         [message, affine_to_bytes(pk).as_slice()]
