@@ -10,13 +10,15 @@ The package usage outline; see the details in subsections.
 ```js
 // ...
 let result = plume.sign(isV1, secretKeySec1Der, msg);
-console.log(result.nullifier);
-result.zeroizePrivateParts();
+console.log(result.instance)
+console.log(result.witness.digest_private);
+// get all the other witness values
+result.zeroize();
 ```
 
 Please, refer to the JS-doc for types description, function signatures, and exceptions notes.
 
-Values in the following examples are in line with tests in the wrapped crate.
+Values in the following examples are in line with the tests in the wrapped crate.
 ## producing the signature
 ```js
 import * as plume from 'plume-sig';
@@ -29,62 +31,75 @@ let result = plume.sign(
   ])
 );
 ```
-## getters
-`PlumeSignature` provide getters for each property of it, so you have access to any of them upon signing.
+## getting the values
+`PlumeSignature` holds two objects: `instance` with the public values is available for further processing, and `witness` with the private values provides access to all of them just via getters.
+### `instance`
 ```js
 // ...
-console.log(result.nullifier);
+console.log(result.instance)
+/* {
+  message: [
+     65, 110,  32, 101, 120,  97, 109,
+    112, 108, 101,  32,  97, 112, 112,
+     32, 109, 101, 115, 115,  97, 103,
+    101,  32, 115, 116, 114, 105, 110,
+    103
+  ],
+  nullifier: [
+      3,  87, 188,  62, 210, 129, 114, 239,
+    138, 221, 228, 185, 224, 194, 204, 231,
+     69, 252, 197, 166, 100, 115, 164,  92,
+     30,  98, 111,  29,  12, 103, 229,  88,
+     48
+  ],
+  s: [
+     48, 107,   2,   1,   1,   4, 32,  51, 230,  85,  68, 129,
+    138,   1, 100, 183,  88, 247, 98, 146, 145, 211, 106,  95,
+    239, 188, 178,  48, 169, 159, 94, 215,   1, 144,  63,   9,
+    125,  69, 216, 161,  68,   3, 66,   0,   4,  50,  19,  61,
+     44,  42, 226,  58, 241,  87, 46, 105, 142, 188, 131, 170,
+    240, 229,   2, 237, 102, 205, 67,  65,  81, 191,  10,  91,
+    215,  89, 152,  15,  75, 170, 71, 184, 186, 137,  87, 138,
+    241,  43, 170, 182,  20,   0, 42, 161, 149, 129, 159, 189,
+    213, 144,  44,  29,
+    ... 9 more items
+  ],
+  is_v1: false
+} */
+```
+### `witness`
+```js
+console.log(result.witness.pk)
 /* Uint8Array(33) [
-    3,  87, 188,  62, 210, 129, 114, 239,
-  138, 221, 228, 185, 224, 194, 204, 231,
-   69, 252, 197, 166, 100, 115, 164,  92,
-   30,  98, 111,  29,  12, 103, 229,  88,
-   48
+    3,  12, 236,   2, 142, 224, 141,   9,
+  224,  38, 114, 166, 131,  16, 129,  67,
+   84, 249, 234, 191, 255,  13, 230, 218,
+  204,  28, 211, 167, 116,  73,  96, 118,
+  174
 ] */
-console.log(result.s);
-/* Uint8Array(109) [
-   48, 107,   2,   1,   1,   4,  32,  73,  27, 195, 183, 106,
-  202, 136, 167,  50, 193, 119, 152, 153, 233,  56, 176,  58,
-  221, 183,   4, 126, 189,  69, 201, 173, 102,  98, 248,  36,
-  112, 183, 176, 161,  68,   3,  66,   0,   4,  13,  18, 115,
-  220, 215, 120, 156,  20, 128, 225, 106,  29, 255,  16, 218,
-    5,  19, 179,  80, 204,  25, 144,  61, 150, 121,  83,  76,
-  174,  21, 232,  58, 153,  97, 227, 239,  78, 114, 199,  53,
-  138,  93, 108, 150,  98, 141,  89, 159, 219, 243, 182, 188,
-   22, 224, 154, 171,
-  ... 9 more items
-] */
-console.log(result.c);
-console.log(result.pk);
-console.log(result.message);
-console.log(result.v1specific);
+console.log(result.witness.digest_private)
+console.log(result.witness.v1specific);
 // undefined
 ```
-Note that variant is specified by `v1specific`; if it's `undefined` then the object contains V2, otherwise it's V1.
+#### the variant distinguishing
+Note that for the `witness` the variant is specified by `v1specific`; if it's `undefined` then the object contains V2, otherwise it's V1.
 ```js
 // ...
-if (result.v1specific) {
-  console.log(result.v1specific.r_point);
-  console.log(result.v1specific.hashed_to_curve_r);
+if (result.witness.v1specific) {
+  console.log(result.witness.v1specific.r_point);
+  console.log(result.witness.v1specific.hashed_to_curve_r);
 }
 ```
-Also there's #convertion utility provided.
+Also there's the #conversion utility provided.
 ## zeroization
-Depending on your context you might want to clear values of the result from Wasm memory after getting the values.
+Depending on your context you might want to clear `witness` values from the Wasm memory after getting the values.
 ```js
 // ...
-result.zeroizePrivateParts();
-result.zeroizeAll();
+result.zeroize();
 ```
-
-# #convertion of `s` to `BigInt`
-JS most native format for scalar is `BigInt`, but it's not really transportable or secure, so for uniformity of approach `s` in `PlumeSignature` is defined similar to `c`; but if you want to have it as a `BigInt` there's `sec1DerScalarToBigint` helper funtion.
-
+# #conversion of `s` to `BigInt`
+JS most native format for scalar is `BigInt`, but it's not really transportable or secure, so for uniformity of approach `s` in `PlumeSignature` is defined similar to `digest_private`; but if you want to have it as a `BigInt` there's `sec1DerScalarToBigint` helper funtion.
 # Working with source files
-
 This package is built with the tech provided by <https://github.com/rustwasm> which contains everything needed to work with it. Also the wrapper crate was initiated with `wasm-pack-template`.
-
-Note that the wrapper crate has `verify` feature which can check the resulting signature.
-
 # License
 See <https://github.com/plume-sig/zk-nullifier-sig/blob/main/LICENSE>.
