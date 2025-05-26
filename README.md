@@ -28,9 +28,22 @@ If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any 
 
 ## Implementations
 
-- `rust-k256`: Rust, using the k256 library
-- `rust-arkworks`: Rust, using arkworks
-- `javascript`: JavaScript, using MIRACL
+Historically the initial suite -- `k256` with SHA-2 -- lives in this repo. Other suites can be found in the adjacent repos.
+### SECP256K1
+with SHA-2
+#### verification
+- <circuits/circom>. The first implementation, well suited for Groth-16 backends.
+- `noir` - Unaudited implementation by [Distributed Lab](https://github.com/distributed-lab) and [Aztec Labs](https://aztec-labs.com/). Defaults to the [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg) proving backend.
+#### signing
+- <rust-k256>: Rust, using `k256` library.
+- <rust-arkworks>: Rust, using `arkworks`.
+- <javascript>: TypeScript bindings for the crate from <rust-k256>.
+#### Poseidon
+Repo `k256_poseidon` contains some code replacing SHA-2 for Aztec Poseidon-2 hash.
+### Pallas
+TODO
+### BN254
+See `bn254` repo for the suite implementation.
 
 ### Wallet Implementations
 
@@ -46,11 +59,14 @@ If you'd like to contribute, we offer $50 bounties in Eth/DAI for resolving any 
 ### Audits
 We have been audited by [PSE Security](https://github.com/0xbok) for these three implementations V1 and V2 implementations, as well as for V1 circuits in circom. We expect the halo2 circuits to be runnable on mobile (once we have audited that code circa ~April and put up a recursive proving infrastructure setup).
 
-## Testing the circom circuit
+The Circom implementation was audited by [PSE Security](https://github.com/0xbok) for the Rust and Javascript implementations, both V1 and V2, as well as for V1 circuits. We expect the `halo2` circuits to be runnable on mobile (once we have audited that code circa ~April and put up a recursive proving infrastructure setup).
 
 First, clone this repository and navigate to the `javascript/` directory.
 
-Install dependencies:
+## Testing
+### Circom
+
+Circom uses the great `circom-tester` library by [iden3](https://github.com/iden3/circom_tester). Prepare your testing environment by cloning this repository and navigating to the `javascript/` directory. Then install dependencies:
 
 ```bash
 pnpm i
@@ -77,8 +93,8 @@ Be prepared to wait around 20-40 minutes for the tests to complete.
 We invite contributors to collaborate on this effort. There are great tasks for beginners (the issues), a halo2 intermediate level (circuits), cryptography intermediate level (the v1 improvement to make it v2 compatible below), and on the application layer (building apps that use PLUME).  
 
 - Create a V3
-   - Reduce number of arguments to c in V1 via Wei Dai's + [Poseidons](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4) suggestions (potentially just g^sk, h[m, pk], g^r is fine) that are currently used in the V2, and write a proof in the Algebraic Group Model for the change.
-- [$500 Bounty] Fix stealthdrop MVP, the first anonymous airdrop to any Ethereum keys via PLUMEs -- [repo](https://github.com/stealthdrop/stealthdrop/) and [slides](https://docs.google.com/presentation/d/10ZGJvYpIqpON5O4uDf2pdk-PnT8fEVyPOoRqC3VmFn0/edit).
+  - Reduce number of arguments to c in V1 via Wei Dai's + [Poseidons](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4) suggestions (potentially just g^sk, h[m, pk], g^r is fine) that are currently used in the V2, and write a proof in the Algebraic Group Model for the change.
+- [$500 Bounty] Fix stealthdrop Circom MVP, the first anonymous airdrop to any Ethereum keys via PLUMEs -- [repo](https://github.com/stealthdrop/stealthdrop/) and [slides](https://docs.google.com/presentation/d/10ZGJvYpIqpON5O4uDf2pdk-PnT8fEVyPOoRqC3VmFn0/edit).
 - [$500 Bounty] Implement ZK voting via PLUMEs, as described in [Poseidons proposal](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4).
 - [$500 bounty] Implement the ZK circuits in Noir to integrate them into Aztec.
 
@@ -115,23 +131,23 @@ For the V1,
 See [this PR](https://github.com/zk-nullifier-sig/zk-nullifier-sig/pull/7).   
 6.5 million constraints. Mostly dominated by EC operations, but the hashes are very expensive too.  
 
-sha256 ~1.5M. 
-hash_to_curve ~0.5M. 
-a/b^c ~1.5 each (this is the sub circuit for the first 2 verification equations). 
-the remaining 1.5M is probably dominated by calculating g^s and h^s. 
+sha256 ~1.5M.
+`hash_to_curve` ~0.5M.
+a/b^c ~1.5 each (this is the sub circuit for the first 2 verification equations).
+the remaining 1.5M is probably dominated by calculating g^s and h^s.
 
 For the V2,
 the sha256 is 0 cost in the circuit, but is added to the verification cost. This takes in-circuit constraints down to 5M and adds the sha to the verification.
 
 #### Hash to Curve Circom Code and Explainer
-https://github.com/geometryresearch/secp256k1_hash_to_curve/
-https://geometry.dev/notebook/Hashing-to-the-secp256k1-Elliptic-Curve
+<https://github.com/geometryresearch/secp256k1_hash_to_curve/>
+<https://geometry.dev/notebook/Hashing-to-the-secp256k1-Elliptic-Curve>
 
 ### Nullifier Calculation Spec
-https://hackmd.io/uZQbMHrVSbOHvoI_HrJJlw
+<https://hackmd.io/uZQbMHrVSbOHvoI_HrJJlw>
 
 ### Circom Verification Spec
-https://hackmd.io/VsojkopuSMuEA4vkYKSB8g?edit
+<https://hackmd.io/VsojkopuSMuEA4vkYKSB8g?edit>
 
 ### V2 Spec and Discussion
 [notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff](https://www.notion.so/mantanetwork/PLUME-Discussion-6f4b7e7cf63e4e33976f6e697bf349ff?pvs=4)
