@@ -8,8 +8,8 @@ import {
   rPoint,
   s_v1,
   testSecretKey,
-} from "../../../javascript/test/consts";
-import { hexToBigInt } from "../../../javascript/src/utils/encoding";
+} from "javascript/test/consts";
+import { hexToBigInt } from "javascript/src/utils/encoding";
 
 import { pointToCircuitValue, scalarToCircuitValue } from "../utils";
 

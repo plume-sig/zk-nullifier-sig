@@ -66,21 +66,19 @@ First, clone this repository and navigate to the `javascript/` directory.
 ## Testing
 ### Circom
 
-Circom uses the great `circom-tester` library by [iden3](https://github.com/iden3/circom_tester). Prepare your testing environment by cloning this repository and navigating to the `javascript/` directory. Then install dependencies:
-
+Circom uses the great `circom-tester` library by [iden3](https://github.com/iden3/circom_tester). Prepare your testing environment by cloning this repository and navigating to the <circuits/circom/test/javascript/> directory. Then install the dependencies.
 ```bash
 pnpm i
 ```
 
-If you encounter an error `No prebuilt binaries found`, try switching to node ` v18.17.0` (using [`n`](https://github.com/tj/n), for example) to work around our dependency's [build issue](https://github.com/WiseLibs/better-sqlite3/issues/1027).
+If you encounter an error "No prebuilt binaries found", try switching to Nodejs `v18.17.0` (using [`n`](https://github.com/tj/n), for example) to work around our dependency's [build issue](https://github.com/WiseLibs/better-sqlite3/issues/1027).
 
-Then, navigate to the `circuits/` directory and install the dependencies there:
-
+Then, navigate to the <circuits/circom> directory and install the dependencies there.
 ```bash
 pnpm i
 ```
 
-Run the tests:
+Run the tests.
 ```bash
 pnpm run flatten-deps && \
 pnpm run test

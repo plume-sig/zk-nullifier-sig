@@ -9,8 +9,8 @@ import {
   hashMPk,
   testMessage,
   testPublicKey,
-} from "../../../javascript/test/consts";
-import { hexToBigInt } from "../../../javascript/src/utils/encoding";
+} from "javascript/test/consts";
+import { hexToBigInt } from "javascript/src/utils/encoding";
 
 import { pointToCircuitValue } from "../utils";
 
