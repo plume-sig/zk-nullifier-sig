@@ -15,11 +15,11 @@ import {
   testMessage,
   testPublicKey,
   testSecretKey,
-} from "../../../javascript/test/consts";
+} from "javascript/test/consts";
 import {
   hexToBigInt,
   concatUint8Arrays,
-} from "../../../javascript/src/utils/encoding";
+} from "javascript/src/utils/encoding";
 
 import { pointToCircuitValue, scalarToCircuitValue } from "../utils";
 
