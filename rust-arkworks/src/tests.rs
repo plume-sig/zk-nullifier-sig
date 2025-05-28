@@ -1,7 +1,7 @@
 mod test_vectors;
 
 use crate::secp256k1::{Affine, Config};
-use crate::{secp256k1, PlumeSignature, PlumeVersion};
+use crate::{secp256k1, PlumeSignaturePrivate, PlumeSignaturePublic, PlumeVersion};
 use ark_ec::AffineRepr;
 use ark_std::rand;
 use rand::{prelude::ThreadRng, thread_rng};
@@ -13,6 +13,68 @@ use ark_ff::{BigInt, BigInteger};
 use std::ops::Mul;
 
 type Parameters = crate::Parameters<Config>;
+
+/// Verifies a PLUME signature.
+/// Returns `true` if the signature is valid, `false` otherwise.
+///
+/// Computes the curve points and scalars needed for verification from the
+/// signature parameters. Then performs the verification steps:
+/// - Confirm g^s * pk^-c = g^r
+/// - Confirm h^s * nul^-c = z
+/// - Confirm c = c'
+///
+/// Rejects if any check fails.
+pub fn verify_non_zk(
+    sig: (PlumeSignaturePublic, PlumeSignaturePrivate),
+    pp: &super::Parameters<secp256k1::Config>,
+    pk: &super::PublicKey,
+    message: &[u8],
+    version: PlumeVersion,
+) -> Result<bool, super::HashToCurveError> {
+    // Compute h = htc([m, pk])
+    let hashed_to_curve = super::hash_to_curve(message, pk)?;
+
+    // Compute c' = sha256([g, pk, h, nul, g^r, z]) for v1
+    //         c' = sha256([nul, g^r, z]) for v2
+    let c = match version {
+        PlumeVersion::V1 => super::compute_c_v1(
+            pk,
+            &hashed_to_curve,
+            &sig.0.nullifier,
+            &sig.1.r_point,
+            &sig.1.hashed_to_curve_r,
+        ),
+        PlumeVersion::V2 => {
+            super::compute_c_v2(&sig.0.nullifier, &sig.1.r_point, &sig.1.hashed_to_curve_r)
+        }
+    };
+    let c_scalar = secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
+
+    // Reject if g^s ⋅ pk^{-c} != g^r
+    let g_s = pp.g_point.mul(sig.0.s);
+    let pk_c = pk.mul(sig.1.digest_private);
+    let g_s_pk_c = g_s - pk_c;
+
+    if sig.1.r_point != g_s_pk_c {
+        return Ok(false);
+    }
+
+    // Reject if h^s ⋅ nul^{-c} = z
+    let h_s = hashed_to_curve.mul(sig.0.s);
+    let nul_c = sig.0.nullifier.mul(sig.1.digest_private);
+    let h_s_nul_c = h_s - nul_c;
+
+    if sig.1.hashed_to_curve_r != h_s_nul_c {
+        return Ok(false);
+    }
+
+    // Reject if c != c'
+    if c_scalar != sig.1.digest_private {
+        return Ok(false);
+    }
+
+    Ok(true)
+}
 
 fn test_template() -> (ThreadRng, Affine) {
     let rng = thread_rng();
@@ -59,7 +121,7 @@ pub fn test_keygen() {
     let (mut rng, g) = test_template();
     let pp = Parameters { g_point: g };
 
-    let (pk, sk) = PlumeSignature::keygen(&mut rng);
+    let (pk, sk) = super::keygen(&mut rng);
 
     let expected_pk = g.mul(sk);
     assert_eq!(pk, expected_pk);
@@ -71,9 +133,9 @@ pub fn test_sign_and_verify() {
     let pp = Parameters { g_point: g };
 
     let message = b"Message";
-    let keypair = PlumeSignature::keygen(&mut rng);
+    let keypair = super::keygen(&mut rng);
 
-    let sig = PlumeSignature::sign(
+    let sig = super::sign(
         &mut rng,
         (&keypair.0, &keypair.1),
         message,
@@ -81,10 +143,10 @@ pub fn test_sign_and_verify() {
     )
     .unwrap();
 
-    let is_valid = sig.verify_non_zk(&pp, &keypair.0, message, PlumeVersion::V1);
+    let is_valid = verify_non_zk(sig, &pp, &keypair.0, message, PlumeVersion::V1);
     assert!(is_valid.unwrap());
 
-    let sig = PlumeSignature::sign(
+    let sig = super::sign(
         &mut rng,
         (&keypair.0, &keypair.1),
         message,
@@ -92,7 +154,7 @@ pub fn test_sign_and_verify() {
     )
     .unwrap();
 
-    let is_valid = sig.verify_non_zk(&pp, &keypair.0, message, PlumeVersion::V2);
+    let is_valid = verify_non_zk(sig, &pp, &keypair.0, message, PlumeVersion::V2);
     assert!(is_valid.unwrap());
 }
 
@@ -205,27 +267,27 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
     let pk = Affine::from(pk_projective);
 
     let keypair = (pk, sk);
-    let sig = PlumeSignature::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V1)
+    let sig = super::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V1)
         .unwrap();
 
     assert_eq!(
-        sig.c.into_bigint(),
+        sig.1.digest_private.into_bigint(),
         BigInt!("0xc6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254")
     );
     assert_eq!(
-        sig.s.into_bigint(),
+        sig.0.s.into_bigint(),
         BigInt!("0xe69f027d84cb6fe5f761e333d12e975fb190d163e8ea132d7de0bd6079ba28ca")
     );
 
-    let sig = PlumeSignature::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V2)
+    let sig = super::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V2)
         .unwrap();
 
     assert_eq!(
-        sig.c.into_bigint(),
+        sig.1.digest_private.into_bigint(),
         BigInt!("0x3dbfb717705010d4f44a70720c95e74b475bd3a783ab0b9e8a6b3b363434eb96")
     );
     assert_eq!(
-        sig.s.into_bigint(),
+        sig.0.s.into_bigint(),
         BigInt!("0x528e8fbb6452f82200797b1a73b2947a92524bd611085a920f1177cb8098136b")
     );
 }

@@ -24,7 +24,7 @@ plume_rustcrypto = {version = "~0.2.1", default-features = false}
 elliptic-curve = {version = "~0.13.8"}
 zeroize = "1.8"
 signature = "^2.2.0"
-getrandom = { version = "0.2", features = ["js"] }
+# getrandom = { version = "0.2", features = ["js"] }
 anyhow = "1"
 sec1 = {version = "~0.7.3", optional = true} # match with `k256`
 
