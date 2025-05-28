@@ -20,7 +20,7 @@ rand_core = { version = "0.6", default-features = false, features = [
     "getrandom",
 ] }
 sha2 = "0.10.2"
-zeroize = "*"
+zeroize = "^1.8.1"
 
 # #standinDependencies
 ## the curve internalization
