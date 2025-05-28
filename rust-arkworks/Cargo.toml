@@ -29,7 +29,7 @@ ark-ff-macros = "~0.5.0"
 arrayvec = { version = "0.7", default-features = false }
 
 [dev-dependencies]
-num-bigint = "*"
-num-traits = "*"
+num-bigint = "^0.4.6"
+num-traits = "^0.2.19"
 hex = "0.4.3"
 rand = "0.8.4"
