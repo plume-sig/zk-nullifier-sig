@@ -26,7 +26,6 @@ use ark_ff::{
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::string::ToString;
-use hex::ToHex;
 use sha2::Sha256;
 
 use crate::fixed_hasher::FixedFieldHasher;

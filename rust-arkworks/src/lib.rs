@@ -6,27 +6,17 @@
 //!
 //! # Examples
 //! ```rust
-//! use plume_arkworks::{PlumeSignature, PlumeVersion, SWCurveConfig};
+//! use plume_arkworks::{
+//!     PlumeSignaturePublic, PlumeSignaturePrivate, PlumeVersion, keygen, sign
+//! };
 //! use rand_core::OsRng;
 //!
 //! # fn main() {
 //!     let message_the = b"ZK nullifier signature";
-//!     let sk = PlumeSignature::keygen(&mut OsRng);
+//!     let sk = keygen(&mut OsRng);
 //!
-//!     let sig = PlumeSignature::sign(
+//!     let sig = sign(
 //!         &mut OsRng, (&sk.0, &sk.1), message_the.as_slice(), PlumeVersion::V1
-//!     );
-//!
-//!     assert!(
-//!         sig.unwrap()
-//!         .verify_non_zk(
-//!             &plume_arkworks::Parameters{
-//!                 g_point: plume_arkworks::secp256k1::Config::GENERATOR
-//!             },
-//!             &sk.0,
-//!             message_the,
-//!             PlumeVersion::V1
-//!         ).unwrap()
 //!     );
 //! # }
 //! ```
@@ -56,8 +46,10 @@ pub use ark_ff::{BigInteger, PrimeField};
 /// These traits provide methods for serializing and deserializing data in a canonical format.
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
+pub use zeroize::Zeroize;
 use fixed_hasher::FixedFieldHasher;
-use sha2::{digest::Output, Digest, Sha256};
+pub use sha2::{digest::Output, Digest, Sha256};
+use zeroize::ZeroizeOnDrop;
 use std::ops::Mul;
 
 /// Re-exports the `Affine` and `Fr` types from `secp256k1` module.
@@ -67,6 +59,7 @@ use std::ops::Mul;
 pub use secp256k1::{Affine, Fr};
 
 /// An `enum` representing the variant of the PLUME protocol.
+#[derive(Debug, Clone, Copy, PartialEq, /* Eq, Hash */)]
 pub enum PlumeVersion {
     V1,
     V2,
@@ -97,7 +90,7 @@ pub fn affine_to_bytes(point: &Affine) -> Vec<u8> {
     compressed_bytes
 }
 
-fn hash_to_curve(message: &[u8], pk: &Affine) -> Result<Affine, HashToCurveError> {
+pub fn hash_to_curve(message: &[u8], pk: &Affine) -> Result<Affine, HashToCurveError> {
     MapToCurveBasedHasher::<
         ark_ec::short_weierstrass::Projective<secp256k1::Config>,
         FixedFieldHasher<Sha256>,
@@ -159,162 +152,124 @@ pub struct Parameters<P: SWCurveConfig> {
     pub g_point: short_weierstrass::Affine<P>,
 }
 
-/// A struct containing the PLUME signature data
+/// PLUME signature instance
 #[derive(
-    Copy,
+    // Copy,
     Clone,
-    ark_serialize_derive::CanonicalSerialize,
-    ark_serialize_derive::CanonicalDeserialize,
+    // ark_serialize_derive::CanonicalSerialize,
+    // ark_serialize_derive::CanonicalDeserialize,
 )]
-pub struct PlumeSignature {
+pub struct PlumeSignaturePublic {
+    pub message: Vec<u8>,
+    pub s: Fr,
+    /// The nullifier.
+    pub nullifier: Affine,
+    pub variant: Option<PlumeVersion>,
+}
+/// PLUME signature witness. Store securely and choose which data from the public part you will use to identify this part.
+#[derive(
+    Clone,
+)]
+pub struct PlumeSignaturePrivate {
     /// The hash-to-curve output multiplied by the random `r`.  
     pub hashed_to_curve_r: Affine,
     /// The randomness `r` represented as the curve point.
     pub r_point: Affine,
-    pub s: Fr,
-    pub c: Fr,
-    /// The nullifier.
-    pub nullifier: Affine,
+    pub digest_private: Fr,
+    pub variant: PlumeVersion,
+}
+impl Zeroize for PlumeSignaturePrivate {
+    fn zeroize(&mut self) {
+        self.digest_private.zeroize();
+        self.hashed_to_curve_r.zeroize();
+        self.r_point.zeroize();
+    }
+}
+impl ZeroizeOnDrop for PlumeSignaturePrivate {}
+impl Drop for PlumeSignaturePrivate {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
 }
 
 // These aliases should be gone in #88 . If they won't TODO pay attention to the warning about `trait` boundaries being not checked for aliases
 //      also not enforcing trait bounds can impact PublicKey -- it's better to find appropriate upstream type
 
-/// A type alias for a byte slice reference, used for representing the message.
-pub type Message<'a> = &'a [u8];
 /// The public key.
 pub type PublicKey = Affine;
 /// The scalar field element representing the secret key.
 pub type SecretKeyMaterial = Fr;
 
-impl PlumeSignature {
-    /// Generate the public key and a private key.
-    pub fn keygen(rng: &mut impl Rng) -> (PublicKey, SecretKeyMaterial) {
-        let secret_key = SecretKeyMaterial::rand(rng);
-        let public_key = secp256k1::Config::GENERATOR * secret_key;
-        (public_key.into_affine(), secret_key)
-    }
+/// Generate the public key and a private key.
+pub fn keygen(rng: &mut impl Rng) -> (PublicKey, SecretKeyMaterial) {
+    let secret_key = SecretKeyMaterial::rand(rng);
+    let public_key = secp256k1::Config::GENERATOR * secret_key;
+    (public_key.into_affine(), secret_key)
+}
 
-    /// Sign a message using the specified `r` value
-    pub fn sign_with_r(
-        keypair: (&PublicKey, &SecretKeyMaterial),
-        message: Message,
-        r_scalar: Fr,
-        version: PlumeVersion,
-    ) -> Result<Self, HashToCurveError> {
-        let r_point = secp256k1::Config::GENERATOR.mul(r_scalar).into_affine();
+/// Sign a message using the specified `r` value
+pub fn sign_with_r(
+    keypair: (&PublicKey, &SecretKeyMaterial),
+    message: &[u8],
+    r_scalar: Fr,
+    version: PlumeVersion,
+) -> Result<(PlumeSignaturePublic, PlumeSignaturePrivate), HashToCurveError> {
+    let r_point = secp256k1::Config::GENERATOR.mul(r_scalar).into_affine();
 
-        // Compute h = htc([m, pk])
-        let hashed_to_curve: secp256k1::Affine = hash_to_curve(message, keypair.0)?;
+    // Compute h = htc([m, pk])
+    let hashed_to_curve: secp256k1::Affine = hash_to_curve(message, keypair.0)?;
 
-        // Compute z = h^r
-        let hashed_to_curve_r = hashed_to_curve.mul(r_scalar).into_affine();
+    // Compute z = h^r
+    let hashed_to_curve_r = hashed_to_curve.mul(r_scalar).into_affine();
 
-        // Compute nul = h^sk
-        let nullifier = hashed_to_curve.mul(*keypair.1).into_affine();
+    // Compute nul = h^sk
+    let nullifier = hashed_to_curve.mul(*keypair.1).into_affine();
 
-        // Compute c = sha256([g, pk, h, nul, g^r, z])
-        let c = match version {
-            PlumeVersion::V1 => compute_c_v1(
-                keypair.0,
-                &hashed_to_curve,
-                &nullifier,
-                &r_point,
-                &hashed_to_curve_r,
-            ),
-            PlumeVersion::V2 => compute_c_v2(&nullifier, &r_point, &hashed_to_curve_r),
-        };
-        let c_scalar = secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
-        // Compute s = r + sk ⋅ c
-        let sk_c = keypair.1 * &c_scalar;
-        let s = r_scalar + sk_c;
+    // Compute c = sha256([g, pk, h, nul, g^r, z])
+    let c = match version {
+        PlumeVersion::V1 => compute_c_v1(
+            keypair.0,
+            &hashed_to_curve,
+            &nullifier,
+            &r_point,
+            &hashed_to_curve_r,
+        ),
+        PlumeVersion::V2 => compute_c_v2(&nullifier, &r_point, &hashed_to_curve_r),
+    };
+    let c_scalar = secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
+    // Compute s = r + sk ⋅ c
+    let sk_c = keypair.1 * &c_scalar;
+    let s = r_scalar + sk_c;
 
-        let s_scalar = secp256k1::Fr::from(s);
+    let s_scalar = secp256k1::Fr::from(s);
 
-        let signature = PlumeSignature {
-            hashed_to_curve_r,
+    Ok((
+        PlumeSignaturePublic {
+            message: message.into(),
             s: s_scalar,
-            r_point,
-            c: c_scalar,
             nullifier,
-        };
-        Ok(signature)
-    }
-
-    /// Sign a message.
-    pub fn sign(
-        rng: &mut impl Rng,
-        keypair: (&PublicKey, &SecretKeyMaterial),
-        message: Message,
-        version: PlumeVersion,
-    ) -> Result<Self, HashToCurveError> {
-        // Pick a random r from Fp
-        let r_scalar = secp256k1::Fr::rand(rng);
-
-        Self::sign_with_r(keypair, message, r_scalar, version)
-    }
-
-    /// Verifies a PLUME signature.
-    /// Returns `true` if the signature is valid, `false` otherwise.
-    ///
-    /// Computes the curve points and scalars needed for verification from the
-    /// signature parameters. Then performs the verification steps:
-    /// - Confirm g^s * pk^-c = g^r
-    /// - Confirm h^s * nul^-c = z
-    /// - Confirm c = c'
-    ///
-    /// Rejects if any check fails.
-    pub fn verify_non_zk(
-        self,
-        pp: &Parameters<secp256k1::Config>,
-        pk: &PublicKey,
-        message: Message,
-        version: PlumeVersion,
-    ) -> Result<bool, HashToCurveError> {
-        // Compute h = htc([m, pk])
-        let hashed_to_curve = hash_to_curve(message, pk)?;
-
-        // Compute c' = sha256([g, pk, h, nul, g^r, z]) for v1
-        //         c' = sha256([nul, g^r, z]) for v2
-        let c = match version {
-            PlumeVersion::V1 => compute_c_v1(
-                pk,
-                &hashed_to_curve,
-                &self.nullifier,
-                &self.r_point,
-                &self.hashed_to_curve_r,
-            ),
-            PlumeVersion::V2 => {
-                compute_c_v2(&self.nullifier, &self.r_point, &self.hashed_to_curve_r)
-            }
-        };
-        let c_scalar = secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
-
-        // Reject if g^s ⋅ pk^{-c} != g^r
-        let g_s = pp.g_point.mul(self.s);
-        let pk_c = pk.mul(self.c);
-        let g_s_pk_c = g_s - pk_c;
-
-        if self.r_point != g_s_pk_c {
-            return Ok(false);
+            variant: Some(version),
+        },
+        PlumeSignaturePrivate {
+            hashed_to_curve_r,
+            r_point,
+            digest_private: c_scalar,
+            variant: version,
         }
+    ))
+}
 
-        // Reject if h^s ⋅ nul^{-c} = z
-        let h_s = hashed_to_curve.mul(self.s);
-        let nul_c = self.nullifier.mul(self.c);
-        let h_s_nul_c = h_s - nul_c;
+/// Sign a message.
+pub fn sign(
+    rng: &mut impl Rng,
+    keypair: (&PublicKey, &SecretKeyMaterial),
+    message: &[u8],
+    version: PlumeVersion,
+) -> Result<(PlumeSignaturePublic, PlumeSignaturePrivate), HashToCurveError> {
+    // Pick a random r from Fp
+    let r_scalar = secp256k1::Fr::rand(rng);
 
-        if self.hashed_to_curve_r != h_s_nul_c {
-            return Ok(false);
-        }
-
-        // Reject if c != c'
-        if c_scalar != self.c {
-            return Ok(false);
-        }
-
-        Ok(true)
-    }
+    sign_with_r(keypair, message, r_scalar, version)
 }
 
 #[cfg(test)]

@@ -16,7 +16,6 @@ const MSG_EXPECT: &str = "`k256` restricts this type to proper keys, so it's ser
 /// . Now it's separated into the public values available as an object for further manipulation, and secret values capable of `zeroize` and available via getters.
 pub struct PlumeSignature {
     /// @type PlumeSignaturePublic 
-    #[wasm_bindgen(typescript_type = "PlumeSignaturePublic")]
     pub instance: js_sys::Object, 
     pub witness: PlumeSignaturePrivate
 }
