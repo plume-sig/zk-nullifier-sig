@@ -35,13 +35,16 @@ with SHA-2
 - <circuits/circom>. The first implementation, well suited for Groth-16 backends.
 - `noir` - Unaudited implementation by [Distributed Lab](https://github.com/distributed-lab) and [Aztec Labs](https://aztec-labs.com/). Defaults to the [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg) proving backend.
 #### signing
-- <rust-k256>: Rust, using `k256` library.
-- <rust-arkworks>: Rust, using `arkworks`.
-- <javascript>: TypeScript bindings for the crate from <rust-k256>.
+- <./rust-k256>: Rust, using `k256` library.
+- <./rust-arkworks>: Rust, using `arkworks`.
+- <./javascript>: TypeScript bindings for the crate from <./rust-k256>.
 #### Poseidon
 Repo `k256_poseidon` contains some code replacing SHA-2 for Aztec Poseidon-2 hash.
 ### Pallas
-TODO
+#### [`mina-signer`](https://www.npmjs.com/package/mina-signer)
+provides the method `createNullifier`.
+#### verification
+[`o1js`](https://www.npmjs.com/package/o1js) provides [the dedicated class which offers `verify` method](https://docs.minaprotocol.com/zkapps/o1js-reference/classes/Nullifier#verify) and other useful items.
 ### BN254
 See `bn254` repo for the suite implementation.
 
@@ -60,8 +63,6 @@ See `bn254` repo for the suite implementation.
 We have been audited by [PSE Security](https://github.com/0xbok) for these three implementations V1 and V2 implementations, as well as for V1 circuits in circom. We expect the halo2 circuits to be runnable on mobile (once we have audited that code circa ~April and put up a recursive proving infrastructure setup).
 
 The Circom implementation was audited by [PSE Security](https://github.com/0xbok) for the Rust and Javascript implementations, both V1 and V2, as well as for V1 circuits. We expect the `halo2` circuits to be runnable on mobile (once we have audited that code circa ~April and put up a recursive proving infrastructure setup).
-
-First, clone this repository and navigate to the `javascript/` directory.
 
 ## Testing
 ### Circom
