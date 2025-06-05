@@ -1,6 +1,6 @@
 [package]
 name = "plume_arkworks"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 license = "MIT"
 description = "Implementation of PLUME: nullifier friendly signature scheme on ECDSA; using the `arkworks-rs` libraries"
@@ -16,9 +16,9 @@ ark-ff = "~0.5.0"
 ark-std = "~0.5.0"
 ark-serialize = "~0.5.0"
 ark-serialize-derive = "~0.5.0"
-rand_core = { version = "0.6", default-features = false, features = [
-    "getrandom",
-] }
+# rand_core = { version = "0.6", default-features = false, features = [
+#     "getrandom",
+# ] }
 sha2 = "0.10.2"
 zeroize = "^1.8.1"
 

@@ -7,19 +7,25 @@
 //! # Examples
 //! ```rust
 //! use plume_arkworks::{
-//!     PlumeSignaturePublic, PlumeSignaturePrivate, PlumeVersion, keygen, sign
+//!     PlumeSignaturePublic, PlumeSignaturePrivate, PlumeVersion, sign, SWCurveConfig, CurveGroup,
+//!     secp256k1::{Fr, Config},
+//!     rand::rngs::OsRng
 //! };
-//! use rand_core::OsRng;
 //!
 //! # fn main() {
 //!     let message_the = b"ZK nullifier signature";
-//!     let sk = keygen(&mut OsRng);
+//!     // you should get the real secret key you for signing
+//!     let sk = <Fr as ark_ff::UniformRand>::rand(&mut OsRng);
 //!
 //!     let sig = sign(
-//!         &mut OsRng, (&sk.0, &sk.1), message_the.as_slice(), PlumeVersion::V1
+//!         &mut OsRng, (
+//!             &(Config::GENERATOR * sk).into_affine(),
+//!             &sk,
+//!         ), message_the.as_slice(), PlumeVersion::V1
 //!     );
 //! # }
 //! ```
+// TODO the example is lame, but I'm first worried if it's the right `OsRng` utilization or it's ok to just continue to use the same on the other occurence
 
 /// Stand-in solution until [the default hasher issue](https://github.com/arkworks-rs/algebra/issues/849) is fixed.
 pub mod fixed_hasher; // #standinDependencies
@@ -34,10 +40,7 @@ pub use ark_ec::{
     models::short_weierstrass::SWCurveConfig,
     short_weierstrass, AffineRepr, CurveGroup,
 };
-/// Re-exports the `Rng` trait from `rand` crate in `ark_std`.
-///
-/// `Rng` provides methods for generating random values.
-pub use ark_std::rand::Rng;
+pub use ark_std::rand;
 
 pub use ark_ff::{BigInteger, PrimeField};
 
@@ -46,11 +49,11 @@ pub use ark_ff::{BigInteger, PrimeField};
 /// These traits provide methods for serializing and deserializing data in a canonical format.
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
-pub use zeroize::Zeroize;
 use fixed_hasher::FixedFieldHasher;
 pub use sha2::{digest::Output, Digest, Sha256};
-use zeroize::ZeroizeOnDrop;
 use std::ops::Mul;
+pub use zeroize::Zeroize;
+use zeroize::ZeroizeOnDrop;
 
 /// Re-exports the `Affine` and `Fr` types from `secp256k1` module.
 ///
@@ -59,7 +62,7 @@ use std::ops::Mul;
 pub use secp256k1::{Affine, Fr};
 
 /// An `enum` representing the variant of the PLUME protocol.
-#[derive(Debug, Clone, Copy, PartialEq, /* Eq, Hash */)]
+#[derive(Debug, Clone, Copy, PartialEq /* Eq, Hash */)]
 pub enum PlumeVersion {
     V1,
     V2,
@@ -167,9 +170,7 @@ pub struct PlumeSignaturePublic {
     pub variant: Option<PlumeVersion>,
 }
 /// PLUME signature witness. Store securely and choose which data from the public part you will use to identify this part.
-#[derive(
-    Clone,
-)]
+#[derive(Clone)]
 pub struct PlumeSignaturePrivate {
     /// The hash-to-curve output multiplied by the random `r`.  
     pub hashed_to_curve_r: Affine,
@@ -200,14 +201,11 @@ pub type PublicKey = Affine;
 /// The scalar field element representing the secret key.
 pub type SecretKeyMaterial = Fr;
 
-/// Generate the public key and a private key.
-pub fn keygen(rng: &mut impl Rng) -> (PublicKey, SecretKeyMaterial) {
-    let secret_key = SecretKeyMaterial::rand(rng);
-    let public_key = secp256k1::Config::GENERATOR * secret_key;
-    (public_key.into_affine(), secret_key)
-}
-
-/// Sign a message using the specified `r` value
+/// Sign a message using the specified `r` value.
+///
+/// # WARNING
+/// Makes sense only in a constrained environment which lacks a secure RNG.
+// TODO it'd be nice to feature flag this, but for current level of traction a warning is a more natural communication to an user
 pub fn sign_with_r(
     keypair: (&PublicKey, &SecretKeyMaterial),
     message: &[u8],
@@ -255,13 +253,13 @@ pub fn sign_with_r(
             r_point,
             digest_private: c_scalar,
             variant: version,
-        }
+        },
     ))
 }
 
 /// Sign a message.
 pub fn sign(
-    rng: &mut impl Rng,
+    rng: &mut (impl rand::CryptoRng + rand::Rng),
     keypair: (&PublicKey, &SecretKeyMaterial),
     message: &[u8],
     version: PlumeVersion,
