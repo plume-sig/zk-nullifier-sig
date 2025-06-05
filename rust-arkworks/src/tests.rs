@@ -2,14 +2,15 @@ mod test_vectors;
 
 use crate::secp256k1::{Affine, Config};
 use crate::{secp256k1, PlumeSignaturePrivate, PlumeSignaturePublic, PlumeVersion};
+use ark_ec::short_weierstrass::SWCurveConfig;
 use ark_ec::AffineRepr;
 use ark_std::rand;
 use rand::{prelude::ThreadRng, thread_rng};
 
 use crate::secp256k1::fq::Fq;
 use ark_ec::CurveGroup;
-use ark_ff::PrimeField;
 use ark_ff::{BigInt, BigInteger};
+use ark_ff::{PrimeField, UniformRand};
 use std::ops::Mul;
 
 type Parameters = crate::Parameters<Config>;
@@ -116,12 +117,19 @@ pub fn hardcoded_msg() -> String {
     "An example app message string".to_string()
 }
 
+/// Generate the public key and a private key.
+pub fn keygen(rng: &mut impl super::rand::Rng) -> (super::PublicKey, super::SecretKeyMaterial) {
+    let secret_key = super::SecretKeyMaterial::rand(rng);
+    let public_key = secp256k1::Config::GENERATOR * secret_key;
+    (public_key.into_affine(), secret_key)
+}
+
 #[test]
 pub fn test_keygen() {
     let (mut rng, g) = test_template();
     let pp = Parameters { g_point: g };
 
-    let (pk, sk) = super::keygen(&mut rng);
+    let (pk, sk) = keygen(&mut rng);
 
     let expected_pk = g.mul(sk);
     assert_eq!(pk, expected_pk);
@@ -133,7 +141,7 @@ pub fn test_sign_and_verify() {
     let pp = Parameters { g_point: g };
 
     let message = b"Message";
-    let keypair = super::keygen(&mut rng);
+    let keypair = keygen(&mut rng);
 
     let sig = super::sign(
         &mut rng,
@@ -267,8 +275,7 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
     let pk = Affine::from(pk_projective);
 
     let keypair = (pk, sk);
-    let sig = super::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V1)
-        .unwrap();
+    let sig = super::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V1).unwrap();
 
     assert_eq!(
         sig.1.digest_private.into_bigint(),
@@ -279,8 +286,7 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
         BigInt!("0xe69f027d84cb6fe5f761e333d12e975fb190d163e8ea132d7de0bd6079ba28ca")
     );
 
-    let sig = super::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V2)
-        .unwrap();
+    let sig = super::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V2).unwrap();
 
     assert_eq!(
         sig.1.digest_private.into_bigint(),
