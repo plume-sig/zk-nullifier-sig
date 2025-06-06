@@ -1,3 +1,5 @@
+[![DeepWiki Docs](https://deepwiki.com/badge.svg)](https://deepwiki.com/plume-sig/zk-nullifier-sig)
+
 # PLUME: Verifiably Deterministic Signatures on ECDSA
 
 This repository provides libraries for the construction of deterministic nullifiers on Ethereum keys, [ERC 7524]([https://ethereum-magicians.org/t/erc-7524-plume-signature-in-wallets/15902](https://github.com/ethereum/EIPs/pull/7775)). We call them Privately Linked Unique Message Entities (or PLUMEs). PLUMEs enable zk voting, anonymous proof of solvency, and anonymous message board moderation to be possible with Ethereum keys directly, and so we think it is a critical primitive to push forward blockchain adoption. To understand how this primitive works and the reason for design decisions, we recommend checking out [our blog post](https://blog.aayushg.com/posts/plume).
