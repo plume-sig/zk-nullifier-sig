@@ -1,81 +1,12 @@
-#![allow(unused_imports)]
 use ark_ec::hashing::HashToCurve;
 use ark_ec::AffineRepr;
 use ark_ff::field_hashers::HashToField;
 use ark_ff::BigInt;
-// use crate::test_vectors;
-// use crate::sec1::Sec1EncodePoint;
-// use crate::fields::{Fr, Fq};
-// use crate::curves::*;
-use ark_std::{io::BufReader, rand::Rng, string::String, test_rng, vec::Vec};
-// use ark_algebra_test_templates::{
-//     fields::*,
-//     curves::*,
-//     msm::test_var_base_msm,
-//     groups::group_test,
-// };
-// use ark_ec::{AffineCurve, ProjectiveCurve};
-use ark_ff::{
-    biginteger::BigInteger320,
-    vec,
-    BigInteger,
-    PrimeField,
-    // ToBytes,
-    // FromBytes,
-    ToConstraintField,
-};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::string::ToString;
+use num_bigint::BigUint;
 use sha2::Sha256;
 
 use crate::fixed_hasher::FixedFieldHasher;
 use crate::secp256k1;
-
-// #[test]
-// fn test_fr() {
-//     let mut rng = test_rng();
-//     for _ in 0..5 {
-//         let a: Fr = rng.gen();
-
-//         sqrt_field_test(a);
-//         fft_field_test::<Fr>();
-//         primefield_test::<Fr>();
-
-//         let b: Fr = rng.gen();
-//         field_test::<Fr>(a, b);
-//     }
-// }
-
-// #[test]
-// fn test_fq() {
-//     let mut rng = test_rng();
-//     for _ in 0..5 {
-//         let a: Fq = rng.gen();
-
-//         sqrt_field_test(a);
-//         fft_field_test::<Fq>();
-//         primefield_test::<Fq>();
-//         let b: Fq = rng.gen();
-//         field_test::<Fq>(a, b);
-//     }
-// }
-
-// #[test]
-// fn test_secp256k1_curve() {
-//     let mut rng = ark_std::test_rng();
-//     let a: Projective = rng.gen();
-//     let b: Projective = rng.gen();
-//     group_test(a, b);
-
-//     curve_tests::<Projective>();
-
-//     test_var_base_msm::<Affine>();
-
-//     // Fails in arkworks 0.3.0 but the next version should have a fix
-//     sw_tests::<Secp256k1Parameters>();
-
-//     test_var_base_msm::<Affine>();
-// }
 
 #[test]
 fn test_secp256k1_generator() {
@@ -106,7 +37,6 @@ fn test_h2c() {
             a4db87ae63
     Q1.y    = 96eb8e2faf05e368efe5957c6167001760233e6dd2487516b46ae7
             25c4cce0c6 */
-    use std::str::FromStr;
 
     // assert_eq!(
     //     ExpanderXmd::expand([]),
@@ -120,13 +50,11 @@ fn test_h2c() {
     let u: [secp256k1::fq::Fq; 2] = defhasher.hash_to_field::<2>(&[]);
     println!("{}", u[0]);
     assert_eq!(
-        u[0],
-        secp256k1::fq::Fq::new(
-            BigInt::from_str(
-                "48425033926223359121679389614872723077618800904285921194876400224709273202611"
-            )
-            .unwrap()
-        ),
+        u,
+        [
+            secp256k1::fq::Fq::new(BigInt::try_from(BigUint::parse_bytes(b"6b0f9910dd2ba71c78f2ee9f04d73b5f4c5f7fc773a701abea1e573cab002fb3", 16).unwrap()).unwrap()),
+            secp256k1::fq::Fq::new(BigInt::try_from(BigUint::parse_bytes(b"1ae6c212e08fe1a5937f6202f929a2cc8ef4ee5b9782db68b0d5799fd8f09e16", 16).unwrap()).unwrap())
+        ]
     );
 
     assert_eq!(
@@ -140,16 +68,10 @@ fn test_h2c() {
         .unwrap(),
         secp256k1::Affine::new(
             secp256k1::fq::Fq::new(
-                BigInt::from_str(
-                    "87654846584422849836571930156466438379984710599888121545025567473301233275718"
-                )
-                .unwrap()
+                BigInt::try_from(BigUint::parse_bytes(b"c1cae290e291aee617ebaef1be6d73861479c48b841eaba9b7b5852ddfeb1346", 16).unwrap()).unwrap()
             ),
             secp256k1::fq::Fq::new(
-                BigInt::from_str(
-                    "45673711333516174500892987253036094404176536844955599116957274814081860440167"
-                )
-                .unwrap()
+                BigInt::try_from(BigUint::parse_bytes(b"64fa678e07ae116126f08b022a94af6de15985c996c3a91b64c406a960e51067", 16).unwrap()).unwrap()
             ),
         )
     );

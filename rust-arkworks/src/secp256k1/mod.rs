@@ -18,4 +18,5 @@ pub use fields::*;
 // pub use sec1::*;
 
 // pub mod test_vectors;
+#[cfg(test)]
 mod tests;
