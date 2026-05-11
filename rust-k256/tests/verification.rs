@@ -3,13 +3,40 @@
 //! Their setup is shared, `mod helpers` contains barely not refactored code, which is still instrumental to the tests.
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
-use k256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar, ProjectivePoint};
+use k256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar, ProjectivePoint, Scalar};
 use plume_rustcrypto::{AffinePoint, PlumeSignature, PlumeSignatureV1Fields};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
 const C_V1: [u8; 32] =
     hex_literal::hex!("c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254");
+
+fn valid_v1_signature() -> PlumeSignature {
+    let test_data = test_gen_signals(M, PlumeVersion::V1);
+    PlumeSignature {
+        message: M.to_owned().into(),
+        pk: (G * gen_test_scalar_sk()).into(),
+        nullifier: test_data.1.into(),
+        c: NonZeroScalar::from_repr(C_V1.into()).unwrap(),
+        s: NonZeroScalar::new(test_data.3).unwrap(),
+        v1specific: Some(PlumeSignatureV1Fields {
+            r_point: test_data.4.unwrap().into(),
+            hashed_to_curve_r: test_data.5.unwrap().into(),
+        }),
+    }
+}
+
+fn valid_v2_signature() -> PlumeSignature {
+    let test_data = test_gen_signals(M, PlumeVersion::V2);
+    PlumeSignature {
+        message: M.to_owned().into(),
+        pk: (G * gen_test_scalar_sk()).into(),
+        nullifier: test_data.1.into(),
+        c: NonZeroScalar::from_repr(test_data.2).unwrap(),
+        s: NonZeroScalar::new(test_data.3).unwrap(),
+        v1specific: None,
+    }
+}
 
 // `test_gen_signals` provides fixed key nullifier, secret key, and the random value for testing
 // Normally a secure enclave would generate these values, and output to a wallet implementation
@@ -94,16 +121,46 @@ fn plume_v1_test() {
 
 #[test]
 fn plume_v2_test() {
-    let test_data = test_gen_signals(M, PlumeVersion::V2);
-    assert!(PlumeSignature {
-        message: M.to_owned().into(),
-        pk: (G * gen_test_scalar_sk()).into(),
-        nullifier: test_data.1.into(),
-        c: NonZeroScalar::from_repr(test_data.2).unwrap(),
-        s: NonZeroScalar::new(test_data.3).unwrap(),
-        v1specific: None
+    assert!(valid_v2_signature().verify());
+}
+
+#[test]
+fn zero_challenge_is_rejected_by_type() {
+    assert!(bool::from(NonZeroScalar::new(Scalar::ZERO).is_none()));
+}
+
+#[test]
+fn plume_v2_rejects_tampered_challenge() {
+    let mut sig = valid_v2_signature();
+    sig.c = NonZeroScalar::from_repr(C_V1.into()).unwrap();
+
+    assert!(!sig.verify());
+}
+
+#[test]
+fn plume_v2_rejects_identity_public_inputs() {
+    let mut sig = valid_v2_signature();
+    sig.pk = AffinePoint::IDENTITY;
+    assert!(!sig.verify());
+
+    let mut sig = valid_v2_signature();
+    sig.nullifier = AffinePoint::IDENTITY;
+    assert!(!sig.verify());
+}
+
+#[test]
+fn plume_v1_rejects_identity_witness_points() {
+    let mut sig = valid_v1_signature();
+    if let Some(v1_fields) = sig.v1specific.as_mut() {
+        v1_fields.r_point = AffinePoint::IDENTITY;
     }
-    .verify());
+    assert!(!sig.verify());
+
+    let mut sig = valid_v1_signature();
+    if let Some(v1_fields) = sig.v1specific.as_mut() {
+        v1_fields.hashed_to_curve_r = AffinePoint::IDENTITY;
+    }
+    assert!(!sig.verify());
 }
 
 mod helpers {
