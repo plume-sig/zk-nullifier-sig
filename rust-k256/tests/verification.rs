@@ -1,5 +1,6 @@
-//! The suite consists of two tests; one for each type of signature. One of them also do printings of the values,
-//! which can be useful to you when comparing different implementations.
+//! The suite covers valid signatures and malformed signature inputs. The V1
+//! happy-path test also prints values that can be useful when comparing
+//! different implementations.
 //! Their setup is shared, `mod helpers` contains barely not refactored code, which is still instrumental to the tests.
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
@@ -11,27 +12,12 @@ const M: &[u8; 29] = b"An example app message string";
 const C_V1: [u8; 32] =
     hex_literal::hex!("c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254");
 
-// `test_gen_signals` provides fixed key nullifier, secret key, and the random value for testing
-// Normally a secure enclave would generate these values, and output to a wallet implementation
-
-// `gen_test_scalar_sk()` provides the signer's secret key. It is only accessed within the secure enclave.
-
-// The user's public key goes to the `pk` field as $g^sk$.
-
-// Both tests finish with the signals verification, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
-// The wallet should probably run this prior to snarkify-ing as a sanity check
-// `M` and nullifier should be public, so we can verify that they are correct
-
-#[test]
-fn plume_v1_test() {
+fn valid_v1_signature() -> PlumeSignature {
     let test_data = test_gen_signals(M, PlumeVersion::V1);
     let r_point = test_data.4.unwrap();
     let hashed_to_curve_r = test_data.5.unwrap();
 
-    println!("{:?}", test_data.3);
-    println!("{}", NonZeroScalar::new(test_data.3).unwrap().to_string());
-
-    let sig = PlumeSignature {
+    PlumeSignature {
         message: M.to_owned().into(),
         pk: (G * gen_test_scalar_sk()).into(),
         nullifier: test_data.1.into(),
@@ -41,7 +27,36 @@ fn plume_v1_test() {
             r_point: r_point.into(),
             hashed_to_curve_r: hashed_to_curve_r.into(),
         }),
-    };
+    }
+}
+
+fn valid_v2_signature() -> PlumeSignature {
+    let test_data = test_gen_signals(M, PlumeVersion::V2);
+
+    PlumeSignature {
+        message: M.to_owned().into(),
+        pk: (G * gen_test_scalar_sk()).into(),
+        nullifier: test_data.1.into(),
+        c: NonZeroScalar::from_repr(test_data.2).unwrap(),
+        s: NonZeroScalar::new(test_data.3).unwrap(),
+        v1specific: None,
+    }
+}
+
+// `test_gen_signals` provides fixed key nullifier, secret key, and the random value for testing
+// Normally a secure enclave would generate these values, and output to a wallet implementation
+
+// `gen_test_scalar_sk()` provides the signer's secret key. It is only accessed within the secure enclave.
+
+// The user's public key goes to the `pk` field as $g^sk$.
+
+// The happy-path tests finish with the signals verification, normally this would happen in ZK with only the nullifier public, which would have a zk verifier instead
+// The wallet should probably run this prior to snarkify-ing as a sanity check
+// `M` and nullifier should be public, so we can verify that they are correct
+
+#[test]
+fn plume_v1_test() {
+    let sig = valid_v1_signature();
     let verified = sig.verify();
     println!("Verified: {}", verified);
 
@@ -59,34 +74,24 @@ fn plume_v1_test() {
     // Print r_sk_c
     println!("r_sk_c: {:?}", hex::encode(sig.s.to_bytes()));
     // Print g_r
+    let r_point = sig.v1specific.as_ref().unwrap().r_point;
     println!(
         "g_r.x: {:?}",
-        hex::encode(r_point.to_affine().to_encoded_point(false).x().unwrap())
+        hex::encode(r_point.to_encoded_point(false).x().unwrap())
     );
     println!(
         "g_r.y: {:?}",
-        hex::encode(r_point.to_affine().to_encoded_point(false).y().unwrap())
+        hex::encode(r_point.to_encoded_point(false).y().unwrap())
     );
     // Print hash_m_pk_pow_r
+    let hashed_to_curve_r = sig.v1specific.as_ref().unwrap().hashed_to_curve_r;
     println!(
         "hash_m_pk_pow_r.x: {:?}",
-        hex::encode(
-            hashed_to_curve_r
-                .to_affine()
-                .to_encoded_point(false)
-                .x()
-                .unwrap()
-        )
+        hex::encode(hashed_to_curve_r.to_encoded_point(false).x().unwrap())
     );
     println!(
         "hash_m_pk_pow_r.y: {:?}",
-        hex::encode(
-            hashed_to_curve_r
-                .to_affine()
-                .to_encoded_point(false)
-                .y()
-                .unwrap()
-        )
+        hex::encode(hashed_to_curve_r.to_encoded_point(false).y().unwrap())
     );
 
     assert!(verified);
@@ -94,16 +99,64 @@ fn plume_v1_test() {
 
 #[test]
 fn plume_v2_test() {
-    let test_data = test_gen_signals(M, PlumeVersion::V2);
-    assert!(PlumeSignature {
-        message: M.to_owned().into(),
-        pk: (G * gen_test_scalar_sk()).into(),
-        nullifier: test_data.1.into(),
-        c: NonZeroScalar::from_repr(test_data.2).unwrap(),
-        s: NonZeroScalar::new(test_data.3).unwrap(),
-        v1specific: None
-    }
-    .verify());
+    assert!(valid_v2_signature().verify());
+}
+
+#[test]
+fn rejects_v1_signature_with_identity_nullifier() {
+    let mut sig = valid_v1_signature();
+    sig.nullifier = AffinePoint::IDENTITY;
+
+    assert!(!sig.verify());
+}
+
+#[test]
+fn rejects_v1_signature_with_identity_public_key() {
+    let mut sig = valid_v1_signature();
+    sig.pk = AffinePoint::IDENTITY;
+
+    assert!(!sig.verify());
+}
+
+#[test]
+fn rejects_v1_signature_with_identity_r_point() {
+    let mut sig = valid_v1_signature();
+    let v1 = sig.v1specific.as_mut().unwrap();
+    v1.r_point = AffinePoint::IDENTITY;
+
+    assert!(!sig.verify());
+}
+
+#[test]
+fn rejects_v1_signature_with_identity_hashed_to_curve_r() {
+    let mut sig = valid_v1_signature();
+    let v1 = sig.v1specific.as_mut().unwrap();
+    v1.hashed_to_curve_r = AffinePoint::IDENTITY;
+
+    assert!(!sig.verify());
+}
+
+#[test]
+fn rejects_v2_signature_with_identity_nullifier() {
+    let mut sig = valid_v2_signature();
+    sig.nullifier = AffinePoint::IDENTITY;
+
+    assert!(!sig.verify());
+}
+
+#[test]
+fn rejects_v2_signature_with_identity_public_key() {
+    let mut sig = valid_v2_signature();
+    sig.pk = AffinePoint::IDENTITY;
+
+    assert!(!sig.verify());
+}
+
+#[test]
+fn zero_challenge_cannot_be_constructed() {
+    assert!(bool::from(
+        NonZeroScalar::from_repr([0u8; 32].into()).is_none()
+    ));
 }
 
 mod helpers {
@@ -113,13 +166,11 @@ mod helpers {
     use hex_literal::hex;
     use k256::{
         elliptic_curve::{
-            bigint::ArrayEncoding,
             hash2curve::{ExpandMsgXmd, GroupDigest},
-            ops::ReduceNonZero,
             PrimeField,
         },
         sha2::{digest::Output, Digest, Sha256},
-        Scalar, Secp256k1, U256,
+        Scalar, Secp256k1,
     };
 
     #[derive(Debug)]
