@@ -2,16 +2,16 @@ mod test_vectors;
 
 use crate::secp256k1::{Affine, Config};
 use crate::{secp256k1, PlumeSignaturePrivate, PlumeSignaturePublic, PlumeVersion};
-use ark_ec::short_weierstrass::SWCurveConfig;
 use ark_ec::AffineRepr;
 use ark_std::rand;
 use rand::{prelude::ThreadRng, thread_rng};
 
 use crate::secp256k1::fq::Fq;
 use ark_ec::CurveGroup;
+use ark_ff::PrimeField;
 use ark_ff::{BigInt, BigInteger};
-use ark_ff::{PrimeField, UniformRand};
 use std::ops::Mul;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 type Parameters = crate::Parameters<Config>;
 
@@ -118,10 +118,19 @@ pub fn hardcoded_msg() -> String {
 }
 
 /// Generate the public key and a private key.
-pub fn keygen(rng: &mut impl super::rand::Rng) -> (super::PublicKey, super::SecretKeyMaterial) {
-    let secret_key = super::SecretKeyMaterial::rand(rng);
-    let public_key = secp256k1::Config::GENERATOR * secret_key;
-    (public_key.into_affine(), secret_key)
+pub fn keygen(
+    rng: &mut (impl super::rand::CryptoRng + super::rand::Rng),
+) -> (super::PublicKey, super::SecretKeyMaterial) {
+    let secret_key = super::SecretKeyMaterial::generate(rng);
+    let public_key = secret_key.public_key();
+    (public_key, secret_key)
+}
+
+#[test]
+pub fn secret_key_material_zeroizes_on_drop() {
+    fn assert_zeroizing_secret<T: Zeroize + ZeroizeOnDrop>() {}
+
+    assert_zeroizing_secret::<super::SecretKeyMaterial>();
 }
 
 #[test]
@@ -131,7 +140,7 @@ pub fn test_keygen() {
 
     let (pk, sk) = keygen(&mut rng);
 
-    let expected_pk = g.mul(sk);
+    let expected_pk = sk.public_key();
     assert_eq!(pk, expected_pk);
 }
 
@@ -274,7 +283,7 @@ pub fn test_against_zk_nullifier_sig_c_and_s() {
     let pk_projective = g * sk;
     let pk = Affine::from(pk_projective);
 
-    let keypair = (pk, sk);
+    let keypair = (pk, super::SecretKeyMaterial::from_scalar(sk));
     let sig = super::sign_with_r((&keypair.0, &keypair.1), message, r, PlumeVersion::V1).unwrap();
 
     assert_eq!(
