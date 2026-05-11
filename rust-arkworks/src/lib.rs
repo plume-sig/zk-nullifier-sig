@@ -78,43 +78,52 @@ pub fn sec1_affine(affine: &Affine) -> Option<[u8; 33]> {
     CanonicalSerialize::serialize_compressed(affine, writer.as_mut_slice())
     .expect("the type serialization is completely covered and the `writer` accomodates the `Result` completely");
     writer.reverse();
-    writer[0] =
-        if ark_ff::BigInteger::is_odd(&ark_ff::PrimeField::into_bigint(AffineRepr::y(affine)?)) {
-            3
-        } else {
-            2
-        };
+    let Some(y) = AffineRepr::y(affine) else {
+        writer.zeroize();
+        return None;
+    };
+    let mut y_bigint = ark_ff::PrimeField::into_bigint(y);
+    writer[0] = if ark_ff::BigInteger::is_odd(&y_bigint) {
+        3
+    } else {
+        2
+    };
+    y_bigint.zeroize();
     Some(writer)
 }
 
 pub fn hash_to_curve(message: &[u8], pk: &Affine) -> Result<Affine, HashToCurveError> {
-    MapToCurveBasedHasher::<
+    let hasher = MapToCurveBasedHasher::<
         ark_ec::short_weierstrass::Projective<secp256k1::Config>,
         FixedFieldHasher<Sha256>,
         WBMap<secp256k1::Config>,
-    >::new(b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_")?
-    .hash(
-        [
-            message,
-            &sec1_affine(pk).ok_or(HashToCurveError::MapToCurveError(
-                "`pk` shouldn't be the identity element".into(),
-            ))?,
-        ]
-        .concat()
-        .as_slice(),
-    )
+    >::new(b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_")?;
+    let mut pk_bytes = sec1_affine(pk).ok_or(HashToCurveError::MapToCurveError(
+        "`pk` shouldn't be the identity element".into(),
+    ))?;
+    let mut preimage = Vec::with_capacity(message.len() + pk_bytes.len());
+    preimage.extend_from_slice(message);
+    preimage.extend_from_slice(&pk_bytes);
+    pk_bytes.zeroize();
+
+    let result = hasher.hash(preimage.as_slice());
+    preimage.zeroize();
+    result
 }
 
-#[deprecated(
-    note = "it's an awful hack, but it doesn't make the thing worse than it already is, 
-and @skaunov expanded [the issue](https://github.com/plume-sig/zk-nullifier-sig/issues/111#issuecomment-2949397220) to fix it"
-)]
-fn helper(b: Option<[u8; 33]>) -> Vec<u8> {
-    if b.is_some() {
-        b.unwrap().into()
+fn append_sec1_affine_to_preimage(preimage: &mut Vec<u8>, affine: &Affine) {
+    if let Some(mut bytes) = sec1_affine(affine) {
+        preimage.extend_from_slice(&bytes);
+        bytes.zeroize();
     } else {
-        vec![0u8]
+        preimage.push(0u8);
     }
+}
+
+fn finalize_zeroizing_preimage(mut preimage: Vec<u8>) -> Output<Sha256> {
+    let digest = Sha256::digest(preimage.as_slice());
+    preimage.zeroize();
+    digest
 }
 
 fn compute_c_v1(
@@ -131,20 +140,15 @@ fn compute_c_v1(
     // {if hashed_to_curve.is_zero() {&[0u8]} else {sec1_affine(hashed_to_curve).expect("checked conditionally").as_slice()}},
 
     // Compute c = sha256([g, pk, h, nul, g^r, z])
-    let c_preimage_vec = [
-        sec1_affine(&secp256k1::Config::GENERATOR)
-            .expect("the generator can't be the identity element")
-            .to_vec(),
-        // .as_slice(),
-        helper(sec1_affine(pk)),
-        helper(sec1_affine(hashed_to_curve)),
-        helper(sec1_affine(nullifier)),
-        helper(sec1_affine(r_point)),
-        helper(sec1_affine(hashed_to_curve_r)),
-    ]
-    .concat();
+    let mut c_preimage_vec = Vec::with_capacity(33 * 6);
+    append_sec1_affine_to_preimage(&mut c_preimage_vec, &secp256k1::Config::GENERATOR);
+    append_sec1_affine_to_preimage(&mut c_preimage_vec, pk);
+    append_sec1_affine_to_preimage(&mut c_preimage_vec, hashed_to_curve);
+    append_sec1_affine_to_preimage(&mut c_preimage_vec, nullifier);
+    append_sec1_affine_to_preimage(&mut c_preimage_vec, r_point);
+    append_sec1_affine_to_preimage(&mut c_preimage_vec, hashed_to_curve_r);
 
-    Sha256::digest(c_preimage_vec.as_slice())
+    finalize_zeroizing_preimage(c_preimage_vec)
 }
 
 fn compute_c_v2(
@@ -153,13 +157,12 @@ fn compute_c_v2(
     hashed_to_curve_r: &secp256k1::Affine,
 ) -> Output<Sha256> {
     // Compute c = sha256([nul, g^r, z])
-    let nul_bytes = helper(sec1_affine(nullifier));
-    let g_r_bytes = helper(sec1_affine(r_point));
-    let z_bytes = helper(sec1_affine(hashed_to_curve_r));
+    let mut c_preimage_vec = Vec::with_capacity(33 * 3);
+    append_sec1_affine_to_preimage(&mut c_preimage_vec, nullifier);
+    append_sec1_affine_to_preimage(&mut c_preimage_vec, r_point);
+    append_sec1_affine_to_preimage(&mut c_preimage_vec, hashed_to_curve_r);
 
-    let c_preimage_vec = [nul_bytes, g_r_bytes, z_bytes].concat();
-
-    Sha256::digest(c_preimage_vec.as_slice())
+    finalize_zeroizing_preimage(c_preimage_vec)
 }
 
 /// A struct containing parameters for the SW model, including the generator point `g_point`.

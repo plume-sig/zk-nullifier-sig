@@ -309,8 +309,22 @@ fn test_point_sec1_encoding() {
         let point = (generator * secp256k1::Fr::from(k)).into_affine();
 
         assert_eq!(
-            super::helper(super::sec1_affine(&point)),
+            super::sec1_affine(&point)
+                .map(|bytes| bytes.to_vec())
+                .unwrap_or_else(|| vec![0u8]),
             hex::decode(vector.1.as_bytes()).unwrap()
         );
     }
+}
+
+#[test]
+fn test_sec1_affine_preimage_appender_matches_public_encoding() {
+    let point = (secp256k1::Affine::generator() * secp256k1::Fr::from(7u64)).into_affine();
+    let expected = super::sec1_affine(&point).unwrap();
+
+    let mut preimage = vec![0xaa, 0xbb];
+    super::append_sec1_affine_to_preimage(&mut preimage, &point);
+
+    assert_eq!(&preimage[..2], &[0xaa, 0xbb]);
+    assert_eq!(&preimage[2..], expected);
 }
