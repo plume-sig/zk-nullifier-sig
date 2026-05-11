@@ -166,6 +166,23 @@ pub fn test_sign_and_verify() {
     assert!(is_valid.unwrap());
 }
 
+#[test]
+pub fn test_challenge_bytes_wrap_at_scalar_order_boundary() {
+    let scalar_order =
+        hex::decode("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141").unwrap();
+    let scalar_order_plus_one =
+        hex::decode("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142").unwrap();
+
+    assert_eq!(
+        secp256k1::Fr::from_be_bytes_mod_order(&scalar_order),
+        secp256k1::Fr::from(0u64)
+    );
+    assert_eq!(
+        secp256k1::Fr::from_be_bytes_mod_order(&scalar_order_plus_one),
+        secp256k1::Fr::from(1u64)
+    );
+}
+
 pub fn hash_to_curve_with_testvalues() -> Affine {
     let msg = hardcoded_msg();
     let message = msg.as_bytes();

@@ -171,6 +171,7 @@ fn c_sha256_vec_signal(values: Vec<&ProjectivePoint>) -> Output<Sha256> {
 mod tests {
     use super::*;
     use hex_literal::hex;
+    use k256::elliptic_curve::PrimeField;
 
     // Test encode_pt()
     #[test]
@@ -204,6 +205,23 @@ mod tests {
         assert_eq!(
             hex::encode(scalar.to_bytes()),
             "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
+        );
+    }
+
+    #[test]
+    fn test_reduce_challenge_bytes_at_scalar_order_boundary() {
+        let scalar_order = hex!("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+        let scalar_order_plus_one =
+            hex!("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142");
+
+        assert!(bool::from(Scalar::from_repr(scalar_order.into()).is_none()));
+        assert_eq!(
+            Scalar::reduce(U256::from_be_byte_array(scalar_order.into())),
+            Scalar::from(0u64)
+        );
+        assert_eq!(
+            Scalar::reduce(U256::from_be_byte_array(scalar_order_plus_one.into())),
+            Scalar::from(1u64)
         );
     }
 }
