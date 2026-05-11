@@ -1,7 +1,7 @@
 mod test_vectors;
 
 use crate::secp256k1::{Affine, Config};
-use crate::{secp256k1, PlumeSignaturePrivate, PlumeSignaturePublic, PlumeVersion};
+use crate::{secp256k1, PlumeVersion};
 use ark_ec::short_weierstrass::SWCurveConfig;
 use ark_ec::AffineRepr;
 use ark_std::rand;
@@ -14,68 +14,6 @@ use ark_ff::{PrimeField, UniformRand};
 use std::ops::Mul;
 
 type Parameters = crate::Parameters<Config>;
-
-/// Verifies a PLUME signature.
-/// Returns `true` if the signature is valid, `false` otherwise.
-///
-/// Computes the curve points and scalars needed for verification from the
-/// signature parameters. Then performs the verification steps:
-/// - Confirm g^s * pk^-c = g^r
-/// - Confirm h^s * nul^-c = z
-/// - Confirm c = c'
-///
-/// Rejects if any check fails.
-pub fn verify_non_zk(
-    sig: (PlumeSignaturePublic, PlumeSignaturePrivate),
-    pp: &super::Parameters<secp256k1::Config>,
-    pk: &super::PublicKey,
-    message: &[u8],
-    version: PlumeVersion,
-) -> Result<bool, super::HashToCurveError> {
-    // Compute h = htc([m, pk])
-    let hashed_to_curve = super::hash_to_curve(message, pk)?;
-
-    // Compute c' = sha256([g, pk, h, nul, g^r, z]) for v1
-    //         c' = sha256([nul, g^r, z]) for v2
-    let c = match version {
-        PlumeVersion::V1 => super::compute_c_v1(
-            pk,
-            &hashed_to_curve,
-            &sig.0.nullifier,
-            &sig.1.r_point,
-            &sig.1.hashed_to_curve_r,
-        ),
-        PlumeVersion::V2 => {
-            super::compute_c_v2(&sig.0.nullifier, &sig.1.r_point, &sig.1.hashed_to_curve_r)
-        }
-    };
-    let c_scalar = secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
-
-    // Reject if g^s ⋅ pk^{-c} != g^r
-    let g_s = pp.g_point.mul(sig.0.s);
-    let pk_c = pk.mul(sig.1.digest_private);
-    let g_s_pk_c = g_s - pk_c;
-
-    if sig.1.r_point != g_s_pk_c {
-        return Ok(false);
-    }
-
-    // Reject if h^s ⋅ nul^{-c} = z
-    let h_s = hashed_to_curve.mul(sig.0.s);
-    let nul_c = sig.0.nullifier.mul(sig.1.digest_private);
-    let h_s_nul_c = h_s - nul_c;
-
-    if sig.1.hashed_to_curve_r != h_s_nul_c {
-        return Ok(false);
-    }
-
-    // Reject if c != c'
-    if c_scalar != sig.1.digest_private {
-        return Ok(false);
-    }
-
-    Ok(true)
-}
 
 fn test_template() -> (ThreadRng, Affine) {
     let rng = thread_rng();
@@ -151,7 +89,7 @@ pub fn test_sign_and_verify() {
     )
     .unwrap();
 
-    let is_valid = verify_non_zk(sig, &pp, &keypair.0, message, PlumeVersion::V1);
+    let is_valid = super::verify((&sig.0, &sig.1), &pp, &keypair.0);
     assert!(is_valid.unwrap());
 
     let sig = super::sign(
@@ -162,8 +100,47 @@ pub fn test_sign_and_verify() {
     )
     .unwrap();
 
-    let is_valid = verify_non_zk(sig, &pp, &keypair.0, message, PlumeVersion::V2);
+    let is_valid = super::verify((&sig.0, &sig.1), &pp, &keypair.0);
     assert!(is_valid.unwrap());
+}
+
+#[test]
+pub fn test_verify_rejects_incompatible_variant_markers() {
+    let (mut rng, g) = test_template();
+    let pp = Parameters { g_point: g };
+
+    let message = b"Message";
+    let keypair = keygen(&mut rng);
+
+    let mut sig = super::sign(
+        &mut rng,
+        (&keypair.0, &keypair.1),
+        message,
+        PlumeVersion::V2,
+    )
+    .unwrap();
+    sig.0.variant = Some(PlumeVersion::V1);
+    assert!(!super::verify((&sig.0, &sig.1), &pp, &keypair.0).unwrap());
+
+    let mut sig = super::sign(
+        &mut rng,
+        (&keypair.0, &keypair.1),
+        message,
+        PlumeVersion::V1,
+    )
+    .unwrap();
+    sig.1.variant = PlumeVersion::V2;
+    assert!(!super::verify((&sig.0, &sig.1), &pp, &keypair.0).unwrap());
+
+    let mut sig = super::sign(
+        &mut rng,
+        (&keypair.0, &keypair.1),
+        message,
+        PlumeVersion::V1,
+    )
+    .unwrap();
+    sig.0.variant = None;
+    assert!(!super::verify((&sig.0, &sig.1), &pp, &keypair.0).unwrap());
 }
 
 pub fn hash_to_curve_with_testvalues() -> Affine {
