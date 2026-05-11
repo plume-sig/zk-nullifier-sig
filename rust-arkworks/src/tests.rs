@@ -328,3 +328,11 @@ fn test_sec1_affine_preimage_appender_matches_public_encoding() {
     assert_eq!(&preimage[..2], &[0xaa, 0xbb]);
     assert_eq!(&preimage[2..], expected);
 }
+
+#[test]
+fn test_sec1_affine_preimage_appender_preserves_identity_fallback() {
+    let mut preimage = vec![0xaa, 0xbb];
+    super::append_sec1_affine_to_preimage(&mut preimage, &secp256k1::Affine::identity());
+
+    assert_eq!(preimage, vec![0xaa, 0xbb, 0x00]);
+}
