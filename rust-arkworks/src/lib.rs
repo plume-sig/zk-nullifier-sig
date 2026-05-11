@@ -187,6 +187,8 @@ pub struct PlumeSignaturePublic {
     pub s: Fr,
     /// The nullifier.
     pub nullifier: Affine,
+    /// The signature variant. Verification rejects signatures whose public and
+    /// private variant markers do not match.
     pub variant: Option<PlumeVersion>,
 }
 /// PLUME signature witness. Store securely and choose which data from the public part you will use to identify this part.
@@ -197,6 +199,7 @@ pub struct PlumeSignaturePrivate {
     /// The randomness `r` represented as the curve point.
     pub r_point: Affine,
     pub digest_private: Fr,
+    /// The signature variant. This must match the public signature marker.
     pub variant: PlumeVersion,
 }
 impl Zeroize for PlumeSignaturePrivate {
@@ -288,6 +291,69 @@ pub fn sign(
     let r_scalar = secp256k1::Fr::rand(rng);
 
     sign_with_r(keypair, message, r_scalar, version)
+}
+
+/// Verifies a PLUME signature outside of a zero-knowledge circuit.
+///
+/// The signature variant is read from the signature itself. Verification rejects
+/// missing or mismatched public/private variant markers before checking the
+/// algebraic equations and challenge digest.
+pub fn verify(
+    sig: (&PlumeSignaturePublic, &PlumeSignaturePrivate),
+    pp: &Parameters<secp256k1::Config>,
+    pk: &PublicKey,
+) -> Result<bool, HashToCurveError> {
+    let Some(version) = sig.0.variant else {
+        return Ok(false);
+    };
+
+    if version != sig.1.variant {
+        return Ok(false);
+    }
+
+    // Compute h = htc([m, pk])
+    let hashed_to_curve = hash_to_curve(sig.0.message.as_slice(), pk)?;
+
+    // Compute c' = sha256([g, pk, h, nul, g^r, z]) for v1
+    //         c' = sha256([nul, g^r, z]) for v2
+    let c = match version {
+        PlumeVersion::V1 => compute_c_v1(
+            pk,
+            &hashed_to_curve,
+            &sig.0.nullifier,
+            &sig.1.r_point,
+            &sig.1.hashed_to_curve_r,
+        ),
+        PlumeVersion::V2 => {
+            compute_c_v2(&sig.0.nullifier, &sig.1.r_point, &sig.1.hashed_to_curve_r)
+        }
+    };
+    let c_scalar = secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
+
+    // Reject if g^s * pk^-c != g^r.
+    let g_s = pp.g_point.mul(sig.0.s);
+    let pk_c = pk.mul(sig.1.digest_private);
+    let g_s_pk_c = g_s - pk_c;
+
+    if sig.1.r_point != g_s_pk_c {
+        return Ok(false);
+    }
+
+    // Reject if h^s * nul^-c != z.
+    let h_s = hashed_to_curve.mul(sig.0.s);
+    let nul_c = sig.0.nullifier.mul(sig.1.digest_private);
+    let h_s_nul_c = h_s - nul_c;
+
+    if sig.1.hashed_to_curve_r != h_s_nul_c {
+        return Ok(false);
+    }
+
+    // Reject if c != c'.
+    if c_scalar != sig.1.digest_private {
+        return Ok(false);
+    }
+
+    Ok(true)
 }
 
 #[cfg(test)]
