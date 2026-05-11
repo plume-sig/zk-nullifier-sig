@@ -4,15 +4,24 @@ use super::{
 };
 use k256::{
     elliptic_curve::{
+        bigint::ArrayEncoding,
         hash2curve::{ExpandMsgXmd, GroupDigest},
+        ops::Reduce,
         point::NonIdentity,
         sec1::ToEncodedPoint,
     },
-    sha2::{Digest, Sha256},
-    Secp256k1,
+    sha2::{digest::Output, Digest, Sha256},
+    Scalar, Secp256k1, U256,
 };
 // Removed `pub` from this, since it's only interested to those who already imported `signature`
 use signature::{Error, RandomizedSigner};
+
+fn challenge_digest_to_scalar(c: Output<Sha256>) -> Result<NonZeroScalar, Error> {
+    Option::<NonZeroScalar>::from(NonZeroScalar::new(Scalar::reduce(
+        U256::from_be_byte_array(c),
+    )))
+    .ok_or_else(Error::new)
+}
 
 /// `PlumeSigner` is a `struct` that contains a reference to a secret key and a
 /// boolean defining output [`PlumeSignature`] variant.
@@ -87,8 +96,7 @@ impl<'signing> RandomizedSigner<PlumeSignature> for PlumeSigner<'signing> {
         updhash!(hashed_to_curve_r);
 
         let c = hasher.finalize();
-        let c_scalar = NonZeroScalar::from_repr(c)
-            .expect("it should be impossible to get the hash equal to zero");
+        let c_scalar = challenge_digest_to_scalar(c)?;
 
         // Compute $s = r + sk ⋅ c$. #lastoponsecret
         let s_scalar = NonZeroScalar::new(*r_scalar + *(c_scalar * self.secret_key.to_nonzero_scalar()))
@@ -109,5 +117,37 @@ impl<'signing> RandomizedSigner<PlumeSignature> for PlumeSigner<'signing> {
                 None
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hex_literal::hex;
+
+    const SECP256K1_ORDER: [u8; 32] =
+        hex!("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+    const SECP256K1_ORDER_PLUS_ONE: [u8; 32] =
+        hex!("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142");
+
+    #[test]
+    fn challenge_digest_reduces_values_above_scalar_order() {
+        assert!(bool::from(
+            NonZeroScalar::from_repr(SECP256K1_ORDER_PLUS_ONE.into()).is_none()
+        ));
+
+        let scalar = challenge_digest_to_scalar(SECP256K1_ORDER_PLUS_ONE.into()).unwrap();
+
+        assert_eq!(*scalar, Scalar::from(1u64));
+    }
+
+    #[test]
+    fn challenge_digest_rejects_zero_after_reduction() {
+        assert!(bool::from(
+            NonZeroScalar::from_repr(SECP256K1_ORDER.into()).is_none()
+        ));
+
+        assert!(challenge_digest_to_scalar(SECP256K1_ORDER.into()).is_err());
+        assert!(challenge_digest_to_scalar([0u8; 32].into()).is_err());
     }
 }
