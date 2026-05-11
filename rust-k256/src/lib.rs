@@ -171,6 +171,11 @@ fn c_sha256_vec_signal(values: Vec<&ProjectivePoint>) -> Output<Sha256> {
 mod tests {
     use super::*;
     use hex_literal::hex;
+    use k256::elliptic_curve::sec1::ToEncodedPoint;
+
+    const TEST_MESSAGE: &[u8; 29] = b"An example app message string";
+    const TEST_SECRET_KEY: [u8; 32] =
+        hex!("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464");
 
     // Test encode_pt()
     #[test]
@@ -204,6 +209,24 @@ mod tests {
         assert_eq!(
             hex::encode(scalar.to_bytes()),
             "c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254"
+        );
+    }
+
+    #[test]
+    fn test_hash_to_curve_matches_plume_vector() {
+        let sk = byte_array_to_scalar(&TEST_SECRET_KEY);
+        let pk = ProjectivePoint::GENERATOR * sk;
+
+        let h = hash_to_curve(TEST_MESSAGE, &pk).unwrap();
+        let h_encoded = h.to_affine().to_encoded_point(false);
+
+        assert_eq!(
+            hex::encode(h_encoded.x().unwrap()),
+            "bcac2d0e12679f23c218889395abcdc01f2affbc49c54d1136a2190db0800b65"
+        );
+        assert_eq!(
+            hex::encode(h_encoded.y().unwrap()),
+            "3bcfb339c974c0e757d348081f90a123b0a91a53e32b3752145d87f0cd70966e"
         );
     }
 }
