@@ -7,21 +7,19 @@
 //! # Examples
 //! ```rust
 //! use plume_arkworks::{
-//!     PlumeSignaturePublic, PlumeSignaturePrivate, PlumeVersion, sign, SWCurveConfig, CurveGroup,
-//!     secp256k1::{Fr, Config},
-//!     rand::rngs::OsRng
+//!     rand::rngs::OsRng, sign, PlumeVersion, SecretKeyMaterial,
 //! };
 //!
 //! # fn main() {
 //!     let message_the = b"ZK nullifier signature";
-//!     // you should get the real secret key you for signing
-//!     let sk = <Fr as ark_ff::UniformRand>::rand(&mut OsRng);
+//!     let sk = SecretKeyMaterial::generate(&mut OsRng);
+//!     let pk = sk.public_key();
 //!
 //!     let sig = sign(
-//!         &mut OsRng, (
-//!             &(Config::GENERATOR * sk).into_affine(),
-//!             &sk,
-//!         ), message_the.as_slice(), PlumeVersion::V1
+//!         &mut OsRng,
+//!         (&pk, &sk),
+//!         message_the.as_slice(),
+//!         PlumeVersion::V1
 //!     );
 //! # }
 //! ```
@@ -218,8 +216,60 @@ impl Drop for PlumeSignaturePrivate {
 
 /// The public key.
 pub type PublicKey = Affine;
+
 /// The scalar field element representing the secret key.
-pub type SecretKeyMaterial = Fr;
+///
+/// This wrapper zeroizes the scalar on drop. Use [`SecretKeyMaterial::generate`]
+/// for fresh keys so randomness is supplied by a cryptographic RNG.
+#[derive(Clone)]
+pub struct SecretKeyMaterial {
+    scalar: Fr,
+}
+
+impl SecretKeyMaterial {
+    /// Wrap an existing scalar as secret key material.
+    ///
+    /// Prefer [`SecretKeyMaterial::generate`] for new keys so the RNG bound is
+    /// explicit at the API boundary.
+    pub fn from_scalar(scalar: Fr) -> Self {
+        Self { scalar }
+    }
+
+    /// Generate fresh secret key material using a cryptographic RNG.
+    pub fn generate(rng: &mut (impl rand::CryptoRng + rand::Rng)) -> Self {
+        Self::from_scalar(Fr::rand(rng))
+    }
+
+    /// Return the wrapped scalar.
+    pub fn as_scalar(&self) -> &Fr {
+        &self.scalar
+    }
+
+    /// Derive the public key corresponding to this secret key.
+    pub fn public_key(&self) -> PublicKey {
+        (secp256k1::Config::GENERATOR * self.scalar).into_affine()
+    }
+}
+
+impl From<Fr> for SecretKeyMaterial {
+    fn from(scalar: Fr) -> Self {
+        Self::from_scalar(scalar)
+    }
+}
+
+impl Zeroize for SecretKeyMaterial {
+    fn zeroize(&mut self) {
+        self.scalar.zeroize();
+    }
+}
+
+impl ZeroizeOnDrop for SecretKeyMaterial {}
+
+impl Drop for SecretKeyMaterial {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
 
 /// Sign a message using the specified `r` value.
 ///
@@ -233,6 +283,7 @@ pub fn sign_with_r(
     version: PlumeVersion,
 ) -> Result<(PlumeSignaturePublic, PlumeSignaturePrivate), HashToCurveError> {
     let r_point = secp256k1::Config::GENERATOR.mul(r_scalar).into_affine();
+    let secret_key = keypair.1.as_scalar();
 
     // Compute h = htc([m, pk])
     let hashed_to_curve: secp256k1::Affine = hash_to_curve(message, keypair.0)?;
@@ -241,7 +292,7 @@ pub fn sign_with_r(
     let hashed_to_curve_r = hashed_to_curve.mul(r_scalar).into_affine();
 
     // Compute nul = h^sk
-    let nullifier = hashed_to_curve.mul(*keypair.1).into_affine();
+    let nullifier = hashed_to_curve.mul(*secret_key).into_affine();
 
     // Compute c = sha256([g, pk, h, nul, g^r, z])
     let c = match version {
@@ -256,7 +307,7 @@ pub fn sign_with_r(
     };
     let c_scalar = secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
     // Compute s = r + sk ⋅ c
-    let sk_c = keypair.1 * &c_scalar;
+    let sk_c = secret_key * &c_scalar;
     let s = r_scalar + sk_c;
 
     let s_scalar = secp256k1::Fr::from(s);
