@@ -1,4 +1,5 @@
 import { getPublicKey, Point } from "@noble/secp256k1";
+import sharedVectors from "../../../../../test-vectors/plume-signatures.json";
 import {
   computeC_V1,
   computeC_V2,
@@ -10,17 +11,15 @@ import {
 } from "../src/signals";
 import { hexToUint8Array, messageToUint8Array } from "../src/utils/encoding";
 
-export const testSecretKey = hexToUint8Array(
-  "519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464",
-);
+export const testVector = sharedVectors.vectors[0];
+
+export const testSecretKey = hexToUint8Array(testVector.secret_key);
 
 export const testPublicKeyPoint = Point.fromPrivateKey(testSecretKey);
 export const testPublicKey = getPublicKey(testSecretKey, true);
 
-export const testR = hexToUint8Array(
-  "93b9323b629f251b8f3fc2dd11f4672c5544e8230d493eceea98a90bda789808",
-);
-export const testMessageString = "An example app message string";
+export const testR = hexToUint8Array(testVector.nonce);
+export const testMessageString = testVector.message;
 export const testMessage = messageToUint8Array(testMessageString);
 export const hashMPk = computeHashToCurve(
   testMessage,
