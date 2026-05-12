@@ -1,0 +1,40 @@
+{
+  "vectors": [
+    {
+      "name": "low-entropy-v1-v2-signing-vector",
+      "message": "PLUME shared differential test vector",
+      "secret_key": "0000000000000000000000000000000000000000000000000000000000000001",
+      "nonce": "0000000000000000000000000000000000000000000000000000000000000002",
+      "expected": {
+        "public_key": {
+          "x": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "y": "483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"
+        },
+        "hash_m_pk": {
+          "x": "ddd2facd2528845d4b159d2c9eb84a263fab1a8c55655fa705bbd5651ecbf0f6",
+          "y": "460bb598510f757f867e89c5aefc277d25c538e0a22f0d7ac8c7dc1535b90acf"
+        },
+        "nullifier": {
+          "x": "ddd2facd2528845d4b159d2c9eb84a263fab1a8c55655fa705bbd5651ecbf0f6",
+          "y": "460bb598510f757f867e89c5aefc277d25c538e0a22f0d7ac8c7dc1535b90acf"
+        },
+        "r_point": {
+          "x": "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "y": "1ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950cfe52a"
+        },
+        "hashed_to_curve_r": {
+          "x": "f321eb46075964401e84cb7e00782c8d5a7d466feb43abf21f6db43b757aa121",
+          "y": "ace094fa7de6035a4427ea7a3ff561698ad0068f5349b954cbdf97f93ac387e2"
+        },
+        "v1": {
+          "c": "1d5d8362ef3583083c0ab014d5513942d0da80f9342adb5582c5c5e4d70de000",
+          "s": "1d5d8362ef3583083c0ab014d5513942d0da80f9342adb5582c5c5e4d70de002"
+        },
+        "v2": {
+          "c": "bdc4bb6b7c986ff410e89be6e426577a61d0ef38ff7132948498ced401902fbf",
+          "s": "bdc4bb6b7c986ff410e89be6e426577a61d0ef38ff7132948498ced401902fc1"
+        }
+      }
+    }
+  ]
+}
