@@ -3,13 +3,99 @@
 //! Their setup is shared, `mod helpers` contains barely not refactored code, which is still instrumental to the tests.
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
-use k256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar, ProjectivePoint};
-use plume_rustcrypto::{AffinePoint, PlumeSignature, PlumeSignatureV1Fields};
+use k256::{
+    elliptic_curve::{
+        bigint::ArrayEncoding,
+        hash2curve::{ExpandMsgXmd, GroupDigest},
+        ops::Reduce,
+        sec1::ToEncodedPoint,
+    },
+    sha2::{digest::Output, Digest, Sha256},
+    NonZeroScalar, ProjectivePoint, Scalar, Secp256k1, U256,
+};
+use plume_rustcrypto::{PlumeSignature, PlumeSignatureV1Fields};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
 const M: &[u8; 29] = b"An example app message string";
 const C_V1: [u8; 32] =
     hex_literal::hex!("c6a7fc2c926ddbaf20731a479fb6566f2daa5514baae5223fe3b32edbce83254");
+
+trait VerifyForTests {
+    fn verify_for_tests(&self) -> bool;
+}
+
+impl VerifyForTests for PlumeSignature {
+    fn verify_for_tests(&self) -> bool {
+        // This non-ZK verifier is intentionally test-only. Secret/intermediate value
+        // handling here is not appropriate for production or library consumers.
+        let c_scalar = *self.c;
+        let pk = ProjectivePoint::from(self.pk);
+        let nullifier = ProjectivePoint::from(self.nullifier);
+        let r_point = (G * *self.s) - (pk * c_scalar);
+
+        let Ok(hashed_to_curve) = hash_to_curve(&self.message, &pk) else {
+            return false;
+        };
+
+        let hashed_to_curve_r = hashed_to_curve * *self.s - nullifier * c_scalar;
+
+        if let Some(PlumeSignatureV1Fields {
+            r_point: sig_r_point,
+            hashed_to_curve_r: sig_hashed_to_curve_r,
+        }) = self.v1specific
+        {
+            if r_point != ProjectivePoint::from(sig_r_point) {
+                return false;
+            }
+
+            if hashed_to_curve_r != ProjectivePoint::from(sig_hashed_to_curve_r) {
+                return false;
+            }
+
+            c_scalar
+                == Scalar::reduce(U256::from_be_byte_array(c_sha256_vec_signal(vec![
+                    &G,
+                    &pk,
+                    &hashed_to_curve,
+                    &nullifier,
+                    &r_point,
+                    &hashed_to_curve_r,
+                ])))
+        } else {
+            c_scalar
+                == Scalar::reduce(U256::from_be_byte_array(c_sha256_vec_signal(vec![
+                    &nullifier,
+                    &r_point,
+                    &hashed_to_curve_r,
+                ])))
+        }
+    }
+}
+
+fn hash_to_curve(
+    m: &[u8],
+    pk: &ProjectivePoint,
+) -> Result<ProjectivePoint, k256::elliptic_curve::Error> {
+    Secp256k1::hash_from_bytes::<ExpandMsgXmd<Sha256>>(
+        &[[m, &encode_pt(pk)].concat().as_slice()],
+        &[plume_rustcrypto::DST],
+    )
+}
+
+fn c_sha256_vec_signal(values: Vec<&ProjectivePoint>) -> Output<Sha256> {
+    let preimage_vec = values
+        .into_iter()
+        .map(encode_pt)
+        .collect::<Vec<_>>()
+        .concat();
+    let mut sha256_hasher = Sha256::new();
+    sha256_hasher.update(preimage_vec.as_slice());
+    sha256_hasher.finalize()
+}
+
+fn encode_pt(point: &ProjectivePoint) -> Vec<u8> {
+    point.to_encoded_point(true).to_bytes().to_vec()
+}
 
 // `test_gen_signals` provides fixed key nullifier, secret key, and the random value for testing
 // Normally a secure enclave would generate these values, and output to a wallet implementation
@@ -42,7 +128,7 @@ fn plume_v1_test() {
             hashed_to_curve_r: hashed_to_curve_r.into(),
         }),
     };
-    let verified = sig.verify();
+    let verified = sig.verify_for_tests();
     println!("Verified: {}", verified);
 
     // Print nullifier
@@ -103,7 +189,7 @@ fn plume_v2_test() {
         s: NonZeroScalar::new(test_data.3).unwrap(),
         v1specific: None
     }
-    .verify());
+    .verify_for_tests());
 }
 
 mod helpers {
