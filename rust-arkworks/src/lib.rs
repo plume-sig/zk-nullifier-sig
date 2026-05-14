@@ -162,6 +162,23 @@ fn compute_c_v2(
     Sha256::digest(c_preimage_vec.as_slice())
 }
 
+const SECP256K1_SCALAR_ORDER_BYTES: [u8; 32] = [
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c, 0xd0, 0x36,
+    0x41, 0x41,
+];
+
+fn digest_to_nonzero_scalar(bytes: &[u8]) -> Option<Fr> {
+    if bytes.len() != SECP256K1_SCALAR_ORDER_BYTES.len()
+        || bytes.iter().all(|byte| *byte == 0)
+        || bytes >= SECP256K1_SCALAR_ORDER_BYTES.as_slice()
+    {
+        return None;
+    }
+
+    Some(secp256k1::Fr::from_be_bytes_mod_order(bytes))
+}
+
 /// A struct containing parameters for the SW model, including the generator point `g_point`.
 /// This struct implements traits for (de)serialization.
 #[derive(
@@ -254,7 +271,11 @@ pub fn sign_with_r(
         ),
         PlumeVersion::V2 => compute_c_v2(&nullifier, &r_point, &hashed_to_curve_r),
     };
-    let c_scalar = secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
+    let c_scalar = digest_to_nonzero_scalar(c.as_ref()).ok_or_else(|| {
+        HashToCurveError::MapToCurveError(
+            "SHA-256 digest must be a non-zero canonical secp256k1 scalar".into(),
+        )
+    })?;
     // Compute s = r + sk ⋅ c
     let sk_c = keypair.1 * &c_scalar;
     let s = r_scalar + sk_c;

@@ -49,7 +49,10 @@ pub fn verify_non_zk(
             super::compute_c_v2(&sig.0.nullifier, &sig.1.r_point, &sig.1.hashed_to_curve_r)
         }
     };
-    let c_scalar = secp256k1::Fr::from_be_bytes_mod_order(c.as_ref());
+    let c_scalar = match super::digest_to_nonzero_scalar(c.as_ref()) {
+        Some(c_scalar) => c_scalar,
+        None => return Ok(false),
+    };
 
     // Reject if g^s ⋅ pk^{-c} != g^r
     let g_s = pp.g_point.mul(sig.0.s);
@@ -313,4 +316,18 @@ fn test_point_sec1_encoding() {
             hex::decode(vector.1.as_bytes()).unwrap()
         );
     }
+}
+
+#[test]
+fn test_digest_to_nonzero_scalar_rejects_non_canonical_values() {
+    let mut below_order = super::SECP256K1_SCALAR_ORDER_BYTES;
+    below_order[31] -= 1;
+    assert!(super::digest_to_nonzero_scalar(&below_order).is_some());
+
+    assert!(super::digest_to_nonzero_scalar(&[0u8; 32]).is_none());
+    assert!(super::digest_to_nonzero_scalar(&super::SECP256K1_SCALAR_ORDER_BYTES).is_none());
+
+    let mut above_order = super::SECP256K1_SCALAR_ORDER_BYTES;
+    above_order[31] += 1;
+    assert!(super::digest_to_nonzero_scalar(&above_order).is_none());
 }
