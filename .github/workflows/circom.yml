@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         node-version: [18]
-        command: ["prettier", "types", "test:coverage"]
+        command: ["prettier", "types"]
 
     runs-on: ubuntu-latest
 
@@ -74,4 +74,66 @@ jobs:
         run: |
           pnpm install --no-frozen-lockfile --prefer-offline
           pnpm run ${{ matrix.command }}
+        working-directory: "./circuits/circom"
+
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18]
+        shard: [1, 2, 3, 4]
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 240
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone circom repository
+        uses: actions/checkout@v4
+        with:
+          repository: iden3/circom
+          path: ./circom
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: "clippy, rustfmt"
+
+      - name: Cache circom
+        uses: actions/cache@v3
+        id: circom-cache
+        continue-on-error: true
+        with:
+          path: |
+            ~/.cargo/bin/circom
+          key: ${{ runner.os }}-circom-${{ hashFiles('./circom/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-circom-
+
+      - name: Install circom
+        if: steps.circom-cache.outputs.cache-hit != 'true'
+        run: |
+          cargo build --release
+          cargo install --path circom
+        working-directory: ./circom
+
+      - name: Build javascript
+        run: |
+          pnpm install --no-frozen-lockfile --prefer-offline
+          pnpm run build
+        working-directory: "./javascript"
+
+      - name: Run circom test shard
+        run: |
+          pnpm install --no-frozen-lockfile --prefer-offline
+          pnpm run test -- --shard=${{ matrix.shard }}/4
         working-directory: "./circuits/circom"
