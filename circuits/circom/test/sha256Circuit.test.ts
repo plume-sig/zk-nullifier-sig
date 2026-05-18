@@ -13,10 +13,7 @@ import {
   nullifier,
   testSecretKey,
 } from "javascript/test/consts";
-import {
-  hexToBigInt,
-  concatUint8Arrays,
-} from "javascript/src/utils/encoding";
+import { hexToBigInt, concatUint8Arrays } from "javascript/src/utils/encoding";
 
 import { pointToCircuitValue } from "../utils";
 
@@ -66,6 +63,35 @@ describe("SHA256 Circuit", () => {
     const circuit = await wasm_tester(p, { json: true, sym: true });
 
     const w = await circuit.calculateWitness({ coordinates }, true);
+    await circuit.checkConstraints(w);
+    await circuit.assertOut(w, { out: v1_binary_c });
+  });
+
+  test("Correct sha256 value when reusing compressed pk", async () => {
+    const coordinates = [];
+    [Point.BASE, hashMPkPoint, nullifier, rPoint, hashedToCurveR].forEach(
+      (point) => {
+        const cv = pointToCircuitValue(point);
+        coordinates.push(cv[0]);
+        coordinates.push(cv[1]);
+      },
+    );
+
+    const p = path.join(
+      __dirname,
+      "./circuits/10_point_sha_256_with_compressed_pk_test.circom",
+    );
+    const circuit = await wasm_tester(p, { json: true, sym: true });
+
+    const w = await circuit.calculateWitness(
+      {
+        coordinates,
+        compressed_pk: Array.from(
+          Point.fromPrivateKey(testSecretKey).toRawBytes(true),
+        ),
+      },
+      true,
+    );
     await circuit.checkConstraints(w);
     await circuit.assertOut(w, { out: v1_binary_c });
   });
