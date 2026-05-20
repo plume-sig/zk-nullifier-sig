@@ -69,4 +69,28 @@ describe("SHA256 Circuit", () => {
     await circuit.checkConstraints(w);
     await circuit.assertOut(w, { out: v1_binary_c });
   });
+
+  test("V1 challenge hash reuses compressed public key bytes", async () => {
+    const [g, pk, h, nullifierPoint, gPowR, hPowR] = sha_preimage_points;
+    const p = path.join(
+      __dirname,
+      "./circuits/v1_challenge_sha_256_test.circom",
+    );
+    const circuit = await wasm_tester(p, { json: true, sym: true });
+
+    const w = await circuit.calculateWitness(
+      {
+        g: pointToCircuitValue(g),
+        pk_compressed: Array.from(pk.toRawBytes(true)),
+        h: pointToCircuitValue(h),
+        nullifier: pointToCircuitValue(nullifierPoint),
+        g_pow_r: pointToCircuitValue(gPowR),
+        h_pow_r: pointToCircuitValue(hPowR),
+      },
+      true,
+    );
+
+    await circuit.checkConstraints(w);
+    await circuit.assertOut(w, { out: v1_binary_c });
+  });
 });
