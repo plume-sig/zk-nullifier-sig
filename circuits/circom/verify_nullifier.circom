@@ -52,21 +52,21 @@ template plume_v1(n, k, message_length) {
     check_ec_equations.q1_y_mapped <== q1_y_mapped;
 
     // calculate c as sha256(g, pk, h, nullifier, g^r, h^r)
-    component c_sha256 = sha256_12_coordinates(n, k);
+    component c_sha256 = sha256_plume_v1_challenge(n, k);
     var g[2][100];
     g[0] = get_genx(n, k);
     g[1] = get_geny(n, k);
 
     for (var i = 0; i < 2; i++) {
         for (var j = 0; j < k; j++) {
-            c_sha256.coordinates[i][j] <== g[i][j];
-            c_sha256.coordinates[2+i][j] <== pk[i][j];
-            c_sha256.coordinates[4+i][j] <== check_ec_equations.hashed_to_curve[i][j];
-            c_sha256.coordinates[6+i][j] <== nullifier[i][j];
-            c_sha256.coordinates[8+i][j] <== check_ec_equations.r_point[i][j];
-            c_sha256.coordinates[10+i][j] <== check_ec_equations.hashed_to_curve_r[i][j];
+            c_sha256.g[i][j] <== g[i][j];
+            c_sha256.h[i][j] <== check_ec_equations.hashed_to_curve[i][j];
+            c_sha256.nullifier[i][j] <== nullifier[i][j];
+            c_sha256.g_pow_r[i][j] <== check_ec_equations.r_point[i][j];
+            c_sha256.h_pow_r[i][j] <== check_ec_equations.hashed_to_curve_r[i][j];
         }
     }
+    c_sha256.pk_compressed <== check_ec_equations.pk_compressed;
 
     // check that the input c is the same as the hash value c
     component c_bits[k];
@@ -147,6 +147,7 @@ template check_ec_equations(n, k, message_length) {
     signal output r_point[2][k];
     signal output hashed_to_curve_r[2][k];
     signal output hashed_to_curve[2][k];
+    signal output pk_compressed[33];
 
     // precomputed values for the hash_to_curve component
     signal input q0_gx1_sqrt[4];
@@ -188,6 +189,7 @@ template check_ec_equations(n, k, message_length) {
     component pk_compressor = compress_ec_point(n, k);
 
     pk_compressor.uncompressed <== pk;    
+    pk_compressed <== pk_compressor.compressed;
 
     for (var i = 0; i < 33; i++) {
         hash_to_curve.msg[message_length + i] <== pk_compressor.compressed[i];
@@ -302,6 +304,86 @@ template sha256_12_coordinates(n, k) {
         }
     }
   
+    component bit_length_binary = Num2Bits(64);
+    bit_length_binary.in <== message_bits;
+    for (var i = 0; i < 64; i++) {
+        sha256.padded_bits[total_bits - i - 1] <== bit_length_binary.out[i];
+    }
+
+    // feels like a needed check as `Num2Bits.in` doesn't participate in a quadratic constraint
+    component preimage_bit_length_check = ForceEqualIfEnabled();
+    preimage_bit_length_check.enabled <== 1;
+    preimage_bit_length_check.in <== [message_bits, bit_length_binary.in];
+
+    out <== sha256.out;
+}
+
+template sha256_plume_v1_challenge(n, k) {
+    signal input g[2][k];
+    signal input pk_compressed[33];
+    signal input h[2][k];
+    signal input nullifier[2][k];
+    signal input g_pow_r[2][k];
+    signal input h_pow_r[2][k];
+    signal output out[256];
+
+    // Reuse pk_compressed from the hash-to-curve preimage instead of
+    // compressing the same public key a second time for the V1 challenge.
+    component compressors[5];
+    for (var i = 0; i < 5; i++) {
+        compressors[i] = compress_ec_point(n, k);
+    }
+
+    compressors[0].uncompressed <== g;
+    compressors[1].uncompressed <== h;
+    compressors[2].uncompressed <== nullifier;
+    compressors[3].uncompressed <== g_pow_r;
+    compressors[4].uncompressed <== h_pow_r;
+
+    // decompose coordinates inputs into binary
+    component binary[6*33];
+    for (var i = 0; i < 6; i++) { // for each compressed point
+        for (var j = 0; j < 33; j++) { // for each byte
+            binary[33*i + j] = Num2Bits(8);
+        }
+    }
+
+    for (var j = 0; j < 33; j++) {
+        binary[j].in <== compressors[0].compressed[j];
+        binary[33 + j].in <== pk_compressed[j];
+        binary[66 + j].in <== compressors[1].compressed[j];
+        binary[99 + j].in <== compressors[2].compressed[j];
+        binary[132 + j].in <== compressors[3].compressed[j];
+        binary[165 + j].in <== compressors[4].compressed[j];
+    }
+
+    var message_bits = 6*33*8; // 6 compressed coordinates of 33 bytes
+    var total_bits = (message_bits \ 512) * 512;
+    if (message_bits % 512 != 0) {
+        total_bits += 512;
+    }
+
+    component sha256 = Sha256Hash(total_bits);
+    for (var i = 0; i < 6*33; i++) {
+        for (var j = 0; j < 8; j++) {
+            sha256.msg[8*i + 7 - j] <== binary[i].out[j]; // Num2Bits is little endian, but compressed EC key form is big endian
+        }
+    }
+
+    for (var i = message_bits; i < total_bits; i++) {
+        sha256.msg[i] <== 0;
+    }
+
+    // Message is padded with 1, a series of 0s, then the bit length of the message https://en.wikipedia.org/wiki/SHA-2#Pseudocode:~:text=append%20a%20single%20%271%27%20bit
+    // TODO: move padding calculating into upstream repo to simplify API
+    for (var i = 0; i < total_bits - 64; i++) {
+        if (i == 1584) {
+            sha256.padded_bits[1584] <== 1;
+        } else {
+            sha256.padded_bits[i] <== sha256.msg[i];
+        }
+    }
+
     component bit_length_binary = Num2Bits(64);
     bit_length_binary.in <== message_bits;
     for (var i = 0; i < 64; i++) {
