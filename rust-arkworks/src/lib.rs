@@ -69,52 +69,48 @@ pub enum PlumeVersion {
 }
 
 /// Serializes the affine point to its SEC1 compressed encoding and returns the raw bytes.
-/// Returns `None` if `affine` is the identity element.
 ///
-/// Note that the identity element is SEC1 coded with the `[0u8]`.
-/// Though the scheme shouldn't really encounter this case.
-pub fn sec1_affine(affine: &Affine) -> Option<[u8; 33]> {
+/// Panics if `affine` is the identity element, which does not have a 33-byte
+/// compressed SEC1 encoding.
+pub fn sec1_affine(affine: &Affine) -> [u8; 33] {
     let mut writer = [0u8; 33];
     CanonicalSerialize::serialize_compressed(affine, writer.as_mut_slice())
     .expect("the type serialization is completely covered and the `writer` accomodates the `Result` completely");
     writer.reverse();
     writer[0] =
-        if ark_ff::BigInteger::is_odd(&ark_ff::PrimeField::into_bigint(AffineRepr::y(affine)?)) {
+        if ark_ff::BigInteger::is_odd(&ark_ff::PrimeField::into_bigint(
+            AffineRepr::y(affine)
+                .expect("the identity element does not have a SEC1 compressed encoding"),
+        )) {
             3
         } else {
             2
         };
-    Some(writer)
+    writer
+}
+
+fn sec1_affine_or_identity(affine: &Affine) -> Vec<u8> {
+    if affine.is_zero() {
+        vec![0u8]
+    } else {
+        sec1_affine(affine).into()
+    }
 }
 
 pub fn hash_to_curve(message: &[u8], pk: &Affine) -> Result<Affine, HashToCurveError> {
+    if pk.is_zero() {
+        return Err(HashToCurveError::MapToCurveError(
+            "`pk` shouldn't be the identity element".into(),
+        ));
+    }
+    let pk_sec1 = sec1_affine(pk);
+
     MapToCurveBasedHasher::<
         ark_ec::short_weierstrass::Projective<secp256k1::Config>,
         FixedFieldHasher<Sha256>,
         WBMap<secp256k1::Config>,
     >::new(b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_")?
-    .hash(
-        [
-            message,
-            &sec1_affine(pk).ok_or(HashToCurveError::MapToCurveError(
-                "`pk` shouldn't be the identity element".into(),
-            ))?,
-        ]
-        .concat()
-        .as_slice(),
-    )
-}
-
-#[deprecated(
-    note = "it's an awful hack, but it doesn't make the thing worse than it already is, 
-and @skaunov expanded [the issue](https://github.com/plume-sig/zk-nullifier-sig/issues/111#issuecomment-2949397220) to fix it"
-)]
-fn helper(b: Option<[u8; 33]>) -> Vec<u8> {
-    if b.is_some() {
-        b.unwrap().into()
-    } else {
-        vec![0u8]
-    }
+    .hash([message, pk_sec1.as_slice()].concat().as_slice())
 }
 
 fn compute_c_v1(
@@ -133,14 +129,13 @@ fn compute_c_v1(
     // Compute c = sha256([g, pk, h, nul, g^r, z])
     let c_preimage_vec = [
         sec1_affine(&secp256k1::Config::GENERATOR)
-            .expect("the generator can't be the identity element")
             .to_vec(),
         // .as_slice(),
-        helper(sec1_affine(pk)),
-        helper(sec1_affine(hashed_to_curve)),
-        helper(sec1_affine(nullifier)),
-        helper(sec1_affine(r_point)),
-        helper(sec1_affine(hashed_to_curve_r)),
+        sec1_affine_or_identity(pk),
+        sec1_affine_or_identity(hashed_to_curve),
+        sec1_affine_or_identity(nullifier),
+        sec1_affine_or_identity(r_point),
+        sec1_affine_or_identity(hashed_to_curve_r),
     ]
     .concat();
 
@@ -153,9 +148,9 @@ fn compute_c_v2(
     hashed_to_curve_r: &secp256k1::Affine,
 ) -> Output<Sha256> {
     // Compute c = sha256([nul, g^r, z])
-    let nul_bytes = helper(sec1_affine(nullifier));
-    let g_r_bytes = helper(sec1_affine(r_point));
-    let z_bytes = helper(sec1_affine(hashed_to_curve_r));
+    let nul_bytes = sec1_affine_or_identity(nullifier);
+    let g_r_bytes = sec1_affine_or_identity(r_point);
+    let z_bytes = sec1_affine_or_identity(hashed_to_curve_r);
 
     let c_preimage_vec = [nul_bytes, g_r_bytes, z_bytes].concat();
 
