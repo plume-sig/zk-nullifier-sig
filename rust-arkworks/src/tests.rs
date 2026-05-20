@@ -309,8 +309,19 @@ fn test_point_sec1_encoding() {
         let point = (generator * secp256k1::Fr::from(k)).into_affine();
 
         assert_eq!(
-            super::helper(super::sec1_affine(&point)),
+            super::sec1_affine(&point).to_vec(),
             hex::decode(vector.1.as_bytes()).unwrap()
         );
     }
+}
+
+#[test]
+fn sec1_affine_returns_compressed_bytes_directly() {
+    let generator = secp256k1::Affine::generator();
+    let point = (generator * secp256k1::Fr::from(1u64)).into_affine();
+
+    assert_eq!(
+        super::sec1_affine(&point).to_vec(),
+        hex::decode(test_vectors::encoding_test_vectors()[0].1.as_bytes()).unwrap()
+    );
 }
