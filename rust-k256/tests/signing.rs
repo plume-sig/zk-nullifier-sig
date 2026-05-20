@@ -2,7 +2,9 @@ use k256::{
     elliptic_curve::{point::AffineCoordinates, PrimeField},
     FieldBytes, Scalar,
 };
-use plume_rustcrypto::{PlumeSignature, SecretKey};
+use plume_rustcrypto::{
+    PlumeSignature, PlumeSignaturePrivate, PlumeSignaturePublic, PlumeVersion, SecretKey,
+};
 use rand_core::CryptoRng;
 use signature::RandomizedSigner;
 
@@ -61,4 +63,33 @@ pub fn test_sign_v2() {
     let sig = PlumeSignature::sign_v2(&sk, message, &mut Mock {});
     assert_eq!(Scalar::from_repr(V2_C.into()).unwrap(), *sig.c);
     assert_eq!(Scalar::from_repr(V2_S.into()).unwrap(), *sig.s);
+}
+
+#[test]
+pub fn test_signature_can_round_trip_through_public_private_parts() {
+    let sk = SecretKey::from_bytes(&SK.into()).unwrap();
+    let sig = PlumeSignature::sign_v1(&sk, message, &mut Mock {});
+
+    let (public, private): (PlumeSignaturePublic, PlumeSignaturePrivate) = sig.into_parts();
+
+    assert_eq!(public.message.as_slice(), message);
+    assert_eq!(public.variant, PlumeVersion::V1);
+    assert_eq!(Scalar::from_repr(V1_S.into()).unwrap(), *public.s);
+    assert_eq!(Scalar::from_repr(V1_C.into()).unwrap(), *private.c);
+    assert!(private.v1specific.is_some());
+
+    let sig = PlumeSignature::from_parts(public, private);
+    assert!(sig.verify());
+}
+
+#[test]
+pub fn test_v2_private_parts_do_not_include_v1_witnesses() {
+    let sk = SecretKey::from_bytes(&SK.into()).unwrap();
+    let sig = PlumeSignature::sign_v2(&sk, message, &mut Mock {});
+
+    let (public, private) = sig.into_parts();
+
+    assert_eq!(public.variant, PlumeVersion::V2);
+    assert_eq!(Scalar::from_repr(V2_C.into()).unwrap(), *private.c);
+    assert!(private.v1specific.is_none());
 }
