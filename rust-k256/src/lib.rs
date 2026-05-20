@@ -60,6 +60,14 @@ use randomizedsigner::PlumeSigner;
 /// The domain separation tag used for hashing to the `secp256k1` curve
 pub const DST: &[u8] = b"QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_"; // Hash to curve algorithm
 
+/// The PLUME protocol variant used to produce a signature.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum PlumeVersion {
+    V1,
+    V2,
+}
+
 /// Struct holding signature data for a PLUME signature.
 ///
 /// `v1specific` field differintiate whether V1 or V2 protocol will be used.
@@ -75,6 +83,28 @@ pub struct PlumeSignature {
     pub c: NonZeroScalar,
     /// Part of the signature data, a scalar value.
     pub s: NonZeroScalar,
+    /// Optional signature data for variant 1 signatures.
+    pub v1specific: Option<PlumeSignatureV1Fields>,
+}
+/// Public PLUME signature data that can be kept with the verifier-facing instance.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct PlumeSignaturePublic {
+    /// The message that was signed.
+    pub message: Vec<u8>,
+    /// The public key used to verify the signature.
+    pub pk: AffinePoint,
+    /// The nullifier.
+    pub nullifier: AffinePoint,
+    /// Part of the signature data, a scalar value.
+    pub s: NonZeroScalar,
+    /// The protocol variant used to produce the signature.
+    pub variant: PlumeVersion,
+}
+/// Private PLUME signature witness data. Store securely and zeroize when no longer needed.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct PlumeSignaturePrivate {
+    /// Part of the signature data. SHA-256 interpreted as a scalar.
+    pub c: NonZeroScalar,
     /// Optional signature data for variant 1 signatures.
     pub v1specific: Option<PlumeSignatureV1Fields>,
 }
@@ -153,6 +183,58 @@ impl PlumeSignature {
     /// use it when you don't want to `use` PlumeSigner and the trait in your code.
     pub fn sign_v2(secret_key: &SecretKey, msg: &[u8], rng: &mut impl CryptoRngCore) -> Self {
         PlumeSigner::new(secret_key, false).sign_with_rng(rng, msg)
+    }
+
+    /// Splits a signature into verifier-facing public data and private witness data.
+    pub fn into_parts(self) -> (PlumeSignaturePublic, PlumeSignaturePrivate) {
+        self.into()
+    }
+
+    /// Recombines verifier-facing public data and private witness data.
+    pub fn from_parts(
+        public: PlumeSignaturePublic,
+        private: PlumeSignaturePrivate,
+    ) -> PlumeSignature {
+        (public, private).into()
+    }
+}
+
+impl From<PlumeSignature> for (PlumeSignaturePublic, PlumeSignaturePrivate) {
+    fn from(signature: PlumeSignature) -> Self {
+        let variant = if signature.v1specific.is_some() {
+            PlumeVersion::V1
+        } else {
+            PlumeVersion::V2
+        };
+
+        (
+            PlumeSignaturePublic {
+                message: signature.message,
+                pk: signature.pk,
+                nullifier: signature.nullifier,
+                s: signature.s,
+                variant,
+            },
+            PlumeSignaturePrivate {
+                c: signature.c,
+                v1specific: signature.v1specific,
+            },
+        )
+    }
+}
+
+impl From<(PlumeSignaturePublic, PlumeSignaturePrivate)> for PlumeSignature {
+    fn from(parts: (PlumeSignaturePublic, PlumeSignaturePrivate)) -> Self {
+        let (public, private) = parts;
+
+        PlumeSignature {
+            message: public.message,
+            pk: public.pk,
+            nullifier: public.nullifier,
+            c: private.c,
+            s: public.s,
+            v1specific: private.v1specific,
+        }
     }
 }
 
