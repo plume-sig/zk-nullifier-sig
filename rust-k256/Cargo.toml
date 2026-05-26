@@ -22,6 +22,9 @@ serde = { version = "^1.0.0", features = ["derive"], optional = true }
 [dev-dependencies]
 hex = "0.4.3"
 hex-literal = "0.3.4"
+plume_arkworks = { path = "../rust-arkworks" }
+rand = "0.8"
+rand_chacha = "0.3"
 
 [features]
 default = ["serde"]
