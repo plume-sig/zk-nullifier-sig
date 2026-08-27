@@ -1,18 +1,26 @@
 use super::{
-    CryptoRngCore, NonZeroScalar, PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint,
-    SecretKey, DST,
+    CryptoRngCore, PlumeSignature, PlumeSignatureV1Fields, ProjectivePoint, Scalar, SecretKey, DST,
 };
 use k256::{
     elliptic_curve::{
+        bigint::ArrayEncoding,
         hash2curve::{ExpandMsgXmd, GroupDigest},
+        ops::Reduce,
         point::NonIdentity,
         sec1::ToEncodedPoint,
     },
-    sha2::{Digest, Sha256},
-    Secp256k1,
+    sha2::{digest::Output, Digest, Sha256},
+    Secp256k1, U256,
 };
 // Removed `pub` from this, since it's only interested to those who already imported `signature`
 use signature::{Error, RandomizedSigner};
+
+/// Interprets the SHA-256 challenge as a secp256k1 scalar, as required by
+/// ERC-7524. Modular reduction accepts every 256-bit digest, including zero,
+/// without branching on a `CtOption`.
+fn challenge_digest_to_scalar(digest: Output<Sha256>) -> Scalar {
+    Scalar::reduce(U256::from_be_byte_array(digest))
+}
 
 /// `PlumeSigner` is a `struct` that contains a reference to a secret key and a
 /// boolean defining output [`PlumeSignature`] variant.
@@ -86,13 +94,10 @@ impl<'signing> RandomizedSigner<PlumeSignature> for PlumeSigner<'signing> {
         updhash!(r_point);
         updhash!(hashed_to_curve_r);
 
-        let c = hasher.finalize();
-        let c_scalar = NonZeroScalar::from_repr(c)
-            .expect("it should be impossible to get the hash equal to zero");
+        let c_scalar = challenge_digest_to_scalar(hasher.finalize());
 
         // Compute $s = r + sk ⋅ c$. #lastoponsecret
-        let s_scalar = NonZeroScalar::new(*r_scalar + *(c_scalar * self.secret_key.to_nonzero_scalar()))
-            .expect("something is terribly wrong if the nonce is equal to negated product of the secret and the hash");
+        let s_scalar = *r_scalar + c_scalar * *self.secret_key.to_nonzero_scalar();
 
         Ok(PlumeSignature {
             message: msg.to_owned(),
@@ -109,5 +114,29 @@ impl<'signing> RandomizedSigner<PlumeSignature> for PlumeSigner<'signing> {
                 None
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hex_literal::hex;
+
+    const SECP256K1_ORDER: [u8; 32] =
+        hex!("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+    const SECP256K1_ORDER_PLUS_ONE: [u8; 32] =
+        hex!("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142");
+
+    #[test]
+    fn challenge_digest_reduces_all_256_bit_values() {
+        assert_eq!(
+            challenge_digest_to_scalar(SECP256K1_ORDER.into()),
+            Scalar::ZERO
+        );
+        assert_eq!(
+            challenge_digest_to_scalar(SECP256K1_ORDER_PLUS_ONE.into()),
+            Scalar::ONE
+        );
+        assert_eq!(challenge_digest_to_scalar([0u8; 32].into()), Scalar::ZERO);
     }
 }

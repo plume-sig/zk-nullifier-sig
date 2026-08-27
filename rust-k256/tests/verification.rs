@@ -3,7 +3,10 @@
 //! Their setup is shared, `mod helpers` contains barely not refactored code, which is still instrumental to the tests.
 
 use helpers::{gen_test_scalar_sk, test_gen_signals, PlumeVersion};
-use k256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar, ProjectivePoint};
+use k256::{
+    elliptic_curve::{sec1::ToEncodedPoint, PrimeField},
+    NonZeroScalar, ProjectivePoint, Scalar,
+};
 use plume_rustcrypto::{AffinePoint, PlumeSignature, PlumeSignatureV1Fields};
 
 const G: ProjectivePoint = ProjectivePoint::GENERATOR;
@@ -35,8 +38,8 @@ fn plume_v1_test() {
         message: M.to_owned().into(),
         pk: (G * gen_test_scalar_sk()).into(),
         nullifier: test_data.1.into(),
-        c: NonZeroScalar::from_repr(C_V1.into()).unwrap(),
-        s: NonZeroScalar::new(test_data.3).unwrap(),
+        c: Scalar::from_repr(C_V1.into()).unwrap(),
+        s: test_data.3,
         v1specific: Some(PlumeSignatureV1Fields {
             r_point: r_point.into(),
             hashed_to_curve_r: hashed_to_curve_r.into(),
@@ -99,8 +102,8 @@ fn plume_v2_test() {
         message: M.to_owned().into(),
         pk: (G * gen_test_scalar_sk()).into(),
         nullifier: test_data.1.into(),
-        c: NonZeroScalar::from_repr(test_data.2).unwrap(),
-        s: NonZeroScalar::new(test_data.3).unwrap(),
+        c: Scalar::from_repr(test_data.2).unwrap(),
+        s: test_data.3,
         v1specific: None
     }
     .verify());

@@ -50,8 +50,8 @@ pub fn test_sign_v1() {
     let sk = SecretKey::from_bytes(&SK.into()).unwrap();
 
     let sig = PlumeSignature::sign_v1(&sk, message, &mut Mock {});
-    assert_eq!(Scalar::from_repr(V1_C.into()).unwrap(), *sig.c);
-    assert_eq!(Scalar::from_repr(V1_S.into()).unwrap(), *sig.s);
+    assert_eq!(Scalar::from_repr(V1_C.into()).unwrap(), sig.c);
+    assert_eq!(Scalar::from_repr(V1_S.into()).unwrap(), sig.s);
 }
 
 #[test]
@@ -59,6 +59,6 @@ pub fn test_sign_v2() {
     let sk = SecretKey::from_bytes(&SK.into()).unwrap();
 
     let sig = PlumeSignature::sign_v2(&sk, message, &mut Mock {});
-    assert_eq!(Scalar::from_repr(V2_C.into()).unwrap(), *sig.c);
-    assert_eq!(Scalar::from_repr(V2_S.into()).unwrap(), *sig.s);
+    assert_eq!(Scalar::from_repr(V2_C.into()).unwrap(), sig.c);
+    assert_eq!(Scalar::from_repr(V2_S.into()).unwrap(), sig.s);
 }
