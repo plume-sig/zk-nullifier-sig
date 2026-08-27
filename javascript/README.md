@@ -53,16 +53,10 @@ console.log(result.instance)
      48
   ],
   s: [
-     48, 107,   2,   1,   1,   4, 32,  51, 230,  85,  68, 129,
-    138,   1, 100, 183,  88, 247, 98, 146, 145, 211, 106,  95,
-    239, 188, 178,  48, 169, 159, 94, 215,   1, 144,  63,   9,
-    125,  69, 216, 161,  68,   3, 66,   0,   4,  50,  19,  61,
-     44,  42, 226,  58, 241,  87, 46, 105, 142, 188, 131, 170,
-    240, 229,   2, 237, 102, 205, 67,  65,  81, 191,  10,  91,
-    215,  89, 152,  15,  75, 170, 71, 184, 186, 137,  87, 138,
-    241,  43, 170, 182,  20,   0, 42, 161, 149, 129, 159, 189,
-    213, 144,  44,  29,
-    ... 9 more items
+    82, 142, 143, 187, 100, 82, 248, 34,
+     0, 121, 123,  26, 115, 178, 148, 122,
+   146,  82,  75, 214,  17,   8,  90, 146,
+    15,  17, 119, 203, 128, 152,  19, 107
   ],
   is_v1: false
 } */
@@ -97,8 +91,8 @@ Depending on your context you might want to clear `witness` values from the Wasm
 // ...
 result.zeroize();
 ```
-# #conversion of `s` to `BigInt`
-JS most native format for scalar is `BigInt`, but it's not really transportable or secure, so for uniformity of approach `s` in `PlumeSignature` is defined similar to `digest_private`; but if you want to have it as a `BigInt` there's `sec1DerScalarToBigint` helper funtion.
+# Conversion of `s` to `BigInt`
+`s` and `digest_private` are canonical 32-byte big-endian scalars. Use `scalarBytesToBigint` when a JavaScript `BigInt` is required. The conversion may leave the value in memory, so do not use it for private values.
 # Working with source files
 This package is built with the tech provided by <https://github.com/rustwasm> which contains everything needed to work with it. Also the wrapper crate was initiated with `wasm-pack-template`.
 # License

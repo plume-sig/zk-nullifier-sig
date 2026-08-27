@@ -31,16 +31,16 @@ use k256::elliptic_curve::bigint::ArrayEncoding;
 use k256::elliptic_curve::ops::Reduce;
 use k256::sha2::{digest::Output, Digest, Sha256}; // requires 'getrandom' feature
 use k256::ProjectivePoint;
-use k256::Scalar;
 use k256::U256;
 use signature::RandomizedSigner;
 
 /// Exports types from the `k256` crate:
 ///
+/// - `Scalar`: A scalar value modulo the secp256k1 group order.
 /// - `NonZeroScalar`: A secret 256-bit scalar value.
 /// - `SecretKey`: A secret 256-bit scalar wrapped in a struct.  
 /// - `AffinePoint`: A public elliptic curve point.
-pub use k256::{AffinePoint, NonZeroScalar, SecretKey};
+pub use k256::{AffinePoint, NonZeroScalar, Scalar, SecretKey};
 /// Re-exports the [`CryptoRngCore`] trait from the [`rand_core`] crate.
 /// This allows it to be used from the current module.
 pub use rand_core::CryptoRngCore;
@@ -72,9 +72,9 @@ pub struct PlumeSignature {
     /// The nullifier.
     pub nullifier: AffinePoint,
     /// Part of the signature data. SHA-256 interpreted as a scalar.
-    pub c: NonZeroScalar,
+    pub c: Scalar,
     /// Part of the signature data, a scalar value.
-    pub s: NonZeroScalar,
+    pub s: Scalar,
     /// Optional signature data for variant 1 signatures.
     pub v1specific: Option<PlumeSignatureV1Fields>,
 }
@@ -96,9 +96,9 @@ impl PlumeSignature {
         // hash[m, gsk]^[r + sk * c] / (hash[m, pk]^sk)^c = hash[m, pk]^r
         // c = hash2(g, g^sk, hash[m, g^sk], hash[m, pk]^sk, gr, hash[m, pk]^r)
 
-        let c_scalar = *self.c;
+        let c_scalar = self.c;
 
-        let r_point = (ProjectivePoint::GENERATOR * *self.s) - (self.pk * (c_scalar));
+        let r_point = (ProjectivePoint::GENERATOR * self.s) - (self.pk * c_scalar);
 
         let hashed_to_curve = hash_to_curve(&self.message, &self.pk.into());
         if hashed_to_curve.is_err() {
@@ -106,7 +106,7 @@ impl PlumeSignature {
         }
         let hashed_to_curve = hashed_to_curve.unwrap();
 
-        let hashed_to_curve_r = hashed_to_curve * *self.s - self.nullifier * (c_scalar);
+        let hashed_to_curve_r = hashed_to_curve * self.s - self.nullifier * c_scalar;
 
         if let Some(PlumeSignatureV1Fields {
             r_point: sig_r_point,

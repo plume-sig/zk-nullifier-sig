@@ -9,8 +9,6 @@ use signature::RandomizedSigner;
 use std::convert::TryInto;
 use zeroize::Zeroize;
 
-const MSG_EXPECT: &str = "`k256` restricts this type to proper keys, so it's serialized representation shouldn't have a chance to fail";
-
 #[wasm_bindgen(getter_with_clone)]
 /// @typedef {Object} PlumeSignature - This was the wrapper around [`plume_rustcrypto::PlumeSignature`](https://docs.rs/plume_rustcrypto/latest/plume_rustcrypto/struct.PlumeSignature.html)
 /// . Now it's separated into the public values available as an object for further manipulation, and secret values capable of `zeroize` and available via getters.
@@ -27,8 +25,8 @@ pub struct PlumeSignaturePublic {
     /// [`plume_rustcrypto::AffinePoint`](https://docs.rs/plume_rustcrypto/latest/plume_rustcrypto/struct.AffinePoint.html)
     /// is represented as an `Uint8Array` containing SEC1 encoded point.
     pub nullifier: Vec<u8>,
-    /// [`plume_rustcrypto::NonZeroScalar`](https://docs.rs/plume_rustcrypto/latest/plume_rustcrypto/type.NonZeroScalar.html)
-    /// is represented as an `Uint8Array` containing SEC1 DER secret key.
+    /// [`plume_rustcrypto::Scalar`](https://docs.rs/k256/latest/k256/struct.Scalar.html)
+    /// is represented as a 32-byte big-endian `Uint8Array`.
     pub s: Vec<u8>,
     /// The optional property to help distinguish the used variant.
     pub is_v1: Option<bool>,
@@ -42,8 +40,8 @@ pub struct PlumeSignaturePublic {
 #[derive(Clone)]
 pub struct PlumeSignaturePrivate {
     pub pk: Vec<u8>,
-    /// [`plume_rustcrypto::NonZeroScalar`](https://docs.rs/plume_rustcrypto/latest/plume_rustcrypto/type.NonZeroScalar.html)
-    /// is represented as an `Uint8Array` containing SEC1 DER secret key.
+    /// [`plume_rustcrypto::Scalar`](https://docs.rs/k256/latest/k256/struct.Scalar.html)
+    /// is represented as a 32-byte big-endian `Uint8Array`.
     pub digest_private: Vec<u8>,
     pub v1specific: Option<PlumeSignatureV1Fields>,
 }
@@ -95,19 +93,13 @@ impl std::convert::TryFrom<plume_rustcrypto::PlumeSignature> for PlumeSignature 
             instance: serde_wasm_bindgen::to_value(&PlumeSignaturePublic {
                 message: value.message,
                 nullifier: value.nullifier.to_encoded_point(true).as_bytes().to_vec(),
-                s: plume_rustcrypto::SecretKey::from(value.s)
-                    .to_sec1_der()
-                    .expect(MSG_EXPECT)
-                    .to_vec(),
+                s: value.s.to_bytes().to_vec(),
                 is_v1: Some(value.v1specific.is_some()),
             })?
             .into(),
             witness: PlumeSignaturePrivate {
                 pk: value.pk.to_encoded_point(true).as_bytes().to_vec(),
-                digest_private: plume_rustcrypto::SecretKey::from(value.c)
-                    .to_sec1_der()
-                    .expect(MSG_EXPECT)
-                    .to_vec(),
+                digest_private: value.c.to_bytes().to_vec(),
                 v1specific: value.v1specific.map(|v1| PlumeSignatureV1Fields {
                     r_point: v1.r_point.to_encoded_point(true).as_bytes().to_vec(),
                     hashed_to_curve_r: v1
@@ -137,6 +129,22 @@ pub fn sec1derscalar_to_bigint(scalar: &[u8]) -> Result<js_sys::BigInt, JsError>
     .expect(
         "`BigInt` always can be created from hex string, and `v.to_string()` always produce that",
     ))
+}
+
+#[wasm_bindgen(js_name = scalarBytesToBigint)]
+/// Converts a canonical 32-byte big-endian scalar to a JavaScript `BigInt`.
+/// This might leave the value in memory; do not use it for private values.
+pub fn scalar_bytes_to_bigint(scalar: &[u8]) -> Result<js_sys::BigInt, JsError> {
+    if scalar.len() != 32 {
+        return Err(JsError::new("a scalar must contain exactly 32 bytes"));
+    }
+
+    let hex = scalar
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Ok(js_sys::BigInt::new(&JsValue::from_str(&format!("0x{hex}")))
+        .expect("a fixed-width hexadecimal string is always a valid BigInt"))
 }
 
 // TODO deprecate when `verify` gone

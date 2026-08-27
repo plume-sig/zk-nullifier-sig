@@ -20,7 +20,7 @@ js-sys = "0.3"
 serde = "*"
 serde-wasm-bindgen = "*"
 
-plume_rustcrypto = {version = "~0.2.1", default-features = false} 
+plume_rustcrypto = {path = "../rust-k256", version = "~0.2.1", default-features = false}
 elliptic-curve = {version = "~0.13.8"}
 zeroize = "1.8"
 signature = "^2.2.0"
