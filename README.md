@@ -2,9 +2,18 @@
 
 # PLUME: Verifiably Deterministic Signatures on ECDSA
 
-This repository provides libraries for the construction of deterministic nullifiers on Ethereum keys, [ERC 7524]([https://ethereum-magicians.org/t/erc-7524-plume-signature-in-wallets/15902](https://github.com/ethereum/EIPs/pull/7775)). We call them Privately Linked Unique Message Entities (or PLUMEs). PLUMEs enable zk voting, anonymous proof of solvency, and anonymous message board moderation to be possible with Ethereum keys directly, and so we think it is a critical primitive to push forward blockchain adoption. To understand how this primitive works and the reason for design decisions, we recommend checking out [our blog post](https://blog.aayushg.com/posts/plume).
+This repository provides libraries for the construction of deterministic nullifiers on Ethereum keys, [ERC-7524](https://eips.ethereum.org/EIPS/eip-7524). We call them Privately Linked Unique Message Entities (or PLUMEs). PLUMEs enable zk voting, anonymous proof of solvency, and anonymous message board moderation to be possible with Ethereum keys directly, and so we think it is a critical primitive to push forward blockchain adoption. To understand how this primitive works and the reason for design decisions, we recommend checking out [our blog post](https://blog.aayushg.com/posts/plume).
 
 We hope that wallets integrate the javascript, rust, or C repositories for both software and hardware signature generation, and dapps integrate the zk proof in the circuits/ directory.
+
+## Project Status
+
+- [ERC-7524](https://eips.ethereum.org/EIPS/eip-7524) is a Draft Standards Track ERC, not a finalized standard.
+- This repository contains usable signing libraries and verification circuits, but does not currently document a merged ERC-7524 signing path in a mainstream Ethereum wallet.
+- The Taho, Rabby, and MetaMask wallet implementation proposals listed below were closed without merging. The MetaMask API specification proposal remains open.
+- Applications can integrate the libraries with a signer they control or test the Ledger proof of concept. Browser applications that depend on a general injected wallet must first add a wallet-specific signing integration; they must not ask users to export private keys into the application.
+
+See [Wallet and Ecosystem Implementations](#wallet-and-ecosystem-implementations) for the current integration record.
 
 ## Installation
 
@@ -50,15 +59,14 @@ provides the method `createNullifier`.
 ### BN254
 See `bn254` repo for the suite implementation.
 
-### Wallet Implementations
+### Wallet and Ecosystem Implementations
 
 - Mina: Uses it for nullifiers in their code [here](https://github.com/o1-labs/o1js/blob/main/src/lib/nullifier.ts) and [here](https://github.com/o1-labs/o1js/blob/main/src/mina-signer/src/nullifier.ts). They use Poseidon for the hash function instead, which makes it slower to generate in hardware wallets, but faster to prove. Their [docs for this scheme are here](https://docs.minaprotocol.com/zkapps/o1js-reference/classes/Nullifier).
-- Taho: We have an [open PR](https://github.com/tahowallet/extension/pull/3638) that we are waiting on them to merge!
-- Rabby: We have an [open PR](https://github.com/RabbyHub/Rabby/pull/2047) that we are waiting on them to merge!
-- Metamask: We have an open PR set ([rpc](https://github.com/MetaMask/eth-json-rpc-middleware/pull/198
-), [api](https://github.com/MetaMask/api-specs/pull/120), [core](https://github.com/MetaMask/metamask-extension/pull/17482)) that we are waiting on them to merge! Snaps [dropped support for secret key access](https://github.com/MetaMask/snaps/issues/1665) so a Metamask Snap is no longer a tenable path, although we did have a snap as well.
+- Taho: The [ERC-7524 implementation proposal](https://github.com/tahowallet/extension/pull/3638) was closed without merging.
+- Rabby: The [ERC-7524 implementation proposal](https://github.com/RabbyHub/Rabby/pull/2047) was closed without merging.
+- MetaMask: The [RPC middleware](https://github.com/MetaMask/eth-json-rpc-middleware/pull/198) and [extension](https://github.com/MetaMask/metamask-extension/pull/17482) proposals were closed without merging. The [API specification proposal](https://github.com/MetaMask/api-specs/pull/120) remains open. Snaps [dropped support for secret key access](https://github.com/MetaMask/snaps/issues/1665), so a MetaMask Snap is no longer a tenable signing path.
 - Aztec: Noir implementation [finished here](https://github.com/distributed-lab/noir-plume), still pending audit.
-- Ledger: This [app](https://github.com/base0010/plume-ledger-app/tree/sswu) compiles and generates PLUME signatures on embedded hardware and works on Ledgers. Test via the [Ledger app builder](https://github.com/LedgerHQ/ledger-app-builder).
+- Ledger: This [proof-of-concept app](https://github.com/base0010/plume-ledger-app/tree/sswu) compiles and generates PLUME signatures on embedded hardware. Test it via the [Ledger app builder](https://github.com/LedgerHQ/ledger-app-builder); it is not evidence of support in the standard Ethereum Ledger app.
 - ZK Snap: The "holy grail of private voting", according to Ameen, co-author of the private voting report. Uses PLUME as a [core component of an end-to-end private voting system](https://twitter.com/AeriusLabs/status/1753052458249785836).
 
 ### Audits
